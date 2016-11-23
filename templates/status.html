@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>kube-applier</title>
+    <script src="/static/bootstrap/js/jquery.min.js"></script>
+    <link rel="stylesheet" href="/static/stylesheets/main.css">
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+</head>
+<body>
+    <h1 class="text-center">kube-applier</h1>
+    {{ if .TotalFiles }}
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-8">
+            <div class="panel panel-default {{ if .Failures }}panel-danger{{ else }}panel-success{{ end }}">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Last Run</h3>
+                </div>
+                <div class="panel-body">
+                    <strong>Started: {{ .FormattedStart }}</strong><br>
+                    <strong>Finished: {{ .FormattedFinish }}</strong><br>
+                    <strong>Latency: {{ .Latency }}</strong><br>
+                    <strong>Last Commit {{ if .LastCommitLink }}<a href="{{ .LastCommitLink }}">(see diff)</a>{{ end }}</strong>
+                    <p><pre class="commit">{{ .FullCommit }}</pre></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-8">
+            <div class="panel-group">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#blacklist">Blacklist: {{ len .Blacklist }}</a>
+                        </h4>
+                    </div>
+                    <div id="blacklist" class="panel-collapse collapse">
+                        <ul class="list-group">
+                            {{ range $path := .Blacklist }}
+                            <li class="list-group-item">{{ $path }}</li>
+                            {{ end }}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-8">
+            <div class="panel-group">
+                <div class="panel panel-default {{ if .Failures }}panel-danger{{ else }}panel-success{{ end }}">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#failures">Errors: {{ len .Failures }}</a>
+                        </h4>
+                    </div>
+                    <div id="failures" class="panel-group collapse {{ if .Failures }}in{{ end }}">
+                        {{ range $i, $file := .Failures }}
+                        <div class="panel">
+                            <div class="panel-heading">
+                                <div class="panel-title">
+                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.FilePath }}</a>
+                                </div>
+                            </div>
+                            <div id="failure-{{$i}}" class="panel-collapse collapse">
+                                <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}</pre>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-8">
+            <div class="panel-group">
+                <div class="panel panel-default {{ if .Failures }}panel-warning{{ else }}panel-success{{ end }}">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#successes">Applied Files: {{ len .Successes }} / {{ .TotalFiles }}</a>
+                        </h4>
+                    </div>
+                    <div id="successes" class="panel-group collapse in">
+                        {{ range $i, $file := .Successes }}
+                        <div class="panel">
+                            <div class="panel-heading">
+                                <div class="panel-title">
+                                    {{ $file.FilePath }}
+                                </div>
+                            </div>
+                            <div class="panel-collapse">
+                                <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}</pre>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ else }}
+    <h3 class="text-center">Waiting for information about the first apply run...</h3>
+    <h4 class="text-center">Refresh for updates and check the status and logs for the kube-applier container to make sure it is running properly.</h4>
+    {{ end }}
+</body>
+</html>
