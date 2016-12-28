@@ -37,8 +37,12 @@ func handleTemplateError(w http.ResponseWriter, err error, clock sysutil.ClockIn
 	log.Printf("Request failed with error code %v at %s", http.StatusInternalServerError, clock.Now().String())
 }
 
-// StartWebServer initializes the webserver using the given port, and sets up handlers for the status page, metrics, and static content.
-func StartWebServer(listenPort int, data interface{}, clock sysutil.ClockInterface, metricsHandler http.Handler) error {
+// StartWebServer initializes the webserver using the given port, and sets up handlers for:
+// 1. Status page
+// 2. Metrics
+// 3. Static content
+// 4. Endpoint for forcing a run
+func StartWebServer(listenPort int, data interface{}, clock sysutil.ClockInterface, metricsHandler http.Handler, forceSwitch *bool) error {
 	log.Println("Launching webserver")
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
@@ -50,6 +54,10 @@ func StartWebServer(listenPort int, data interface{}, clock sysutil.ClockInterfa
 	http.Handle("/", handler)
 	http.Handle("/metrics", metricsHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.HandleFunc("/force", func(w http.ResponseWriter, r *http.Request) {
+		*forceSwitch = true
+	})
+
 	err = http.ListenAndServe(fmt.Sprintf(":%v", listenPort), nil)
 	return err
 }
