@@ -26,13 +26,14 @@ const (
 )
 
 // startApplyLoop runs a continuous loop of checking whether an apply run is necessary and performing one if so.
-func startApplyLoop(lastRun *run.Result, runChecker run.CheckerInterface, runner run.RunnerInterface, clock sysutil.ClockInterface, pollInterval time.Duration) {
+func startApplyLoop(lastRun *run.Result, runChecker run.CheckerInterface, runner run.RunnerInterface, clock sysutil.ClockInterface, pollInterval time.Duration, forceSwitch *bool) {
 	for {
 		shouldRun, err := runChecker.ShouldRun(lastRun)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if shouldRun {
+		if shouldRun || *forceSwitch {
+			*forceSwitch = false
 			newRun, err := runner.Run()
 			if err != nil {
 				log.Fatal(err)
@@ -69,6 +70,8 @@ func main() {
 	kubeClient := &kube.Client{server}
 	kubeClient.Configure()
 
+	forceSwitch := false
+
 	batchApplier := &run.BatchApplier{kubeClient, metrics}
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
@@ -84,9 +87,9 @@ func main() {
 		diffURLFormat,
 	}
 
-	go startApplyLoop(lastRun, runChecker, runner, clock, pollInterval)
+	go startApplyLoop(lastRun, runChecker, runner, clock, pollInterval, &forceSwitch)
 
 	// If it returns, startWebServer returns a non-nil error from http.ListenAndServe
-	err := webserver.StartWebServer(listenPort, lastRun, clock, metrics.GetHandler())
+	err := webserver.StartWebServer(listenPort, lastRun, clock, metrics.GetHandler(), &forceSwitch)
 	log.Fatalf("Webserver error: %v", err)
 }
