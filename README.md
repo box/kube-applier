@@ -108,7 +108,7 @@ The HTML template for the status page lives in `templates/status.html`, and `sta
 
 ### Metrics
 kube-applier uses [Prometheus](https://github.com/prometheus/client_golang) for metrics. Metrics are hosted/served at on the webserver at /metrics. In addition to the Prometheus default metrics, the following custom metrics are included:
-* **run_latency_seconds** - A [Summary](https://godoc.org/github.com/prometheus/client_golang/prometheus#Summary) that keeps track of the durations of each apply run.
+* **run_latency_seconds** - A [Summary](https://godoc.org/github.com/prometheus/client_golang/prometheus#Summary) that keeps track of the durations of each apply run, tagged with a boolean for whether or not the run was a success (i.e. no failed apply attempts).
 * **file_apply_count** - A [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter) for each file that has had an apply attempt over the lifetime of the container, incremented with each apply attempt and tagged by the filepath and the result of the attempt.
 
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see the [Go library](https://github.com/prometheus/client_golang/tree/master/api/prometheus)) can be used for querying the metrics server.
