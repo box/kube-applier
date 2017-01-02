@@ -49,7 +49,8 @@ func (r *Runner) Run() (*Result, error) {
 
 	log.Printf("Finished apply run at %v", finish)
 
-	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds())
+	success := len(failures) == 0
+	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
 	newRun := Result{start, finish, hash, commitLog, blacklist, successes, failures, r.DiffURLFormat}
 	return &newRun, nil

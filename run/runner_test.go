@@ -43,7 +43,7 @@ func TestRunnerRun(t *testing.T) {
 		batchApplier.EXPECT().Apply([]string{}).Times(1).Return([]run.ApplyAttempt{}, []run.ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0).Times(1),
+		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult := &run.Result{
 		time.Time{},
@@ -66,7 +66,7 @@ func TestRunnerRun(t *testing.T) {
 		batchApplier.EXPECT().Apply([]string{"file1", "file2", "file3"}).Times(1).Return([]run.ApplyAttempt{}, []run.ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0).Times(1),
+		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult = &run.Result{
 		time.Time{},
@@ -98,7 +98,7 @@ func TestRunnerRun(t *testing.T) {
 		batchApplier.EXPECT().Apply([]string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0).Times(1),
+		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
 	expectedResult = &run.Result{
 		time.Time{},
