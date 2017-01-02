@@ -35,6 +35,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 	for _, path := range applyList {
+		log.Printf("Applying file %v", path)
 		cmd, output, err := a.KubeClient.Apply(path)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
