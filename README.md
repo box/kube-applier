@@ -14,7 +14,7 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 * [Go (1.7+)](https://golang.org/dl/)
 * [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
 * [Kubernetes cluster (1.2+)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
-    * The cluster API server version must be compatible (same minor release) with the kubectl version specified in the Dockerfile. The default kubectl binary installed into the container is version 1.4.3. If the cluster API server is not a 1.4 release, the Dockerfile must be modified to install a different kubectl binary.
+    * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
 
 ## Setup
 
