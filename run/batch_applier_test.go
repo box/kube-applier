@@ -1,10 +1,9 @@
-package run_test
+package run
 
 import (
 	"fmt"
 	"github.com/box/kube-applier/kube"
 	"github.com/box/kube-applier/metrics"
-	"github.com/box/kube-applier/run"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -15,8 +14,8 @@ type batchTestCase struct {
 	metrics    metrics.PrometheusInterface
 	applyList  []string
 
-	expectedSuccesses []run.ApplyAttempt
-	expectedFailures  []run.ApplyAttempt
+	expectedSuccesses []ApplyAttempt
+	expectedFailures  []ApplyAttempt
 }
 
 func TestBatchApplierApply(t *testing.T) {
@@ -27,7 +26,7 @@ func TestBatchApplierApply(t *testing.T) {
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Empty apply list
-	tc := batchTestCase{kubeClient, metrics, []string{}, []run.ApplyAttempt{}, []run.ApplyAttempt{}}
+	tc := batchTestCase{kubeClient, metrics, []string{}, []ApplyAttempt{}, []ApplyAttempt{}}
 	expectCheckVersionAndReturnNil(kubeClient)
 	applyAndAssert(t, tc)
 
@@ -42,12 +41,12 @@ func TestBatchApplierApply(t *testing.T) {
 		expectApplyAndReturnSuccess("file3", kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
-	successes := []run.ApplyAttempt{
+	successes := []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", ""},
 		{"file2", "cmd file2", "output file2", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	tc = batchTestCase{kubeClient, metrics, applyList, successes, []run.ApplyAttempt{}}
+	tc = batchTestCase{kubeClient, metrics, applyList, successes, []ApplyAttempt{}}
 	applyAndAssert(t, tc)
 
 	// All files fail
@@ -61,12 +60,12 @@ func TestBatchApplierApply(t *testing.T) {
 		expectApplyAndReturnFailure("file3", kubeClient),
 		expectFailureMetric("file3", metrics),
 	)
-	failures := []run.ApplyAttempt{
+	failures := []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", "error file1"},
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file3", "cmd file3", "output file3", "error file3"},
 	}
-	tc = batchTestCase{kubeClient, metrics, applyList, []run.ApplyAttempt{}, failures}
+	tc = batchTestCase{kubeClient, metrics, applyList, []ApplyAttempt{}, failures}
 	applyAndAssert(t, tc)
 
 	// Some successes, some failures
@@ -82,11 +81,11 @@ func TestBatchApplierApply(t *testing.T) {
 		expectApplyAndReturnFailure("file4", kubeClient),
 		expectFailureMetric("file4", metrics),
 	)
-	successes = []run.ApplyAttempt{
+	successes = []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	failures = []run.ApplyAttempt{
+	failures = []ApplyAttempt{
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file4", "cmd file4", "output file4", "error file4"},
 	}
@@ -116,7 +115,7 @@ func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) 
 
 func applyAndAssert(t *testing.T, tc batchTestCase) {
 	assert := assert.New(t)
-	ba := run.BatchApplier{tc.kubeClient, tc.metrics}
+	ba := BatchApplier{tc.kubeClient, tc.metrics}
 	successes, failures := ba.Apply(tc.applyList)
 	assert.Equal(tc.expectedSuccesses, successes)
 	assert.Equal(tc.expectedFailures, failures)
