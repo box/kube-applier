@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/box/kube-applier/sysutil"
 	"html/template"
@@ -9,6 +10,14 @@ import (
 )
 
 const serverTemplatePath = "/templates/status.html"
+
+type WebServer struct {
+	ListenPort     int
+	Clock          sysutil.ClockInterface
+	StatusData     interface{}
+	MetricsHandler http.Handler
+	RunQueue       chan<- bool
+}
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
 type StatusPageHandler struct {
@@ -37,12 +46,47 @@ func handleTemplateError(w http.ResponseWriter, err error, clock sysutil.ClockIn
 	log.Printf("Request failed with error code %v at %s", http.StatusInternalServerError, clock.Now().String())
 }
 
-// StartWebServer initializes the webserver using the given port, and sets up handlers for:
+// ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
+type ForceRunHandler struct {
+	RunQueue chan<- bool
+}
+
+// ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
+func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Print("Force run requested.")
+	var data struct {
+		Result  string `json:"result"`
+		Message string `json:"message"`
+	}
+
+	switch r.Method {
+	case "POST":
+		select {
+		case f.RunQueue <- true:
+			log.Print("Run queued.")
+		default:
+			log.Print("Run queue is already full.")
+		}
+		data.Result = "success"
+		data.Message = "Run queued, will begin upon completion of current run."
+		w.WriteHeader(http.StatusOK)
+	default:
+		data.Result = "error"
+		data.Message = "Error: force rejected, must be a POST request."
+		w.WriteHeader(http.StatusBadRequest)
+		log.Print(data.Message)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	json.NewEncoder(w).Encode(data)
+}
+
+// Init starts the webserver using the given port, and sets up handlers for:
 // 1. Status page
 // 2. Metrics
 // 3. Static content
 // 4. Endpoint for forcing a run
-func StartWebServer(listenPort int, data interface{}, clock sysutil.ClockInterface, metricsHandler http.Handler, forceSwitch *bool) error {
+func (ws *WebServer) Start() error {
 	log.Println("Launching webserver")
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
@@ -50,14 +94,13 @@ func StartWebServer(listenPort int, data interface{}, clock sysutil.ClockInterfa
 		return err
 	}
 
-	handler := &StatusPageHandler{template, data, clock}
-	http.Handle("/", handler)
-	http.Handle("/metrics", metricsHandler)
+	statusPageHandler := &StatusPageHandler{template, ws.StatusData, ws.Clock}
+	http.Handle("/", statusPageHandler)
+	http.Handle("/metrics", ws.MetricsHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.HandleFunc("/force", func(w http.ResponseWriter, r *http.Request) {
-		*forceSwitch = true
-	})
+	forceRunHandler := &ForceRunHandler{ws.RunQueue}
+	http.Handle("/api/v1/forceRun", forceRunHandler)
 
-	err = http.ListenAndServe(fmt.Sprintf(":%v", listenPort), nil)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), nil)
 	return err
 }

@@ -1,9 +1,9 @@
-package webserver_test
+package webserver
 
 import (
 	"github.com/box/kube-applier/sysutil"
-	"github.com/box/kube-applier/webserver"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+const (
+	successBody = "{\"result\":\"success\",\"message\":\"Run queued, will begin upon completion of current run.\"}\n"
+	errorBody   = "{\"result\":\"error\",\"message\":\"Error: force rejected, must be a POST request.\"}\n"
+)
+
+//**** Tests for Status Page Handler ****
 type mockData struct {
 	IntField    int
 	StringField string
@@ -25,13 +31,13 @@ func mockTemplate(rawTemplate string) *template.Template {
 	return tmpl
 }
 
-type TestCase struct {
+type StatusPageTestCase struct {
 	tmpl         *template.Template
 	data         interface{}
 	expectedCode int
 }
 
-var tests = []TestCase{
+var statusPageTests = []StatusPageTestCase{
 	{
 		// Empty template, empty data
 		mockTemplate(""),
@@ -84,9 +90,9 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 
 	clock := sysutil.NewMockClockInterface(mockCtrl)
 
-	for _, test := range tests {
+	for _, test := range statusPageTests {
 		clock.EXPECT().Now().Times(2).Return(time.Time{})
-		handler := webserver.StatusPageHandler{test.tmpl, test.data, clock}
+		handler := StatusPageHandler{test.tmpl, test.data, clock}
 		req, _ := http.NewRequest("GET", "", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
@@ -103,4 +109,33 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 			)
 		}
 	}
+}
+
+//**** Tests for Force Run Handler ****
+func TestForceRunHandlerServeHTTP(t *testing.T) {
+	runQueue := make(chan bool, 1)
+	handler := ForceRunHandler{runQueue}
+
+	// GET request gives an error.
+	RequestAndExpect(t, handler, errorBody, "GET")
+
+	// Force run request succeeds (empty queue).
+	RequestAndExpect(t, handler, successBody, "POST")
+
+	// Force run request succeeds (queue full).
+	RequestAndExpect(t, handler, successBody, "POST")
+
+	// Empty the queue channel.
+	<-runQueue
+
+	// Force run request succeeds (empty queue).
+	RequestAndExpect(t, handler, successBody, "POST")
+}
+
+func RequestAndExpect(t *testing.T, handler ForceRunHandler, expectedBody, requestType string) {
+	assert := assert.New(t)
+	req, _ := http.NewRequest(requestType, "", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	assert.Equal(expectedBody, w.Body.String())
 }
