@@ -3,6 +3,7 @@ package webserver
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/box/kube-applier/run"
 	"github.com/box/kube-applier/sysutil"
 	"html/template"
 	"log"
@@ -14,9 +15,10 @@ const serverTemplatePath = "/templates/status.html"
 type WebServer struct {
 	ListenPort     int
 	Clock          sysutil.ClockInterface
-	StatusData     interface{}
 	MetricsHandler http.Handler
 	RunQueue       chan<- bool
+	RunResults     <-chan run.Result
+	Errors         chan<- error
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
@@ -86,21 +88,29 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 2. Metrics
 // 3. Static content
 // 4. Endpoint for forcing a run
-func (ws *WebServer) Start() error {
+func (ws *WebServer) Start() {
 	log.Println("Launching webserver")
+	lastRun := &run.Result{}
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
 	if err != nil {
-		return err
+		ws.Errors <- err
+		return
 	}
 
-	statusPageHandler := &StatusPageHandler{template, ws.StatusData, ws.Clock}
+	statusPageHandler := &StatusPageHandler{template, lastRun, ws.Clock}
 	http.Handle("/", statusPageHandler)
 	http.Handle("/metrics", ws.MetricsHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{ws.RunQueue}
 	http.Handle("/api/v1/forceRun", forceRunHandler)
 
+	go func() {
+		for result := range ws.RunResults {
+			*lastRun = result
+		}
+	}()
+
 	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), nil)
-	return err
+	ws.Errors <- err
 }

@@ -16,16 +16,20 @@ type Runner struct {
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
 	DiffURLFormat string
+	RunQueue      <-chan bool
+	RunResults    chan<- Result
+	Errors        chan<- error
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
-func (r *Runner) Start(runQueue <-chan bool, lastRun *Result) {
-	for range runQueue {
+func (r *Runner) Start() {
+	for range r.RunQueue {
 		newRun, err := r.run()
 		if err != nil {
-			log.Fatal(err)
+			r.Errors <- err
+			return
 		}
-		*lastRun = *newRun
+		r.RunResults <- *newRun
 	}
 }
 

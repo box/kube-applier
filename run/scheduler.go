@@ -2,7 +2,6 @@ package run
 
 import (
 	"github.com/box/kube-applier/git"
-	"github.com/box/kube-applier/sysutil"
 	"log"
 	"time"
 )
@@ -10,15 +9,16 @@ import (
 // Scheduler handles queueing apply runs at a given time interval and upon every new Git commit.
 type Scheduler struct {
 	GitUtil         git.GitUtilInterface
-	Clock           sysutil.ClockInterface
 	PollInterval    time.Duration
 	FullRunInterval time.Duration
+	RunQueue        chan<- bool
+	Errors          chan<- error
 }
 
 // Start runs a continuous loop with two tickers for queueing runs.
 // One ticker queues a new run every X seconds, where X is the value from $FULL_RUN_INTERVAL_SECONDS.
 // The other ticker queues a new run upon every new Git commit, checking the repo every Y seconds where Y is the value from $POLL_INTERVAL_SECONDS.
-func (s *Scheduler) Start(runQueue chan<- bool) error {
+func (s *Scheduler) Start() {
 	pollTicker := time.NewTicker(s.PollInterval).C
 	fullRunTicker := time.NewTicker(s.FullRunInterval).C
 	lastCommitHash := ""
@@ -28,16 +28,17 @@ func (s *Scheduler) Start(runQueue chan<- bool) error {
 		case <-pollTicker:
 			newCommitHash, err := s.GitUtil.HeadHash()
 			if err != nil {
-				log.Fatal(err)
+				s.Errors <- err
+				return
 			}
 			if newCommitHash != lastCommitHash {
 				log.Printf("Most recent commit hash is %v (previously was %v), queueing run.", newCommitHash, lastCommitHash)
-				enqueue(runQueue)
+				enqueue(s.RunQueue)
 				lastCommitHash = newCommitHash
 			}
 		case <-fullRunTicker:
 			log.Printf("Full run interval (%v) reached, queueing run.", s.FullRunInterval)
-			enqueue(runQueue)
+			enqueue(s.RunQueue)
 		}
 	}
 }

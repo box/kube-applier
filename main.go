@@ -33,7 +33,6 @@ func main() {
 	diffURLFormat := sysutil.GetEnvStringOrDefault("DIFF_URL_FORMAT", "")
 	pollInterval := time.Duration(sysutil.GetEnvIntOrDefault("POLL_INTERVAL_SECONDS", defaultPollIntervalSeconds)) * time.Second
 	fullRunInterval := time.Duration(sysutil.GetEnvIntOrDefault("FULL_RUN_INTERVAL_SECONDS", defaultFullRunIntervalSeconds)) * time.Second
-	lastRun := &run.Result{}
 
 	if diffURLFormat != "" && !strings.Contains(diffURLFormat, "%s") {
 		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", diffURLFormat)
@@ -56,6 +55,18 @@ func main() {
 	fileSystem := &sysutil.FileSystem{}
 	listFactory := &applylist.Factory{repoPath, blacklistPath, fileSystem}
 
+	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
+	// Only 1 pending request may sit in the queue at a time.
+	runQueue := make(chan bool, 1)
+
+	// Runner sends run results to runResults channel, webserver receives the results and displays them.
+	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
+	runResults := make(chan run.Result, 5)
+
+	// Runner, webserver, and scheduler all send fatal errors to errors channel, and main() exits upon receiving an error.
+	// No limit needed, as a single fatal error will exit the program anyway.
+	errors := make(chan error)
+
 	runner := &run.Runner{
 		batchApplier,
 		listFactory,
@@ -63,16 +74,19 @@ func main() {
 		clock,
 		metrics,
 		diffURLFormat,
+		runQueue,
+		runResults,
+		errors,
+	}
+	scheduler := &run.Scheduler{gitUtil, pollInterval, fullRunInterval, runQueue, errors}
+	webserver := &webserver.WebServer{listenPort, clock, metrics.GetHandler(), runQueue, runResults, errors}
+
+	go scheduler.Start()
+	go runner.Start()
+	go webserver.Start()
+
+	for err := range errors {
+		log.Fatal(err)
 	}
 
-	runQueue := make(chan bool, 1)
-
-	scheduler := &run.Scheduler{gitUtil, clock, pollInterval, fullRunInterval}
-
-	go scheduler.Start(runQueue)
-	go runner.Start(runQueue, lastRun)
-
-	ws := &webserver.WebServer{listenPort, clock, lastRun, metrics.GetHandler(), runQueue}
-	err := ws.Start()
-	log.Fatalf("Webserver error: %v", err)
 }
