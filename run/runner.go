@@ -8,11 +8,6 @@ import (
 	"log"
 )
 
-// RunnerInterface allows for mocking out the functionality of Runner when testing alongside other components.
-type RunnerInterface interface {
-	Run() (*Result, error)
-}
-
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	BatchApplier  BatchApplierInterface
@@ -21,10 +16,25 @@ type Runner struct {
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
 	DiffURLFormat string
+	RunQueue      <-chan bool
+	RunResults    chan<- Result
+	Errors        chan<- error
+}
+
+// Start runs a continuous loop that starts a new run when a request comes into the queue channel.
+func (r *Runner) Start() {
+	for range r.RunQueue {
+		newRun, err := r.run()
+		if err != nil {
+			r.Errors <- err
+			return
+		}
+		r.RunResults <- *newRun
+	}
 }
 
 // Run performs a full apply run, and returns a Result with data about the completed run (or nil if the run failed to complete).
-func (r *Runner) Run() (*Result, error) {
+func (r *Runner) run() (*Result, error) {
 
 	start := r.Clock.Now()
 	log.Printf("Started apply run at %v", start)
@@ -49,7 +59,8 @@ func (r *Runner) Run() (*Result, error) {
 
 	log.Printf("Finished apply run at %v", finish)
 
-	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds())
+	success := len(failures) == 0
+	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
 	newRun := Result{start, finish, hash, commitLog, blacklist, successes, failures, r.DiffURLFormat}
 	return &newRun, nil

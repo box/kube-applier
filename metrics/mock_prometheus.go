@@ -36,10 +36,10 @@ func (_mr *_MockPrometheusInterfaceRecorder) UpdateFileSuccess(arg0, arg1 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateFileSuccess", arg0, arg1)
 }
 
-func (_m *MockPrometheusInterface) UpdateRunLatency(_param0 float64) {
-	_m.ctrl.Call(_m, "UpdateRunLatency", _param0)
+func (_m *MockPrometheusInterface) UpdateRunLatency(_param0 float64, _param1 bool) {
+	_m.ctrl.Call(_m, "UpdateRunLatency", _param0, _param1)
 }
 
-func (_mr *_MockPrometheusInterfaceRecorder) UpdateRunLatency(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRunLatency", arg0)
+func (_mr *_MockPrometheusInterfaceRecorder) UpdateRunLatency(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRunLatency", arg0, arg1)
 }

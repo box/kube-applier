@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -93,10 +94,28 @@ func (c *Client) CheckVersion() error {
 	serverMajor := serverInfo[0][1]
 	serverMinor := serverInfo[0][2]
 
-	// Ignore "+" when matching (e.g. 2 and 2+ are compatible).
-	if strings.Replace(clientMajor, "+", "", -1) != strings.Replace(serverMajor, "+", "", -1) ||
-		strings.Replace(clientMinor, "+", "", -1) != strings.Replace(serverMinor, "+", "", -1) {
-		return fmt.Errorf("Error: kubectl client and server versions do not match. Client is %s.%s; server is %s.%s", clientMajor, clientMinor, serverMajor, serverMinor)
+	return isCompatible(clientMajor, clientMinor, serverMajor, serverMinor)
+}
+
+// isCompatible compares the major and minor release numbers for the client and server, returning nil if they are compatible and an error otherwise.
+func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) error {
+	incompatible := fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server.", clientMajor, clientMinor, serverMajor, serverMinor)
+
+	if strings.Replace(clientMajor, "+", "", -1) != strings.Replace(serverMajor, "+", "", -1) {
+		return incompatible
+	}
+	clientMinorInt, err := strconv.Atoi(strings.Replace(clientMinor, "+", "", -1))
+	if err != nil {
+		return fmt.Errorf("Error checking kubectl version: unable to parse client minor release from string \"%v\"", clientMinor)
+	}
+	serverMinorInt, err := strconv.Atoi(strings.Replace(serverMinor, "+", "", -1))
+	if err != nil {
+		return fmt.Errorf("Error checking kubectl version: unable to parse server minor release from string \"%v\"", serverMinor)
+	}
+
+	minorDiff := serverMinorInt - clientMinorInt
+	if minorDiff != 0 && minorDiff != 1 {
+		return incompatible
 	}
 	return nil
 }

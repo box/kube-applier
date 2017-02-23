@@ -14,7 +14,7 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 * [Go (1.7+)](https://golang.org/dl/)
 * [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
 * [Kubernetes cluster (1.2+)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
-    * The cluster API server version must be compatible (same minor release) with the kubectl version specified in the Dockerfile. The default kubectl binary installed into the container is version 1.4.3. If the cluster API server is not a 1.4 release, the Dockerfile must be modified to install a different kubectl binary.
+    * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
 
 ## Setup
 
@@ -44,7 +44,7 @@ We suggest running kube-applier as a Deployment in the Kubernetes cluster that y
 * `SERVER` - Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
 * `BLACKLIST_PATH` - Path to a "blacklist" file which specifies files that should not be applied. This path should be absolute (e.g. `/k8s/conf/kube_applier_blacklist`), not relative to `REPO_PATH` (although you may want to check the blacklist file into the repo). The blacklist file itself should be a plaintext file, with a file path on each line. Each of these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is set to `/git/repo`, and the file to be blacklisted is `/git/repo/apps/app1.json`, the line in the blacklist file should be `apps/app1.json`).
 * `POLL_INTERVAL_SECONDS` - Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
-* <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - Number of seconds to wait between apply runs if no new commits have been added to the repo (default is 300, or 5 minutes). Set to 0 to disable the wait period.
+* <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
 
 ### Mounting the Git Repository
@@ -108,7 +108,7 @@ The HTML template for the status page lives in `templates/status.html`, and `sta
 
 ### Metrics
 kube-applier uses [Prometheus](https://github.com/prometheus/client_golang) for metrics. Metrics are hosted/served at on the webserver at /metrics. In addition to the Prometheus default metrics, the following custom metrics are included:
-* **run_latency_seconds** - A [Summary](https://godoc.org/github.com/prometheus/client_golang/prometheus#Summary) that keeps track of the durations of each apply run.
+* **run_latency_seconds** - A [Summary](https://godoc.org/github.com/prometheus/client_golang/prometheus#Summary) that keeps track of the durations of each apply run, tagged with a boolean for whether or not the run was a success (i.e. no failed apply attempts).
 * **file_apply_count** - A [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter) for each file that has had an apply attempt over the lifetime of the container, incremented with each apply attempt and tagged by the filepath and the result of the attempt.
 
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see the [Go library](https://github.com/prometheus/client_golang/tree/master/api/prometheus)) can be used for querying the metrics server.

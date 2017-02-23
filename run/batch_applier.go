@@ -28,13 +28,14 @@ type BatchApplier struct {
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
 func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt) {
-//	if err := a.KubeClient.CheckVersion(); err != nil {
-//		log.Fatal(err)
-//	}
+	if err := a.KubeClient.CheckVersion(); err != nil {
+		log.Fatal(err)
+	}
 
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 	for _, path := range applyList {
+		log.Printf("Applying file %v", path)
 		cmd, output, err := a.KubeClient.Apply(path)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}

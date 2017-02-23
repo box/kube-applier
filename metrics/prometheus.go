@@ -9,15 +9,15 @@ import (
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
 	UpdateFileSuccess(string, bool)
-	UpdateRunLatency(float64)
+	UpdateRunLatency(float64, bool)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
 // fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
-// runLatency is a Summary that keeps track of the duration for apply runs.
+// runLatency is a Summary vector that keeps track of the duration for apply runs.
 type Prometheus struct {
 	fileApplyCount *prometheus.CounterVec
-	runLatency     prometheus.Summary
+	runLatency     *prometheus.SummaryVec
 }
 
 // GetHandler returns a handler for exposing Prometheus metrics via HTTP.
@@ -38,10 +38,15 @@ func (p *Prometheus) Init() {
 			"success",
 		},
 	)
-	p.runLatency = prometheus.NewSummary(prometheus.SummaryOpts{
+	p.runLatency = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Name: "run_latency_seconds",
-		Help: "Latency for the last complete apply run",
-	})
+		Help: "Latency for completed apply runs",
+	},
+		[]string{
+			// Result: true if the run was successful, false otherwise
+			"success",
+		},
+	)
 
 	prometheus.MustRegister(p.fileApplyCount)
 	prometheus.MustRegister(p.runLatency)
@@ -54,7 +59,9 @@ func (p *Prometheus) UpdateFileSuccess(file string, success bool) {
 	}).Inc()
 }
 
-// UpdateRunLatency adds a data point (latency of the most recent run) to the run_latency_seconds Summary metric.
-func (p *Prometheus) UpdateRunLatency(runLatency float64) {
-	p.runLatency.Observe(runLatency)
+// UpdateRunLatency adds a data point (latency of the most recent run) to the run_latency_seconds Summary metric, with a tag indicating whether or not the run was successful.
+func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
+	p.runLatency.With(prometheus.Labels{
+		"success": strconv.FormatBool(success),
+	}).Observe(runLatency)
 }

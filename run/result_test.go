@@ -1,7 +1,6 @@
-package run_test
+package run
 
 import (
-	"github.com/box/kube-applier/run"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -29,14 +28,14 @@ var latencyTestCases = []latencyTestCase{
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range latencyTestCases {
-		r := run.Result{Start: tc.Start, Finish: tc.Finish}
+		r := Result{Start: tc.Start, Finish: tc.Finish}
 		assert.Equal(tc.Expected, r.Latency())
 	}
 }
 
 type totalFilesTestCase struct {
-	Successes []run.ApplyAttempt
-	Failures  []run.ApplyAttempt
+	Successes []ApplyAttempt
+	Failures  []ApplyAttempt
 	Expected  int
 }
 
@@ -44,19 +43,19 @@ var totalFilesTestCases = []totalFilesTestCase{
 	// Both nil
 	{nil, nil, 0},
 	// One empty, one nil
-	{[]run.ApplyAttempt{}, nil, 0},
+	{[]ApplyAttempt{}, nil, 0},
 	// Both empty
-	{[]run.ApplyAttempt{}, []run.ApplyAttempt{}, 0},
+	{[]ApplyAttempt{}, []ApplyAttempt{}, 0},
 	// Single apply attempt, other nil
-	{[]run.ApplyAttempt{run.ApplyAttempt{}}, nil, 1},
+	{[]ApplyAttempt{ApplyAttempt{}}, nil, 1},
 	// Single apply attempt, other empty
-	{[]run.ApplyAttempt{run.ApplyAttempt{}}, []run.ApplyAttempt{}, 1},
+	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{}, 1},
 	// Both single apply attempt
-	{[]run.ApplyAttempt{run.ApplyAttempt{}}, []run.ApplyAttempt{run.ApplyAttempt{}}, 2},
+	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{ApplyAttempt{}}, 2},
 	// Both multiple apply attempts
 	{
-		[]run.ApplyAttempt{run.ApplyAttempt{}, run.ApplyAttempt{}, run.ApplyAttempt{}},
-		[]run.ApplyAttempt{run.ApplyAttempt{}, run.ApplyAttempt{}},
+		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}, ApplyAttempt{}},
+		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}},
 		5,
 	},
 }
@@ -64,7 +63,7 @@ var totalFilesTestCases = []totalFilesTestCase{
 func TestResultTotalFiles(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
-		r := run.Result{Successes: tc.Successes, Failures: tc.Failures}
+		r := Result{Successes: tc.Successes, Failures: tc.Failures}
 		assert.Equal(tc.Expected, r.TotalFiles())
 	}
 }
@@ -97,7 +96,7 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := run.Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
+		r := Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
 		assert.Equal(tc.ExpectedLink, r.LastCommitLink())
 	}
 }

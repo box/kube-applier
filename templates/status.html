@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>kube-applier</title>
     <script src="/static/bootstrap/js/jquery.min.js"></script>
+    <script src="/static/js/main.js"></script>
     <link rel="stylesheet" href="/static/stylesheets/main.css">
     <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css">
     <script src="/static/bootstrap/js/bootstrap.min.js"></script>
@@ -11,6 +12,13 @@
 <body>
     <h1 class="text-center">kube-applier</h1>
     {{ if .TotalFiles }}
+    <div class="row">
+        <div class="text-center"><button id="force-button" class="btn btn-warning btn-s"><strong>Force Run</strong></button></div>
+    </div>
+    <div class="row">
+        <div class="col-md-4"></div>
+        <div id="force-alert-container" class="col-md-4"></div>
+    </div>
     <div class="row">
         <div class="col-md-2"></div>
         <div class="col-md-8">
