@@ -77,7 +77,6 @@ function setup_repo_in_gopath() {
    local gopath_basename="gopath"
    local gopath="${parent_dir}/${gopath_basename}"
 
-   cd "${parent_dir}"
 
    export GOPATH="${gopath}"
    export PATH=${GOPATH//://bin:}/bin:$PATH
@@ -92,6 +91,7 @@ function setup_repo_in_gopath() {
    mkdir -p "${gopath_repo_root}"
 
    # Copy all repo files, except the recently created
+   cd "${parent_dir}/.."
    cp -r !("${gopath_basename}"|"${ignore_dir}") "${gopath_repo_root}"
 
    return_setup_repo_in_gopath="${gopath_repo_root}"
