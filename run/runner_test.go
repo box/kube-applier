@@ -138,7 +138,8 @@ func TestRunnerRun(t *testing.T) {
 
 func runAndAssert(t *testing.T, tc runnerTestCase) {
 	assert := assert.New(t)
-	r := Runner{tc.batchApplier, tc.factory, tc.repo, tc.clock, tc.metrics, ""}
+	r := Runner{tc.batchApplier, tc.factory, tc.repo, tc.clock, tc.metrics, "",
+		make(chan bool, 1), make(chan Result, 5), make(chan error)}
 	result, err := r.run()
 	assert.Equal(tc.expectedResult, result)
 	assert.Equal(tc.expectedErr, err)
