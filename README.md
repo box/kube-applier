@@ -15,6 +15,7 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 * [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
 * [Kubernetes cluster (1.2+)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
     * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
+    * There are [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects. These issues will be [fixed in Kubernetes 1.6](https://github.com/kubernetes/kubernetes/pull/40666).
 
 ## Setup
 
@@ -91,6 +92,8 @@ Given that the `$REPO_PATH` directory is a Git repo or located within one, it is
 
 No. If a file is removed from the `$REPO_PATH` directory, kube-applier will no longer apply the file, but kube-applier **WILL NOT** delete the cluster object(s) described by the file. These objects must be manually cleaned up using `kubectl delete`.
 
+### "Force Run" Feature
+In rare cases, you may wish to trigger a kube-applier run without checking in a commit or waiting for the next scheduled run (e.g. some of your files failed to apply because of some background condition in the cluster, and you have fixed it since the last run). This can be accomplished with the "Force Run" button on the status page, which starts a run immediately if no run is currently in progress, or queues a run to start upon completion of the current run. Only one run may sit in the queue at any given time.
 
 ## Monitoring
 ### Status UI
