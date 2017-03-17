@@ -1,0 +1,4 @@
+environment: overmind[kernel-3-backport]
+type: shell
+commands:
+   - ./.rosie/rosie-unit-tests.sh
