@@ -98,5 +98,6 @@ func TestResultLastCommitLink(t *testing.T) {
 	for _, tc := range lastCommitLinkTestCases {
 		r := Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
 		assert.Equal(tc.ExpectedLink, r.LastCommitLink())
+		assert.Equal(1, 0)
 	}
 }
