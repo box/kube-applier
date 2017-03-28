@@ -16,6 +16,6 @@ clean:
 	rm -f kube-applier
 
 test-unit: clean deps build
-	godep go test --race ./...
+	godep go test -v --race ./...
 
 .PHONY: all deps build container clean test-unit
