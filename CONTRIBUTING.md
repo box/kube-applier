@@ -70,11 +70,7 @@ This will add your changes on top of what's already in upstream, minimizing merg
 
 ### Step 7: Run the tests
 
-Several of the packages have tests written using [testify](https://github.com/stretchr/testify).
-
-Make sure that all tests are passing before submitting a pull request.
-
-All tests can be run at once from the repository root with the command ``go test ./...``.
+Make sure that [all tests are passing](https://travis-ci.com/box/kube-applier) before submitting a pull request.
 
 Coverage is lacking on the more integration-heavy components, including:
 * OS commands
@@ -82,19 +78,9 @@ Coverage is lacking on the more integration-heavy components, including:
 * Kubectl commands
 * Prometheus metrics updates
 
-These components are mocked out using [gomock](https://github.com/golang/mock) so that the other components can be tested.
-
-To create a mock of an interface, use the mockgen command:
-
-```$ mockgen -source=<path-to-source-file> -destination=<path-to-destination-file> -package=<package>```
-
-For example, to generate the mock for FactoryInterface, the following command was used:
-
-```$ mockgen -source applylist/factory.go -destination applylist/mock_factory.go -package applylist```
-
 Until better automated testing of these components is implemented, we expect thorough local testing to ensure that the kube-applier container is still fully functional.
 * Rebuild the image.
-* If the image tag has changed, update the pod/deployment spec to use the new image tag, and apply the changes.
+* If the image tag has changed, update the Pod/Deployment spec to use the new image tag, and apply the changes.
 * Otherwise, bounce the kube-applier pod using ``kubectl delete pod``.
 * Check the status page or logs to verify that kube-applier still runs as expected.
 
