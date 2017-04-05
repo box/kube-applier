@@ -19,7 +19,7 @@ type runnerTestCase struct {
 	clock        sysutil.ClockInterface
 	metrics      metrics.PrometheusInterface
 
-	expectedResult *Result
+	expectedResult Result
 	expectedErr    error
 }
 
@@ -44,7 +44,7 @@ func TestRunnerRun(t *testing.T) {
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
 		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
-	expectedResult := &Result{
+	expectedResult := Result{
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -67,7 +67,7 @@ func TestRunnerRun(t *testing.T) {
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
 		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
-	expectedResult = &Result{
+	expectedResult = Result{
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -99,7 +99,7 @@ func TestRunnerRun(t *testing.T) {
 		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
 		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
-	expectedResult = &Result{
+	expectedResult = Result{
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -116,7 +116,7 @@ func TestRunnerRun(t *testing.T) {
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
 		factory.EXPECT().Create().Times(1).Return(nil, nil, fmt.Errorf("list error")),
 	)
-	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, nil, fmt.Errorf("list error")})
+	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, Result{}, fmt.Errorf("list error")})
 
 	// repo.HeadHash() error
 	gomock.InOrder(
@@ -124,7 +124,7 @@ func TestRunnerRun(t *testing.T) {
 		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("", fmt.Errorf("hash error")),
 	)
-	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, nil, fmt.Errorf("hash error")})
+	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, Result{}, fmt.Errorf("hash error")})
 
 	// repo.HeadCommitLog() error
 	gomock.InOrder(
@@ -133,14 +133,24 @@ func TestRunnerRun(t *testing.T) {
 		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
 		repo.EXPECT().HeadCommitLog().Times(1).Return("", fmt.Errorf("log error")),
 	)
-	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, nil, fmt.Errorf("log error")})
+	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, Result{}, fmt.Errorf("log error")})
 }
 
 func runAndAssert(t *testing.T, tc runnerTestCase) {
 	assert := assert.New(t)
-	r := Runner{tc.batchApplier, tc.factory, tc.repo, tc.clock, tc.metrics, "",
-		make(chan bool, 1), make(chan Result, 5), make(chan error)}
-	result, err := r.run()
-	assert.Equal(tc.expectedResult, result)
-	assert.Equal(tc.expectedErr, err)
+
+	errors := make(chan error)
+	runQueue := make(chan bool, 1)
+	runResults := make(chan Result, 1)
+	r := Runner{tc.batchApplier, tc.factory, tc.repo, tc.clock, tc.metrics, "", runQueue, runResults, errors}
+	go r.Start()
+
+	// Queue a run and wait to receive result or error.
+	runQueue <- true
+	select {
+	case result := <-runResults:
+		assert.Equal(tc.expectedResult, result)
+	case err := <-errors:
+		assert.Equal(tc.expectedErr, err)
+	}
 }
