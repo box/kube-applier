@@ -1,0 +1,16 @@
+pre.file-output {
+	font-family: Monaco;
+	font-size: 10px;
+}
+
+pre.commit {
+	font-size: 12px;
+}
+
+#successes>.panel:nth-of-type(odd), #failures>.panel:nth-of-type(odd) {
+	background-color: #f9f9f9;
+}
+
+#force-button {
+	margin-bottom: 5px;
+}
