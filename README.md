@@ -19,9 +19,9 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 
 ## Setup
 
-Clone the repository into your GOPATH and build the container image.
+Download the source code and build the container image.
 ```
-$ git clone https://github.com/box/kube-applier $GOPATH/src/github.com/box/kube-applier
+$ go get github.com/box/kube-applier
 $ cd $GOPATH/src/github.com/box/kube-applier
 $ make container
 ```
