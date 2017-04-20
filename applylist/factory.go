@@ -1,7 +1,7 @@
 package applylist
 
 import (
-	"github.com/box/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"path/filepath"
 	"sort"
 )

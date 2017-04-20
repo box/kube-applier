@@ -2,8 +2,8 @@ package run
 
 import (
 	"fmt"
-	"github.com/box/kube-applier/kube"
-	"github.com/box/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"

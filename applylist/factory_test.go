@@ -2,7 +2,7 @@ package applylist
 
 import (
 	"fmt"
-	"github.com/box/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"

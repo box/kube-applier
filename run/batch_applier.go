@@ -1,8 +1,8 @@
 package run
 
 import (
-	"github.com/box/kube-applier/kube"
-	"github.com/box/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 	"log"
 )
 

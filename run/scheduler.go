@@ -1,7 +1,7 @@
 package run
 
 import (
-	"github.com/box/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"log"
 	"time"
 )

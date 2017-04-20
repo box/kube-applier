@@ -1,16 +1,17 @@
 package main
 
 import (
-	"github.com/box/kube-applier/applylist"
-	"github.com/box/kube-applier/git"
-	"github.com/box/kube-applier/kube"
-	"github.com/box/kube-applier/metrics"
-	"github.com/box/kube-applier/run"
-	"github.com/box/kube-applier/sysutil"
-	"github.com/box/kube-applier/webserver"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/utilitywarehouse/kube-applier/applylist"
+	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/run"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/webserver"
 )
 
 const (

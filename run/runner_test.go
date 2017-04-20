@@ -2,10 +2,10 @@ package run
 
 import (
 	"fmt"
-	"github.com/box/kube-applier/applylist"
-	"github.com/box/kube-applier/git"
-	"github.com/box/kube-applier/metrics"
-	"github.com/box/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/applylist"
+	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"

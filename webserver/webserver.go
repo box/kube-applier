@@ -3,8 +3,8 @@ package webserver
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/box/kube-applier/run"
-	"github.com/box/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/run"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"html/template"
 	"log"
 	"net/http"
