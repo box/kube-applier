@@ -33,6 +33,7 @@ type ClientInterface interface {
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
 	Server string
+	DryRun bool
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -73,6 +74,9 @@ func (c *Client) Configure() error {
 
 // CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
 func (c *Client) CheckVersion() error {
+	if c.DryRun {
+		return nil
+	}
 	args := []string{"kubectl", "version"}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
@@ -129,6 +133,9 @@ func (c *Client) Apply(path string) (string, string, error) {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
 	cmd := strings.Join(args, " ")
+	if c.DryRun {
+		return cmd, "not applied", nil
+	}
 	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
 		err = fmt.Errorf("Error: %v", err)

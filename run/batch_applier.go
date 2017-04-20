@@ -1,9 +1,10 @@
 package run
 
 import (
+	"log"
+
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/metrics"
-	"log"
 )
 
 // ApplyAttempt stores the data from an attempt at applying a single file.

@@ -3,11 +3,12 @@ package webserver
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/utilitywarehouse/kube-applier/run"
-	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"html/template"
 	"log"
 	"net/http"
+
+	"github.com/utilitywarehouse/kube-applier/run"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
 const serverTemplatePath = "/templates/status.html"

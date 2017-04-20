@@ -31,49 +31,56 @@ const (
 func main() {
 
 	app := cli.App("kube-applier", "Kube applier")
-	repoPath := *app.String(cli.StringOpt{
-		Name:   "repoPath",
+	repoPath := app.String(cli.StringOpt{
+		Name:   "repo-path",
 		Desc:   "Git repo path",
 		EnvVar: "REPO_PATH",
 	})
-	listenPort := *app.Int(cli.IntOpt{
-		Name:   "listenPort",
+	listenPort := app.Int(cli.IntOpt{
+		Name:   "listenport",
 		Value:  8080,
 		Desc:   "Listen port",
 		EnvVar: "LISTEN_PORT",
 	})
-	server := *app.String(cli.StringOpt{
+	server := app.String(cli.StringOpt{
 		Name:   "server",
 		Value:  "",
 		Desc:   "K8s server. Mainly for local testing.",
 		EnvVar: "SERVER",
 	})
-	diffURLFormat := *app.String(cli.StringOpt{
-		Name:   "diffURLFormat",
+	diffURLFormat := app.String(cli.StringOpt{
+		Name:   "diff-url-format",
 		Value:  "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s",
 		Desc:   "Github commit diff url",
 		EnvVar: "DIFF_URL_FORMAT",
 	})
-	blacklistPath := *app.String(cli.StringOpt{
-		Name:   "blacklistPath",
+	blacklistPath := app.String(cli.StringOpt{
+		Name:   "blacklist-path",
 		Value:  "",
 		Desc:   "Path ",
 		EnvVar: "BLACKLIST_PATH",
 	})
-	pollInterval := *app.Int(cli.IntOpt{
-		Name:   "pollIntervalSeconds",
+	pollInterval := app.Int(cli.IntOpt{
+		Name:   "poll-interval-seconds",
 		Value:  5,
 		Desc:   "Poll interval",
 		EnvVar: "POLL_INTERVAL_SECONDS",
 	})
-	fullRunInterval := *app.Int(cli.IntOpt{
-		Name:   "fullRunIntervalSeconds",
+	fullRunInterval := app.Int(cli.IntOpt{
+		Name:   "full-run-interval-seconds",
 		Value:  60,
 		Desc:   "Full run interval",
 		EnvVar: "FULL_RUN_INTERVAL_SECONDS",
 	})
-	if diffURLFormat != "" && !strings.Contains(diffURLFormat, "%s") {
-		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", diffURLFormat)
+	dryRun := app.Bool(cli.BoolOpt{
+		Name:   "dry-run",
+		Value:  false,
+		Desc:   "Dry run",
+		EnvVar: "DRY_RUN",
+	})
+
+	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
+		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat)
 	}
 	app.Action = func() {
 		metrics := &metrics.Prometheus{}
@@ -81,17 +88,17 @@ func main() {
 
 		clock := &sysutil.Clock{}
 
-		if err := sysutil.WaitForDir(repoPath, clock, waitForRepoInterval); err != nil {
+		if err := sysutil.WaitForDir(*repoPath, clock, waitForRepoInterval); err != nil {
 			log.Fatal(err)
 		}
 
-		kubeClient := &kube.Client{server}
+		kubeClient := &kube.Client{Server: *server, DryRun: *dryRun}
 		kubeClient.Configure()
 
 		batchApplier := &run.BatchApplier{kubeClient, metrics}
-		gitUtil := &git.GitUtil{repoPath}
+		gitUtil := &git.GitUtil{*repoPath}
 		fileSystem := &sysutil.FileSystem{}
-		listFactory := &applylist.Factory{repoPath, blacklistPath, fileSystem}
+		listFactory := &applylist.Factory{*repoPath, *blacklistPath, fileSystem}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 		// Only 1 pending request may sit in the queue at a time.
@@ -106,18 +113,18 @@ func main() {
 		errors := make(chan error)
 
 		runner := &run.Runner{
-			batchApplier,
-			listFactory,
-			gitUtil,
-			clock,
-			metrics,
-			diffURLFormat,
-			runQueue,
-			runResults,
-			errors,
+			BatchApplier:  batchApplier,
+			ListFactory:   listFactory,
+			GitUtil:       gitUtil,
+			Clock:         clock,
+			Metrics:       metrics,
+			DiffURLFormat: *diffURLFormat,
+			RunQueue:      runQueue,
+			RunResults:    runResults,
+			Errors:        errors,
 		}
-		scheduler := &run.Scheduler{gitUtil, time.Duration(pollInterval) * time.Second, time.Duration(fullRunInterval) * time.Second, runQueue, errors}
-		webserver := &webserver.WebServer{listenPort, clock, metrics.GetHandler(), runQueue, runResults, errors}
+		scheduler := &run.Scheduler{gitUtil, time.Duration(*pollInterval) * time.Second, time.Duration(*fullRunInterval) * time.Second, runQueue, errors}
+		webserver := &webserver.WebServer{*listenPort, clock, metrics.GetHandler(), runQueue, runResults, errors}
 
 		go scheduler.Start()
 		go runner.Start()
