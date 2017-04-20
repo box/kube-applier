@@ -102,7 +102,7 @@ func (ws *WebServer) Start() {
 	statusPageHandler := &StatusPageHandler{template, lastRun, ws.Clock}
 	http.Handle("/", statusPageHandler)
 	http.Handle("/metrics", ws.MetricsHandler)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
 	forceRunHandler := &ForceRunHandler{ws.RunQueue}
 	http.Handle("/api/v1/forceRun", forceRunHandler)
 
