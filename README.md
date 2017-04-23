@@ -13,9 +13,10 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 ## Requirements
 * [Go (1.7+)](https://golang.org/dl/)
 * [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
-* [Kubernetes cluster (1.2+)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
+* [Kubernetes cluster (1.2.x-1.4.x)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
     * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
-    * There are [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects. These issues will be [fixed in Kubernetes 1.6](https://github.com/kubernetes/kubernetes/pull/40666).
+    * 1.5.x and 1.6.x are not currently supported due to an [issue](https://github.com/kubernetes/kubernetes/issues/7789#issuecomment-280568960) with applying to namespaces specified in a spec file. Work is in progress to add support for these versions soon.
+    * There are [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects. These issues are [fixed in Kubernetes 1.6](https://github.com/kubernetes/kubernetes/pull/40666).
 
 ## Setup
 
