@@ -24,6 +24,7 @@ const (
 	kubeconfigFilePath = "/etc/kubeconfig"
 )
 
+//todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
 var pruneWhitelist = []string{
 	"core/v1/ConfigMap",
 	"core/v1/Pod",
