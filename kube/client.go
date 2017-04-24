@@ -24,6 +24,18 @@ const (
 	kubeconfigFilePath = "/etc/kubeconfig"
 )
 
+var pruneWhitelist = []string{
+	"core/v1/ConfigMap",
+	"core/v1/Pod",
+	"core/v1/Service",
+	"batch/v1/Job",
+	"extensions/v1beta1/DaemonSet",
+	"extensions/v1beta1/Deployment",
+	"extensions/v1beta1/Ingress",
+	"apps/v1beta1/StatefulSet",
+	"autoscaling/v1/HorizontalPodAutoscaler",
+}
+
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(string) (string, string, error)
@@ -127,6 +139,9 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (string, string, error) {
 	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", c.DryRun), "-R", "-f", path, "--prune", "--all", "-n", filepath.Base(path)}
+	for _, w := range pruneWhitelist {
+		args = append(args, "--prune-whitelist="+w)
+	}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
