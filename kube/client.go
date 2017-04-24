@@ -75,9 +75,6 @@ func (c *Client) Configure() error {
 
 // CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
 func (c *Client) CheckVersion() error {
-	if c.DryRun {
-		return nil
-	}
 	args := []string{"kubectl", "version"}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
@@ -129,14 +126,11 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (string, string, error) {
-	args := []string{"kubectl", "apply", "-R", "-f", path, "--prune", "--all", "-n", filepath.Base(path)}
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", c.DryRun), "-R", "-f", path, "--prune", "--all", "-n", filepath.Base(path)}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
 	cmd := strings.Join(args, " ")
-	if c.DryRun {
-		return cmd, "not applied", nil
-	}
 	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
 		err = fmt.Errorf("Error: %v", err)
