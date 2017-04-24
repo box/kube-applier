@@ -7,7 +7,6 @@ import (
 	"time"
 
 	cli "github.com/jawher/mow.cli"
-	"github.com/utilitywarehouse/kube-applier/applylist"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -54,12 +53,6 @@ func main() {
 		Desc:   "Github commit diff url",
 		EnvVar: "DIFF_URL_FORMAT",
 	})
-	blacklistPath := app.String(cli.StringOpt{
-		Name:   "blacklist-path",
-		Value:  "",
-		Desc:   "Path ",
-		EnvVar: "BLACKLIST_PATH",
-	})
 	pollInterval := app.Int(cli.IntOpt{
 		Name:   "poll-interval-seconds",
 		Value:  5,
@@ -97,8 +90,6 @@ func main() {
 
 		batchApplier := &run.BatchApplier{kubeClient, metrics}
 		gitUtil := &git.GitUtil{*repoPath}
-		fileSystem := &sysutil.FileSystem{}
-		listFactory := &applylist.Factory{*repoPath, *blacklistPath, fileSystem}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 		// Only 1 pending request may sit in the queue at a time.
@@ -113,8 +104,8 @@ func main() {
 		errors := make(chan error)
 
 		runner := &run.Runner{
+			RepoPath:      *repoPath,
 			BatchApplier:  batchApplier,
-			ListFactory:   listFactory,
 			GitUtil:       gitUtil,
 			Clock:         clock,
 			Metrics:       metrics,

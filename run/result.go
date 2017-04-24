@@ -13,7 +13,6 @@ type Result struct {
 	Finish        time.Time
 	CommitHash    string
 	FullCommit    string
-	Blacklist     []string
 	Successes     []ApplyAttempt
 	Failures      []ApplyAttempt
 	DiffURLFormat string

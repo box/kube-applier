@@ -1,59 +1,28 @@
 package sysutil
 
 import (
-	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-// FileSystemInterface allows for mocking out the functionality of FileSystem to avoid calls to the actual file system during testing.
-type FileSystemInterface interface {
-	ReadLines(filePath string) ([]string, error)
-	ListAllFiles(rootPath string) ([]string, error)
-}
-
-// FileSystem provides utility functions for interacting with the file system.
-type FileSystem struct{}
-
-// ReadLines opens the file located at the path and reads each line into a []string.
-func (fs *FileSystem) ReadLines(filePath string) ([]string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("Error opening the file at %v: %v", filePath, err)
-	}
-	defer f.Close()
-
-	var result []string
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		result = append(result, s.Text())
-	}
-	if err := s.Err(); err != nil {
-		return nil, fmt.Errorf("Error reading the file at %v: %v", filePath, err)
-	}
-	return result, nil
-}
-
 // ListAllFiles walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
-func (fs *FileSystem) ListAllFiles(rootPath string) ([]string, error) {
-	var result []string
-	err := filepath.Walk(rootPath,
-		func(path string, f os.FileInfo, e error) error {
-			if e != nil {
-				return e
-			}
-			if !f.IsDir() {
-				result = append(result, path)
-			}
-			return nil
-		})
+func ListDirs(rootPath string) ([]string, error) {
+	var dirs []string
+	files, err := ioutil.ReadDir(rootPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error walking the directory tree rooted at %v: %v", rootPath, err)
+		return dirs, fmt.Errorf("Could not read %s error=(%v)", rootPath, err)
 	}
-	return result, nil
+
+	for _, file := range files {
+		if file.IsDir() {
+			dirs = append(dirs, filepath.Join(rootPath, file.Name()))
+		}
+	}
+	return dirs, nil
 }
 
 // WaitForDir returns when the specified directory is located in the filesystem, or if there is an error opening the directory once it is found.

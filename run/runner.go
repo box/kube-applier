@@ -3,7 +3,6 @@ package run
 import (
 	"log"
 
-	"github.com/utilitywarehouse/kube-applier/applylist"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -11,8 +10,8 @@ import (
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
+	RepoPath      string
 	BatchApplier  BatchApplierInterface
-	ListFactory   applylist.FactoryInterface
 	GitUtil       git.GitUtilInterface
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
@@ -40,11 +39,10 @@ func (r *Runner) run() (*Result, error) {
 	start := r.Clock.Now()
 	log.Printf("Started apply run at %v", start)
 
-	applyList, blacklist, err := r.ListFactory.Create()
+	dirs, err := sysutil.ListDirs(r.RepoPath)
 	if err != nil {
 		return nil, err
 	}
-
 	hash, err := r.GitUtil.HeadHash()
 	if err != nil {
 		return nil, err
@@ -54,7 +52,7 @@ func (r *Runner) run() (*Result, error) {
 		return nil, err
 	}
 
-	successes, failures := r.BatchApplier.Apply(applyList)
+	successes, failures := r.BatchApplier.Apply(dirs)
 
 	finish := r.Clock.Now()
 
@@ -63,6 +61,6 @@ func (r *Runner) run() (*Result, error) {
 	success := len(failures) == 0
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
-	newRun := Result{start, finish, hash, commitLog, blacklist, successes, failures, r.DiffURLFormat}
+	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
 	return &newRun, nil
 }
