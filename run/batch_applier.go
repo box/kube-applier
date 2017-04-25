@@ -42,6 +42,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
 			successes = append(successes, appliedFile)
+			log.Printf("%v\n%v", cmd, output)
 		} else {
 			appliedFile.ErrorMessage = err.Error()
 			failures = append(failures, appliedFile)
