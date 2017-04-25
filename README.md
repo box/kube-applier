@@ -1,12 +1,10 @@
 # kube-applier
 
-[![Project Status](http://opensource.box.com/badges/active.svg)](http://opensource.box.com/badges) [![Build Status](https://travis-ci.org/box/kube-applier.svg)](https://travis-ci.org/box/kube-applier)
-
 kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster. 
 
 kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-the-git-repository) to ensure that the cluster objects are up-to-date with their associated spec files (JSON or YAML) in the repo.
 
-Whenever a new commit to the repo occurs, or at a [specified interval](#run-interval), kube-applier performs a "run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands for all JSON and YAML files within the repo.
+Whenever a new commit to the repo occurs, or at a [specified interval](#run-interval), kube-applier performs a "run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands with pruning at namespace level. The convention is that level 1 subdirs of REPO_PATH represent k8s namespaces: the name of the dir is the same as the namespace and the dir contains manifests for the given namespace.
 
 kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics) for monitoring.
 
@@ -21,9 +19,8 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 
 Download the source code and build the container image.
 ```
-$ go get github.com/box/kube-applier
-$ cd $GOPATH/src/github.com/box/kube-applier
-$ make container
+$ go get github.com/utilitywarehouse/kube-applier
+$ cd $GOPATH/src/github.com/utilitywarehouse/kube-applier
 ```
 
 You will need to push the image to a registry in order to reference it in a Kubernetes container spec.
@@ -43,7 +40,6 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 
 **Optional:**
 * `SERVER` - (string) Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
-* `BLACKLIST_PATH` - (string) Path to a "blacklist" file which specifies files that should not be applied. This path should be absolute (e.g. `/k8s/conf/kube_applier_blacklist`), not relative to `REPO_PATH` (although you may want to check the blacklist file into the repo). The blacklist file itself should be a plaintext file, with a file path on each line. Each of these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is set to `/git/repo`, and the file to be blacklisted is `/git/repo/apps/app1.json`, the line in the blacklist file should be `apps/app1.json`).
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
