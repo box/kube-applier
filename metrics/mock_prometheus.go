@@ -28,12 +28,12 @@ func (_m *MockPrometheusInterface) EXPECT() *_MockPrometheusInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockPrometheusInterface) UpdateFileSuccess(_param0 string, _param1 bool) {
-	_m.ctrl.Call(_m, "UpdateFileSuccess", _param0, _param1)
+func (_m *MockPrometheusInterface) UpdateNamespaceSuccess(_param0 string, _param1 bool) {
+	_m.ctrl.Call(_m, "UpdateNamespaceSuccess", _param0, _param1)
 }
 
-func (_mr *_MockPrometheusInterfaceRecorder) UpdateFileSuccess(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateFileSuccess", arg0, arg1)
+func (_mr *_MockPrometheusInterfaceRecorder) UpdateNamespaceSuccess(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateNamespaceSuccess", arg0, arg1)
 }
 
 func (_m *MockPrometheusInterface) UpdateRunLatency(_param0 float64, _param1 bool) {

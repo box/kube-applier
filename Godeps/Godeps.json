@@ -8,20 +8,16 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
-			"Rev": "3ac7bf7a47d159a033b107610db8a1b6575507a4"
+			"Rev": "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
-			"Comment": "v1.0.0-3-g6d21280",
-			"Rev": "6d212800a42e8ab5c146b8ace3490ee17e5225f9"
-		},
-		{
-			"ImportPath": "github.com/golang/mock/gomock",
-			"Rev": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9"
+			"Comment": "v1.1.0",
+			"Rev": "346938d642f2ec3594ed81d874461961cd0faa76"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "3852dcfda249c2097355a6aabb199a28d97b30df"
+			"Rev": "2bba0603135d7d7f5cb73b2125beeda19c09f4ef"
 		},
 		{
 			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",
@@ -29,40 +25,34 @@
 			"Rev": "c12348ce28de40eed0136aa2b644d0ee0650e56c"
 		},
 		{
-			"ImportPath": "github.com/pmezard/go-difflib/difflib",
-			"Comment": "v1.0.0",
-			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
-		},
-		{
 			"ImportPath": "github.com/prometheus/client_golang/prometheus",
-			"Comment": "0.7.0-85-g9f1ed1e",
-			"Rev": "9f1ed1ed4a5f754c9b626e5cf8ec1ea7d622e017"
+			"Comment": "v0.8.0-62-g08fd2e1",
+			"Rev": "08fd2e12372a66e68e30523c7642e0cbc3e4fbde"
 		},
 		{
 			"ImportPath": "github.com/prometheus/client_model/go",
-			"Comment": "model-0.0.2-12-gfa8ad6f",
-			"Rev": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6"
+			"Comment": "model-0.0.2-14-g6f38060",
+			"Rev": "6f3806018612930941127f2a7c6c453ba2c527d2"
 		},
 		{
 			"ImportPath": "github.com/prometheus/common/expfmt",
-			"Rev": "4402f4e5ea79ec15f3c574773b6a5198fbea215f"
+			"Rev": "49fee292b27bfff7f354ee0f64e1bc4850462edf"
 		},
 		{
 			"ImportPath": "github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
-			"Rev": "4402f4e5ea79ec15f3c574773b6a5198fbea215f"
+			"Rev": "49fee292b27bfff7f354ee0f64e1bc4850462edf"
 		},
 		{
 			"ImportPath": "github.com/prometheus/common/model",
-			"Rev": "4402f4e5ea79ec15f3c574773b6a5198fbea215f"
+			"Rev": "49fee292b27bfff7f354ee0f64e1bc4850462edf"
 		},
 		{
 			"ImportPath": "github.com/prometheus/procfs",
-			"Rev": "abf152e5f3e97f2fafac028d2cc06c1feb87ffa5"
+			"Rev": "a1dba9ce8baed984a2495b658c82687f8157b98f"
 		},
 		{
-			"ImportPath": "github.com/stretchr/testify/assert",
-			"Comment": "v1.1.4-4-g976c720",
-			"Rev": "976c720a22c8eb4eb6a0b4348ad85ad12491a506"
+			"ImportPath": "github.com/prometheus/procfs/xfs",
+			"Rev": "a1dba9ce8baed984a2495b658c82687f8157b98f"
 		}
 	]
 }

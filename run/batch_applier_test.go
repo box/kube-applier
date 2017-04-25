@@ -106,11 +106,11 @@ func expectApplyAndReturnFailure(file string, kubeClient *kube.MockClientInterfa
 }
 
 func expectSuccessMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {
-	return metrics.EXPECT().UpdateFileSuccess(file, true).Times(1)
+	return metrics.EXPECT().UpdateNamespaceSuccess(file, true).Times(1)
 }
 
 func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {
-	return metrics.EXPECT().UpdateFileSuccess(file, false).Times(1)
+	return metrics.EXPECT().UpdateNamespaceSuccess(file, false).Times(1)
 }
 
 func applyAndAssert(t *testing.T, tc batchTestCase) {

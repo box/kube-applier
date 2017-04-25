@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
@@ -14,12 +15,11 @@ import (
 const serverTemplatePath = "/templates/status.html"
 
 type WebServer struct {
-	ListenPort     int
-	Clock          sysutil.ClockInterface
-	MetricsHandler http.Handler
-	RunQueue       chan<- bool
-	RunResults     <-chan run.Result
-	Errors         chan<- error
+	ListenPort int
+	Clock      sysutil.ClockInterface
+	RunQueue   chan<- bool
+	RunResults <-chan run.Result
+	Errors     chan<- error
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
@@ -99,12 +99,14 @@ func (ws *WebServer) Start() {
 		return
 	}
 
+	m := mux.NewRouter()
+	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{template, lastRun, ws.Clock}
 	http.Handle("/", statusPageHandler)
-	http.Handle("/metrics", ws.MetricsHandler)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
+	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
 	forceRunHandler := &ForceRunHandler{ws.RunQueue}
-	http.Handle("/api/v1/forceRun", forceRunHandler)
+	m.PathPrefix("/api/1.0/forceRun").Handler(forceRunHandler)
+	m.PathPrefix("/").Handler(statusPageHandler)
 
 	go func() {
 		for result := range ws.RunResults {
@@ -112,6 +114,6 @@ func (ws *WebServer) Start() {
 		}
 	}()
 
-	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), nil)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), m)
 	ws.Errors <- err
 }

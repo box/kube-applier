@@ -29,7 +29,7 @@ const (
 
 func main() {
 
-	app := cli.App("kube-applier", "Kube applier")
+	app := cli.App(webserver.AppName, webserver.AppDescription)
 	repoPath := app.String(cli.StringOpt{
 		Name:   "repo-path",
 		Desc:   "Git repo path",
@@ -115,7 +115,7 @@ func main() {
 			Errors:        errors,
 		}
 		scheduler := &run.Scheduler{gitUtil, time.Duration(*pollInterval) * time.Second, time.Duration(*fullRunInterval) * time.Second, runQueue, errors}
-		webserver := &webserver.WebServer{*listenPort, clock, metrics.GetHandler(), runQueue, runResults, errors}
+		webserver := &webserver.WebServer{*listenPort, clock, runQueue, runResults, errors}
 
 		go scheduler.Start()
 		go runner.Start()
