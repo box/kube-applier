@@ -30,6 +30,11 @@ func main() {
 	listenPort := sysutil.GetRequiredEnvInt("LISTEN_PORT")
 	server := sysutil.GetEnvStringOrDefault("SERVER", "")
 	blacklistPath := sysutil.GetEnvStringOrDefault("BLACKLIST_PATH", "")
+
+	// A file that contains a list of files to consider for application.
+	// If the env var is not defined or if the file is empty act like a no-op and
+	// all files will be considered.
+	whitelistPath := sysutil.GetEnvStringOrDefault("WHITELIST_PATH", "")
 	diffURLFormat := sysutil.GetEnvStringOrDefault("DIFF_URL_FORMAT", "")
 	pollInterval := time.Duration(sysutil.GetEnvIntOrDefault("POLL_INTERVAL_SECONDS", defaultPollIntervalSeconds)) * time.Second
 	fullRunInterval := time.Duration(sysutil.GetEnvIntOrDefault("FULL_RUN_INTERVAL_SECONDS", defaultFullRunIntervalSeconds)) * time.Second
@@ -53,7 +58,7 @@ func main() {
 	batchApplier := &run.BatchApplier{kubeClient, metrics}
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
-	listFactory := &applylist.Factory{repoPath, blacklistPath, fileSystem}
+	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem}
 
 	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 	// Only 1 pending request may sit in the queue at a time.
