@@ -35,7 +35,7 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 ### Environment Variables
 
 **Required:**
-* `REPO_PATH` - (string) Absolute path to the directory containing configuration files to be applied. It must be a Git repository or a path within one. All .json and .yaml files within this directory (and its subdirectories) will be applied, unless listed on the blacklist.
+* `REPO_PATH` - (string) Absolute path to the directory containing configuration files to be applied. It must be a Git repository or a path within one. Level 1 subdirs of this directory represent kubernetes namespaces.
 * `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
@@ -43,7 +43,8 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
-
+* `DRY_RUN` - (bool) If true, kubectl command will be run with --dry-run flag. This means live configuration of the cluster is not changed.
+* `LABEL` - (string) K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out. Resources which are filtered out are not managed by the kube-applier.
 ### Mounting the Git Repository
 
 There are two ways to mount the Git repository into the kube-applier container.

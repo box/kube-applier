@@ -47,6 +47,7 @@ type ClientInterface interface {
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
 	Server string
+	Label  string
 	DryRun bool
 }
 
@@ -139,7 +140,7 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (string, string, error) {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", c.DryRun), "-R", "-f", path, "--prune", "--all", "-n", filepath.Base(path)}
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", c.DryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=false", c.Label), "-n", filepath.Base(path)}
 	for _, w := range pruneWhitelist {
 		args = append(args, "--prune-whitelist="+w)
 	}
