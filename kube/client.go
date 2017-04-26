@@ -1,11 +1,12 @@
 package kube
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,16 +40,17 @@ var pruneWhitelist = []string{
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(string) (string, string, error)
+	Apply(path, namespace string, dryRun bool) (string, string, error)
 	CheckVersion() error
+	IsNamespaceDisabled(namespace string) (bool, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
-	Server string
-	Label  string
-	DryRun bool
+	Server         string
+	Label          string
+	NamespaceLabel string
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -139,8 +141,8 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
-func (c *Client) Apply(path string) (string, string, error) {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", c.DryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=false", c.Label), "-n", filepath.Base(path)}
+func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=false", c.Label), "-n", namespace}
 	for _, w := range pruneWhitelist {
 		args = append(args, "--prune-whitelist="+w)
 	}
@@ -153,4 +155,25 @@ func (c *Client) Apply(path string) (string, string, error) {
 		err = fmt.Errorf("Error: %v", err)
 	}
 	return cmd, string(stdout), err
+}
+
+func (c *Client) IsNamespaceDisabled(namespace string) (bool, error) {
+	args := []string{"kubecl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
+	if c.Server != "" {
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+	}
+	stdout, err := exec.Command(args[0], args[1:]...).Output()
+	if err != nil {
+		return true, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(stdout))
+	var nr struct {
+		Metadata struct {
+			Labels map[string]string
+		}
+	}
+	if err := dec.Decode(&nr); err != nil {
+		return true, fmt.Errorf("Get namespace response is not json format: %v error=(%v)", string(stdout), err)
+	}
+	return nr.Metadata.Labels[c.NamespaceLabel] == "true", nil
 }
