@@ -44,7 +44,17 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --dry-run flag. This means live configuration of the cluster is not changed.
-* `LABEL` - (string) K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out. Resources which are filtered out are not managed by the kube-applier.
+* `LABEL` - (string) K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out. Resources which are filtered out are not managed by the kube-applier. Applies to following resources:
+  * `core/v1/ConfigMap`
+  * `core/v1/Pod`
+  * `core/v1/Service`
+  * `batch/v1/Job`
+  * `extensions/v1beta1/DaemonSet`
+  * `extensions/v1beta1/Deployment`
+  * `extensions/v1beta1/Ingress`
+  * `apps/v1beta1/StatefulSet`
+  * `autoscaling/v1/HorizontalPodAutoscaler`
+
 ### Mounting the Git Repository
 
 There are two ways to mount the Git repository into the kube-applier container.
