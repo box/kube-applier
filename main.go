@@ -71,6 +71,12 @@ func main() {
 		Desc:   "Dry run",
 		EnvVar: "DRY_RUN",
 	})
+	label := app.String(cli.StringOpt{
+		Name:   "label",
+		Value:  "automaticDeployment",
+		Desc:   "K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out.",
+		EnvVar: "LABEL",
+	})
 
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
 		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat)
@@ -85,7 +91,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		kubeClient := &kube.Client{Server: *server, DryRun: *dryRun}
+		kubeClient := &kube.Client{Server: *server, Label: *label, DryRun: *dryRun}
 		kubeClient.Configure()
 
 		batchApplier := &run.BatchApplier{kubeClient, metrics}
