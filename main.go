@@ -77,6 +77,12 @@ func main() {
 		Desc:   "K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out.",
 		EnvVar: "LABEL",
 	})
+	namespaceLabel := app.String(cli.StringOpt{
+		Name:   "namespace-label",
+		Value:  "automaticDeploymentDryRun",
+		Desc:   "K8s namespace label which enables/disables dry-run at namespace level. Add label with value 'true' on namespaces which should be disabled. Namespaces with missing label are enabled.",
+		EnvVar: "NAMESPACE_LABEL",
+	})
 
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
 		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat)
@@ -91,10 +97,9 @@ func main() {
 			log.Fatal(err)
 		}
 
-		kubeClient := &kube.Client{Server: *server, Label: *label, DryRun: *dryRun}
+		kubeClient := &kube.Client{Server: *server, Label: *label, NamespaceLabel: *namespaceLabel}
 		kubeClient.Configure()
-
-		batchApplier := &run.BatchApplier{kubeClient, metrics}
+		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Metrics: metrics}
 		gitUtil := &git.GitUtil{*repoPath}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.

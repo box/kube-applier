@@ -54,6 +54,8 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
   * `extensions/v1beta1/Ingress`
   * `apps/v1beta1/StatefulSet`
   * `autoscaling/v1/HorizontalPodAutoscaler`
+* `NAMESPACE_LABEL` - (string) K8s namespace label which enables/disables dry-run at namespace level. Add label with value 'true' on namespaces which should be disabled. Namespaces with missing label are enabled. Applies to following resources:
+  * `core/v1/Namespace`
 
 ### Mounting the Git Repository
 

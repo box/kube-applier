@@ -2,6 +2,7 @@ package run
 
 import (
 	"log"
+	"path/filepath"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -24,6 +25,7 @@ type BatchApplierInterface interface {
 type BatchApplier struct {
 	KubeClient kube.ClientInterface
 	Metrics    metrics.PrometheusInterface
+	DryRun     bool
 }
 
 // Apply takes a list of files and attempts an apply command on each.
@@ -36,8 +38,13 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 	for _, path := range applyList {
-		log.Printf("Applying file %v", path)
-		cmd, output, err := a.KubeClient.Apply(path)
+		log.Printf("Applying dir %v", path)
+		ns := filepath.Base(path)
+		disabled, err := a.KubeClient.IsNamespaceDisabled(ns)
+		if err != nil {
+			log.Printf("ERROR: Error while verifying if namespace is disabled, defaulting to true: error=(%v)", err)
+		}
+		cmd, output, err := a.KubeClient.Apply(path, ns, a.DryRun || disabled)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
