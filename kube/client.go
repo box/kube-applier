@@ -158,7 +158,7 @@ func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, err
 }
 
 func (c *Client) IsNamespaceDisabled(namespace string) (bool, error) {
-	args := []string{"kubecl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
+	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
