@@ -8,7 +8,7 @@ import (
 
 // FactoryInterface allows for mocking out the functionality of Factory when testing the full process of an apply run.
 type FactoryInterface interface {
-	Create() ([]string, []string, error)
+	Create() ([]string, []string, []string, error)
 }
 
 // Factory handles constructing the list of files to apply and the blacklist.
@@ -20,20 +20,20 @@ type Factory struct {
 }
 
 // Create returns two alphabetically sorted lists: the list of files to apply, and the blacklist of files to skip.
-func (f *Factory) Create() ([]string, []string, error) {
+func (f *Factory) Create() ([]string, []string, []string, error) {
 	blacklist, err := f.createBlacklist()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	whitelist, err := f.createWhitelist()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	applyList, err := f.createApplyList(blacklist, whitelist)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return applyList, blacklist, nil
+	return applyList, blacklist, whitelist, nil
 }
 
 // createFilelist reads lines from the given file, converts the relative

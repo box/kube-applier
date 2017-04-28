@@ -39,7 +39,7 @@ func (r *Runner) run() (*Result, error) {
 	start := r.Clock.Now()
 	log.Printf("Started apply run at %v", start)
 
-	applyList, blacklist, err := r.ListFactory.Create()
+	applyList, blacklist, whitelist, err := r.ListFactory.Create()
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,6 @@ func (r *Runner) run() (*Result, error) {
 	success := len(failures) == 0
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
-	newRun := Result{start, finish, hash, commitLog, blacklist, successes, failures, r.DiffURLFormat}
+	newRun := Result{start, finish, hash, commitLog, blacklist, whitelist, successes, failures, r.DiffURLFormat}
 	return &newRun, nil
 }
