@@ -133,7 +133,7 @@ func TestFactoryCreate(t *testing.T) {
 func createAndAssert(t *testing.T, tc testCase) {
 	assert := assert.New(t)
 	f := &Factory{tc.repoPath, tc.blacklistPath, tc.whitelistPath, tc.fs}
-	applyList, blacklist, err := f.Create()
+	applyList, blacklist, _, err := f.Create()
 	assert.Equal(tc.expectedApplyList, applyList)
 	assert.Equal(tc.expectedBlacklist, blacklist)
 	assert.Equal(tc.expectedErr, err)

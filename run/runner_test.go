@@ -36,7 +36,7 @@ func TestRunnerRun(t *testing.T) {
 	// Empty apply list and blacklist, empty successes and failures
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, nil),
+		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
 		repo.EXPECT().HeadCommitLog().Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply([]string{}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
@@ -50,6 +50,7 @@ func TestRunnerRun(t *testing.T) {
 		"hash",
 		"log",
 		[]string{},
+		[]string{},
 		[]ApplyAttempt{},
 		[]ApplyAttempt{},
 		"",
@@ -59,7 +60,7 @@ func TestRunnerRun(t *testing.T) {
 	// Apply list and blacklist, empty successes and failures
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return([]string{"file1", "file2", "file3"}, []string{"black1", "black2"}, nil),
+		factory.EXPECT().Create().Times(1).Return([]string{"file1", "file2", "file3"}, []string{"black1", "black2"}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
 		repo.EXPECT().HeadCommitLog().Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply([]string{"file1", "file2", "file3"}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
@@ -73,6 +74,7 @@ func TestRunnerRun(t *testing.T) {
 		"hash",
 		"log",
 		[]string{"black1", "black2"},
+		[]string{},
 		[]ApplyAttempt{},
 		[]ApplyAttempt{},
 		"",
@@ -91,7 +93,7 @@ func TestRunnerRun(t *testing.T) {
 	}
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return([]string{"file1", "file2", "file3", "file4", "file5"}, []string{"black1", "black2"}, nil),
+		factory.EXPECT().Create().Times(1).Return([]string{"file1", "file2", "file3", "file4", "file5"}, []string{"black1", "black2"}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
 		repo.EXPECT().HeadCommitLog().Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply([]string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
@@ -105,6 +107,7 @@ func TestRunnerRun(t *testing.T) {
 		"hash",
 		"log",
 		[]string{"black1", "black2"},
+		[]string{},
 		successes,
 		failures,
 		"",
@@ -114,14 +117,14 @@ func TestRunnerRun(t *testing.T) {
 	// factory.Create() error
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return(nil, nil, fmt.Errorf("list error")),
+		factory.EXPECT().Create().Times(1).Return(nil, nil, nil, fmt.Errorf("list error")),
 	)
 	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, Result{}, fmt.Errorf("list error")})
 
 	// repo.HeadHash() error
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, nil),
+		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("", fmt.Errorf("hash error")),
 	)
 	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, Result{}, fmt.Errorf("hash error")})
@@ -129,7 +132,7 @@ func TestRunnerRun(t *testing.T) {
 	// repo.HeadCommitLog() error
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, nil),
+		factory.EXPECT().Create().Times(1).Return([]string{}, []string{}, []string{}, nil),
 		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
 		repo.EXPECT().HeadCommitLog().Times(1).Return("", fmt.Errorf("log error")),
 	)
