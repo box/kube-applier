@@ -8,50 +8,69 @@ import (
 
 // FactoryInterface allows for mocking out the functionality of Factory when testing the full process of an apply run.
 type FactoryInterface interface {
-	Create() ([]string, []string, error)
+	Create() ([]string, []string, []string, error)
 }
 
 // Factory handles constructing the list of files to apply and the blacklist.
 type Factory struct {
 	RepoPath      string
 	BlacklistPath string
+	WhitelistPath string
 	FileSystem    sysutil.FileSystemInterface
 }
 
 // Create returns two alphabetically sorted lists: the list of files to apply, and the blacklist of files to skip.
-func (f *Factory) Create() ([]string, []string, error) {
+func (f *Factory) Create() ([]string, []string, []string, error) {
 	blacklist, err := f.createBlacklist()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	applyList, err := f.createApplyList(blacklist)
+	whitelist, err := f.createWhitelist()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return applyList, blacklist, nil
+	applyList, err := f.createApplyList(blacklist, whitelist)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return applyList, blacklist, whitelist, nil
 }
 
-// createBlacklist reads lines from the blacklist file, converts the relative paths to full paths, and returns a sorted list of full paths.
-func (f *Factory) createBlacklist() ([]string, error) {
-	if f.BlacklistPath == "" {
+// createFilelist reads lines from the given file, converts the relative
+// paths to full paths, and returns a sorted list of full paths.
+func (f *Factory) createFileList(listFilePath string) ([]string, error) {
+	if listFilePath == "" {
 		return []string{}, nil
 	}
-	rawBlacklist, err := f.FileSystem.ReadLines(f.BlacklistPath)
+	rawList, err := f.FileSystem.ReadLines(listFilePath)
 	if err != nil {
 		return nil, err
 	}
-	blacklist := prependToEachPath(f.RepoPath, rawBlacklist)
-	sort.Strings(blacklist)
-	return blacklist, nil
+	list := prependToEachPath(f.RepoPath, rawList)
+	sort.Strings(list)
+	return list, nil
 }
 
-// createApplyList gets all files within the repo directory and returns a filtered and sorted list of full paths.
-func (f *Factory) createApplyList(blacklist []string) ([]string, error) {
+// createBlacklist reads lines from the blacklist file, converts the relative
+// paths to full paths, and returns a sorted list of full paths.
+func (f *Factory) createBlacklist() ([]string, error) {
+	return f.createFileList(f.BlacklistPath)
+}
+
+// createWhitelist reads lines from the whitelist file, converts the relative
+// paths to full paths, and returns a sorted list of full paths.
+func (f *Factory) createWhitelist() ([]string, error) {
+	return f.createFileList(f.WhitelistPath)
+}
+
+// createApplyList gets all files within the repo directory and returns a
+// filtered and sorted list of full paths.
+func (f *Factory) createApplyList(blacklist, whitelist []string) ([]string, error) {
 	rawApplyList, err := f.FileSystem.ListAllFiles(f.RepoPath)
 	if err != nil {
 		return nil, err
 	}
-	applyList := filter(rawApplyList, blacklist)
+	applyList := filter(rawApplyList, blacklist, whitelist)
 	sort.Strings(applyList)
 	return applyList, nil
 }
@@ -60,19 +79,27 @@ func (f *Factory) createApplyList(blacklist []string) ([]string, error) {
 // Conditions for skipping the file path are:
 // 1. File path is not a .json or .yaml file
 // 2. File path is listed in the blacklist
-func shouldApplyPath(path string, blacklistMap map[string]struct{}) bool {
+func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
 	_, inBlacklist := blacklistMap[path]
+
+	// If whitelist is empty, essentially there is no whitelist.
+	inWhiteList := len(whitelistMap) == 0
+	if !inWhiteList {
+		_, inWhiteList = whitelistMap[path]
+	}
 	ext := filepath.Ext(path)
-	return !inBlacklist && (ext == ".json" || ext == ".yaml")
+	return inWhiteList && !inBlacklist && (ext == ".json" || ext == ".yaml")
 }
 
-// filter iterates through the list of all files in the repo and filters it down to a list of those that should be applied.
-func filter(rawApplyList, blacklist []string) []string {
+// filter iterates through the list of all files in the repo and filters it
+// down to a list of those that should be applied.
+func filter(rawApplyList, blacklist, whitelist []string) []string {
 	blacklistMap := stringSliceToMap(blacklist)
+	whitelistMap := stringSliceToMap(whitelist)
 
 	applyList := []string{}
 	for _, filePath := range rawApplyList {
-		if shouldApplyPath(filePath, blacklistMap) {
+		if shouldApplyPath(filePath, blacklistMap, whitelistMap) {
 			applyList = append(applyList, filePath)
 		}
 	}

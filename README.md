@@ -2,7 +2,7 @@
 
 [![Project Status](http://opensource.box.com/badges/active.svg)](http://opensource.box.com/badges) [![Build Status](https://travis-ci.org/box/kube-applier.svg)](https://travis-ci.org/box/kube-applier)
 
-kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster. 
+kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster.
 
 kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-the-git-repository) to ensure that the cluster objects are up-to-date with their associated spec files (JSON or YAML) in the repo.
 
@@ -39,12 +39,38 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 ### Environment Variables
 
 **Required:**
-* `REPO_PATH` - (string) Absolute path to the directory containing configuration files to be applied. It must be a Git repository or a path within one. All .json and .yaml files within this directory (and its subdirectories) will be applied, unless listed on the blacklist.
+* `REPO_PATH` - (string) Absolute path to the directory containing
+* configuration files to be applied. It must be a Git repository or a path
+* within one. All .json and .yaml files within this directory (and its
+* subdirectories) will be applied, unless listed on the blacklist or excluded
+* from the whitelist.
 * `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
 * `SERVER` - (string) Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
-* `BLACKLIST_PATH` - (string) Path to a "blacklist" file which specifies files that should not be applied. This path should be absolute (e.g. `/k8s/conf/kube_applier_blacklist`), not relative to `REPO_PATH` (although you may want to check the blacklist file into the repo). The blacklist file itself should be a plaintext file, with a file path on each line. Each of these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is set to `/git/repo`, and the file to be blacklisted is `/git/repo/apps/app1.json`, the line in the blacklist file should be `apps/app1.json`).
+* `BLACKLIST_PATH` - (string) Path to a "blacklist" file which specifies files
+ that should not be applied. This path should be absolute (e.g.
+ `/k8s/conf/kube_applier_blacklist`), not relative to `REPO_PATH` (although
+ you may want to check the blacklist file into the repo). The blacklist file
+ itself should be a plaintext file, with a file path on each line. Each of
+ these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is
+ set to `/git/repo`, and the file to be blacklisted is
+ `/git/repo/apps/app1.json`, the line in the blacklist file should be
+ `apps/app1.json`).
+* `WHITELIST_PATH` - (string) Path to a "whiltelist" file which is used to
+ make the applier consider a specific subset of files from the repo.
+ Only the files listed in the whitelist file will be considered for apply.
+ Empty whitelist (or unset env var) means all files in repo are eligible to be applied.
+ In case of a file is listed in both the whitelist and the blacklist, the file is
+ not applied.
+ This path should be absolute (e.g.
+ `/k8s/conf/kube_applier_whitelist`), not relative to `REPO_PATH` (although
+ you may want to check the whitelist file into the repo). The whitelist file
+ itself should be a plaintext file, with a file path on each line. Each of
+ these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is
+ set to `/git/repo`, and the file to be whitelisted is
+ `/git/repo/apps/app1.json`, the line in the whiltelist file should be
+ `apps/app1.json`).
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
@@ -76,7 +102,7 @@ Mount a Git repository from a host directory. This can be useful when you want k
 
 **What happens if the contents of the local Git repo change in the middle of a kube-applier run?**
 
-If there are changes to files in the `$REPO_PATH` directory during a kube-applier run, those changes may or may not be reflected in that run, depending on the timing of the changes. 
+If there are changes to files in the `$REPO_PATH` directory during a kube-applier run, those changes may or may not be reflected in that run, depending on the timing of the changes.
 
 Given that the `$REPO_PATH` directory is a Git repo or located within one, it is likely that the majority of changes will be associated with a Git commit. Thus, a change in the middle of a run will likely update the HEAD commit hash, which will immediately trigger another run upon completion of the current run (regardless of whether or not any of the changes were effective in the current run). However, changes that are not associated with a new Git commit will not trigger a run.
 
@@ -95,6 +121,7 @@ kube-applier hosts a status page on a webserver, served at the service endpoint 
 * Start and end times
 * Latency
 * Most recent commit
+* Whitelisted files
 * Blacklisted files
 * Errors
 * Files applied successfully

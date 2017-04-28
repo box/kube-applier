@@ -37,7 +37,8 @@ func (fs *FileSystem) ReadLines(filePath string) ([]string, error) {
 	return result, nil
 }
 
-// ListAllFiles walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
+// ListAllFiles walks the directory tree rooted at the path and adds all
+// non-directory file paths to a []string.
 func (fs *FileSystem) ListAllFiles(rootPath string) ([]string, error) {
 	var result []string
 	err := filepath.Walk(rootPath,

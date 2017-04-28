@@ -14,6 +14,7 @@ type Result struct {
 	CommitHash    string
 	FullCommit    string
 	Blacklist     []string
+	Whitelist     []string
 	Successes     []ApplyAttempt
 	Failures      []ApplyAttempt
 	DiffURLFormat string
