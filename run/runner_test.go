@@ -114,6 +114,39 @@ func TestRunnerRun(t *testing.T) {
 	}
 	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, expectedResult, nil})
 
+	// Apply list, blacklist and whitlist , successes and failures
+	successes := []ApplyAttempt{
+		{"file1", "apply1", "cmd1", ""},
+		{"file2", "apply2", "cmd2", ""},
+		{"file4", "apply3", "cmd3", ""},
+	}
+	failures := []ApplyAttempt{
+		{"file3", "apply3", "cmd3", "error3"},
+		{"file5", "apply5", "cmd5", "error5"},
+	}
+	gomock.InOrder(
+		clock.EXPECT().Now().Times(1).Return(time.Time{}),
+		factory.EXPECT().Create().Times(1).Return([]string{"file1", "file2", "file3", "file4", "file5"}, []string{"black1", "black2"}, []string{"file1", "file2", "file3", "file4", "file5"}, nil),
+		repo.EXPECT().HeadHash().Times(1).Return("hash", nil),
+		repo.EXPECT().HeadCommitLog().Times(1).Return("log", nil),
+		batchApplier.EXPECT().Apply([]string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
+		clock.EXPECT().Now().Times(1).Return(time.Time{}),
+		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
+		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
+	)
+	expectedResult = Result{
+		time.Time{},
+		time.Time{},
+		"hash",
+		"log",
+		[]string{"black1", "black2"},
+		[]string{"file1", "file2", "file3", "file4", "file5"},
+		successes,
+		failures,
+		"",
+	}
+	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, expectedResult, nil})
+
 	// factory.Create() error
 	gomock.InOrder(
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
