@@ -52,7 +52,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	kubeClient := &kube.Client{server}
+	kubeClient := &kube.Client{Server: server}
 	kubeClient.Configure()
 
 	batchApplier := &run.BatchApplier{kubeClient, metrics}
