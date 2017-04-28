@@ -115,12 +115,12 @@ func TestRunnerRun(t *testing.T) {
 	runAndAssert(t, runnerTestCase{batchApplier, factory, repo, clock, metrics, expectedResult, nil})
 
 	// Apply list, blacklist and whitlist , successes and failures
-	successes := []ApplyAttempt{
+	successes = []ApplyAttempt{
 		{"file1", "apply1", "cmd1", ""},
 		{"file2", "apply2", "cmd2", ""},
 		{"file4", "apply3", "cmd3", ""},
 	}
-	failures := []ApplyAttempt{
+	failures = []ApplyAttempt{
 		{"file3", "apply3", "cmd3", "error3"},
 		{"file5", "apply5", "cmd5", "error5"},
 	}
