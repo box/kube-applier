@@ -2,7 +2,9 @@ package applylist
 
 import (
 	"github.com/box/kube-applier/sysutil"
+	"log"
 	"path/filepath"
+	"regexp"
 	"sort"
 )
 
@@ -74,7 +76,15 @@ func (f *Factory) createFileList(listFilePath string) ([]string, error) {
 // createBlacklist reads lines from the blacklist file, converts the relative
 // paths to full paths, and returns a sorted list of full paths.
 func (f *Factory) createBlacklist() ([]string, error) {
-	return f.createFileList(f.BlacklistPath)
+	if f.BlacklistPath == "" {
+		return []string{}, nil
+	}
+	rawList, err := f.FileSystem.ReadLines(f.BlacklistPath)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(rawList)
+	return rawList, nil
 }
 
 // createWhitelist reads lines from the whitelist file, converts the relative
@@ -98,9 +108,20 @@ func (f *Factory) createApplyList(blacklist, whitelist []string) ([]string, erro
 // shouldApplyPath returns true if file path should be applied, false otherwise.
 // Conditions for skipping the file path are:
 // 1. File path is not a .json or .yaml file
-// 2. File path is listed in the blacklist
-func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
-	_, inBlacklist := blacklistMap[path]
+// 2. File path is matched against an entry in the blacklist
+// 3. File path is not explicitly listed in the whitelist
+func shouldApplyPath(path string, blacklist []string, whitelistMap map[string]struct{}) bool {
+	inBlacklist := false
+	for _, regexPath := range blacklist {
+		if matched, err := regexp.MatchString(regexPath, path); err == nil {
+			if matched {
+				inBlacklist = true
+				break
+			}
+		} else {
+			log.Printf("Error in regular expression: %v", err)
+		}
+	}
 
 	// If whitelist is empty, essentially there is no whitelist.
 	inWhiteList := len(whitelistMap) == 0
@@ -114,12 +135,11 @@ func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}
 // filter iterates through the list of all files in the repo and filters it
 // down to a list of those that should be applied.
 func filter(rawApplyList, blacklist, whitelist []string) []string {
-	blacklistMap := stringSliceToMap(blacklist)
 	whitelistMap := stringSliceToMap(whitelist)
 
 	applyList := []string{}
 	for _, filePath := range rawApplyList {
-		if shouldApplyPath(filePath, blacklistMap, whitelistMap) {
+		if shouldApplyPath(filePath, blacklist, whitelistMap) {
 			applyList = append(applyList, filePath)
 		}
 	}
