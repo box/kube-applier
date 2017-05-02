@@ -50,13 +50,13 @@ func (_mr *_MockClientInterfaceRecorder) CheckVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CheckVersion")
 }
 
-func (_m *MockClientInterface) IsNamespaceDisabled(namespace string) (bool, error) {
-	ret := _m.ctrl.Call(_m, "IsNamespaceDisabled", namespace)
-	ret0, _ := ret[0].(bool)
+func (_m *MockClientInterface) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
+	ret := _m.ctrl.Call(_m, "GetNamespaceStatus", namespace)
+	ret0, _ := ret[0].(AutomaticDeploymentOption)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockClientInterfaceRecorder) IsNamespaceDisabled(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsNamespaceDisabled", arg0)
+func (_mr *_MockClientInterfaceRecorder) GetNamespaceStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNamespaceStatus", arg0)
 }

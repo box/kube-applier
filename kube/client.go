@@ -38,19 +38,26 @@ var pruneWhitelist = []string{
 	"autoscaling/v1/HorizontalPodAutoscaler",
 }
 
+type AutomaticDeploymentOption string
+
+const (
+	DryRun AutomaticDeploymentOption = "dry-run"
+	On     AutomaticDeploymentOption = "on"
+	Off    AutomaticDeploymentOption = "off"
+)
+
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(path, namespace string, dryRun bool) (string, string, error)
 	CheckVersion() error
-	IsNamespaceDisabled(namespace string) (bool, error)
+	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
-	Server         string
-	Label          string
-	NamespaceLabel string
+	Server string
+	Label  string
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -142,7 +149,7 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=false", c.Label), "-n", namespace}
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	for _, w := range pruneWhitelist {
 		args = append(args, "--prune-whitelist="+w)
 	}
@@ -157,14 +164,14 @@ func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, err
 	return cmd, string(stdout), err
 }
 
-func (c *Client) IsNamespaceDisabled(namespace string) (bool, error) {
+func (c *Client) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
 	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
-	stdout, err := exec.Command(args[0], args[1:]...).Output()
+	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
-		return true, err
+		return Off, err
 	}
 	dec := json.NewDecoder(bytes.NewReader(stdout))
 	var nr struct {
@@ -173,7 +180,7 @@ func (c *Client) IsNamespaceDisabled(namespace string) (bool, error) {
 		}
 	}
 	if err := dec.Decode(&nr); err != nil {
-		return true, fmt.Errorf("Get namespace response is not json format: %v error=(%v)", string(stdout), err)
+		return Off, fmt.Errorf("Get namespace response is not json format: %v error=(%v)", string(stdout), err)
 	}
-	return nr.Metadata.Labels[c.NamespaceLabel] == "true", nil
+	return AutomaticDeploymentOption(nr.Metadata.Labels[c.Label]), nil
 }

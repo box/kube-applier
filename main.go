@@ -74,14 +74,8 @@ func main() {
 	label := app.String(cli.StringOpt{
 		Name:   "label",
 		Value:  "automaticDeployment",
-		Desc:   "K8s label that applier will use to filter resources. Add label with value 'false' on resource to filter out resource. Resourses with missing label are not filtered out.",
+		Desc:   "K8s label used to enable/disable automatic deployments.",
 		EnvVar: "LABEL",
-	})
-	namespaceLabel := app.String(cli.StringOpt{
-		Name:   "namespace-label",
-		Value:  "automaticDeploymentDryRun",
-		Desc:   "K8s namespace label which enables/disables dry-run at namespace level. Add label with value 'true' on namespaces which should be disabled. Namespaces with missing label are enabled.",
-		EnvVar: "NAMESPACE_LABEL",
 	})
 
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
@@ -97,7 +91,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		kubeClient := &kube.Client{Server: *server, Label: *label, NamespaceLabel: *namespaceLabel}
+		kubeClient := &kube.Client{Server: *server, Label: *label}
 		kubeClient.Configure()
 		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Metrics: metrics}
 		gitUtil := &git.GitUtil{*repoPath}
