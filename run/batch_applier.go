@@ -40,9 +40,20 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	for _, path := range applyList {
 		log.Printf("Applying dir %v", path)
 		ns := filepath.Base(path)
-		disabled, err := a.KubeClient.IsNamespaceDisabled(ns)
+		s, err := a.KubeClient.GetNamespaceStatus(ns)
 		if err != nil {
-			log.Printf("ERROR: Error while verifying if namespace is disabled, defaulting to true: error=(%v)", err)
+			log.Printf("ERROR: Error while getting namespace status, defaulting to off: error=(%v)", err)
+		}
+		var disabled bool
+		switch s {
+		case kube.On:
+			disabled = false
+		case kube.Off:
+			continue
+		case kube.DryRun:
+			disabled = true
+		default:
+			continue
 		}
 		cmd, output, err := a.KubeClient.Apply(path, ns, a.DryRun || disabled)
 		success := (err == nil)

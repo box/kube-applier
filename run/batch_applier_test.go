@@ -34,13 +34,13 @@ func TestBatchApplierApply(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(false, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", false, kubeClient),
 		expectSuccessMetric("file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
 		expectSuccessMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", false, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
@@ -56,13 +56,13 @@ func TestBatchApplierApply(t *testing.T) {
 	applyList = []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(false, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
 		expectApplyAndReturnFailure("file1", "file1", false, kubeClient),
 		expectFailureMetric("file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnFailure("file2", "file2", false, kubeClient),
 		expectFailureMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
 		expectApplyAndReturnFailure("file3", "file3", false, kubeClient),
 		expectFailureMetric("file3", metrics),
 	)
@@ -78,16 +78,16 @@ func TestBatchApplierApply(t *testing.T) {
 	applyList = []string{"file1", "file2", "file3", "file4"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(false, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", false, kubeClient),
 		expectSuccessMetric("file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnFailure("file2", "file2", false, kubeClient),
 		expectFailureMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", false, kubeClient),
 		expectSuccessMetric("file3", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file4", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file4", kubeClient),
 		expectApplyAndReturnFailure("file4", "file4", false, kubeClient),
 		expectFailureMetric("file4", metrics),
 	)
@@ -106,13 +106,13 @@ func TestBatchApplierApply(t *testing.T) {
 	applyList = []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(false, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", true, kubeClient),
 		expectSuccessMetric("file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", true, kubeClient),
 		expectSuccessMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", true, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
@@ -124,17 +124,17 @@ func TestBatchApplierApply(t *testing.T) {
 	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: true}, applyList, successes, []ApplyAttempt{}}
 	applyAndAssert(t, tc)
 
-	// All files succeed disabled namespaces
+	// All files succeed dry-run namespaces
 	applyList = []string{"repo/file1", "file2", "repo/file3"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(true, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.DryRun, "file1", kubeClient),
 		expectApplyAndReturnSuccess("repo/file1", "file1", true, kubeClient),
 		expectSuccessMetric("repo/file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
 		expectSuccessMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(true, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.DryRun, "file3", kubeClient),
 		expectApplyAndReturnSuccess("repo/file3", "file3", true, kubeClient),
 		expectSuccessMetric("repo/file3", metrics),
 	)
@@ -146,17 +146,17 @@ func TestBatchApplierApply(t *testing.T) {
 	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
 	applyAndAssert(t, tc)
 
-	// All files succeed dry-run and disabled namespaces
+	// All files succeed dry-run and dry-run namespaces
 	applyList = []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
-		expectIsNamespaceDisabledAndReturn(true, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.DryRun, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", true, kubeClient),
 		expectSuccessMetric("file1", metrics),
-		expectIsNamespaceDisabledAndReturn(false, "file2", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", true, kubeClient),
 		expectSuccessMetric("file2", metrics),
-		expectIsNamespaceDisabledAndReturn(true, "file3", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.DryRun, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", true, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
@@ -166,6 +166,38 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file3", "cmd file3", "output file3", ""},
 	}
 	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: true}, applyList, successes, []ApplyAttempt{}}
+	applyAndAssert(t, tc)
+
+	//Disabled namespaces
+	applyList = []string{"file1", "file2", "file3"}
+	gomock.InOrder(
+		expectCheckVersionAndReturnNil(kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.Off, "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectSuccessMetric("file2", metrics),
+		expectGetNamespaceStatusAndReturn(kube.Off, "file3", kubeClient),
+	)
+	successes = []ApplyAttempt{
+		{"file2", "cmd file2", "output file2", ""},
+	}
+	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
+	applyAndAssert(t, tc)
+
+	//Unsupported automatic deployment option on namespace
+	applyList = []string{"file1", "file2", "file3"}
+	gomock.InOrder(
+		expectCheckVersionAndReturnNil(kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.AutomaticDeploymentOption("unsupportedOption"), "file1", kubeClient),
+		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectSuccessMetric("file2", metrics),
+		expectGetNamespaceStatusAndReturn(kube.AutomaticDeploymentOption("unsupportedOption"), "file3", kubeClient),
+	)
+	successes = []ApplyAttempt{
+		{"file2", "cmd file2", "output file2", ""},
+	}
+	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
 	applyAndAssert(t, tc)
 }
 
@@ -181,8 +213,8 @@ func expectApplyAndReturnFailure(file, namespace string, dryRun bool, kubeClient
 	return kubeClient.EXPECT().Apply(file, namespace, dryRun).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
-func expectIsNamespaceDisabledAndReturn(ret bool, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().IsNamespaceDisabled(namespace).Times(1).Return(ret, nil)
+func expectGetNamespaceStatusAndReturn(ret kube.AutomaticDeploymentOption, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {
+	return kubeClient.EXPECT().GetNamespaceStatus(namespace).Times(1).Return(ret, nil)
 }
 
 func expectSuccessMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {
