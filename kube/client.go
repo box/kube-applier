@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/box/kube-applier/sysutil"
 	"io/ioutil"
-	"os"
+	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -17,9 +17,6 @@ const (
 
 	// Location of the kubeconfig template file within the container - see ADD command in Dockerfile
 	kubeconfigTemplatePath = "/templates/kubeconfig"
-
-	// Location of the written kubeconfig file within the container
-	kubeconfigFilePath = "/etc/kubeconfig"
 )
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
@@ -32,6 +29,11 @@ type ClientInterface interface {
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
 	Server string
+	// Location of the written kubeconfig file within the container
+	kubeconfigFilePath string
+
+	// A directory with write permissions for kubectl to load store its schema cache
+	schemaCacheDir string
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -41,11 +43,21 @@ func (c *Client) Configure() error {
 		return nil
 	}
 
-	f, err := os.Create(kubeconfigFilePath)
+	f, err := ioutil.TempFile("", "kubeConfig")
 	if err != nil {
 		return fmt.Errorf("Error creating kubeconfig file: %v", err)
 	}
 	defer f.Close()
+
+	c.kubeconfigFilePath = f.Name()
+	log.Printf("Using kubeConfig file:", c.kubeconfigFilePath)
+
+	scd, err := ioutil.TempDir("", "kubectl-schema-cache-dir")
+	if err != nil {
+		log.Printf("Error creating kubectl schema cache dir: %v", err)
+	} else {
+		c.schemaCacheDir = scd
+	}
 
 	token, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
@@ -74,7 +86,7 @@ func (c *Client) Configure() error {
 func (c *Client) CheckVersion() error {
 	args := []string{"kubectl", "version"}
 	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
 	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	output := strings.TrimSuffix(string(stdout), "\n")
@@ -123,9 +135,9 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (string, string, error) {
-	args := []string{"kubectl", "apply", "-f", path}
+	args := []string{"kubectl", "apply", "--schema-cache-dir", c.schemaCacheDir, "-f", path}
 	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
 	cmd := strings.Join(args, " ")
 	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
