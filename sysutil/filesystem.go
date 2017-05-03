@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func (fs *FileSystem) ReadLines(filePath string) ([]string, error) {
 	var result []string
 	s := bufio.NewScanner(f)
 	for s.Scan() {
-		result = append(result, s.Text())
+		result = append(result, strings.TrimSpace(s.Text()))
 	}
 	if err := s.Err(); err != nil {
 		return nil, fmt.Errorf("Error reading the file at %v: %v", filePath, err)

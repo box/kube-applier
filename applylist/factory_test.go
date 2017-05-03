@@ -18,6 +18,62 @@ type testCase struct {
 	expectedErr       error
 }
 
+// TestPurgeComments verifies the comment processing and purging from the
+// whitelist and blacklist specifications.
+func TestPurgeComments(t *testing.T) {
+
+	var testData = []struct {
+		rawList        []string
+		expectedReturn []string
+	}{
+		// No comment
+		{
+			[]string{"/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+			[]string{"/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+		},
+		// First line is commented
+		{
+			[]string{"#/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+			[]string{"/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+		},
+		// Last line is commented
+		{
+			[]string{"/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "# /repo/c.json"},
+			[]string{"/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c"},
+		},
+		// Empty line
+		{
+			[]string{"/repo/a/b.json", "", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+			[]string{"/repo/a/b.json", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+		},
+		// Comment line only containing the comment character.
+		{
+			[]string{"/repo/a/b.json", "#", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+			[]string{"/repo/a/b.json", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"},
+		},
+		// Empty file
+		{
+			[]string{},
+			[]string{},
+		},
+		// File with only comment lines.
+		{
+			[]string{"# some comment "},
+			[]string{},
+		},
+	}
+
+	assert := assert.New(t)
+	mockCtrl := gomock.NewController(t)
+	fs := sysutil.NewMockFileSystemInterface(mockCtrl)
+	f := &Factory{"", "", "", fs}
+	for _, td := range testData {
+
+		rv := f.purgeCommentsFromList(td.rawList)
+		assert.Equal(rv, td.expectedReturn)
+	}
+}
+
 func TestFactoryCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -128,6 +184,16 @@ func TestFactoryCreate(t *testing.T) {
 	)
 	tc = testCase{"/repo", "/blacklist", "/whitelist", fs, []string{"/repo/c.json"}, []string{"/repo/a/b/c.yaml"}, nil}
 	createAndAssert(t, tc)
+
+	// Both whitelist and blacklist contain the same file and other comments.
+	gomock.InOrder(
+		fs.EXPECT().ReadLines("/blacklist").Times(1).Return([]string{"a/b/c.yaml", "#   c.json"}, nil),
+		fs.EXPECT().ReadLines("/whitelist").Times(1).Return([]string{"a/b/c.yaml", "c.json", "#   a/b/c.yaml"}, nil),
+		fs.EXPECT().ListAllFiles("/repo").Times(1).Return([]string{"/repo/a/b.json", "/repo/b/c", "/repo/a/b/c.yaml", "/repo/a/b/c", "/repo/c.json"}, nil),
+	)
+	tc = testCase{"/repo", "/blacklist", "/whitelist", fs, []string{"/repo/c.json"}, []string{"/repo/a/b/c.yaml"}, nil}
+	createAndAssert(t, tc)
+
 }
 
 func createAndAssert(t *testing.T, tc testCase) {

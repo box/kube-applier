@@ -36,6 +36,23 @@ func (f *Factory) Create() ([]string, []string, []string, error) {
 	return applyList, blacklist, whitelist, nil
 }
 
+// purgeCommentsFromList iterates over the list contents and deletes comment
+// lines. A comment is a line whose first non-space character is #
+func (f *Factory) purgeCommentsFromList(rawList []string) []string {
+
+	// http://stackoverflow.com/a/20551116/5771861
+	i := 0
+	for _, l := range rawList {
+		// # is the comment line
+		if len(l) > 0 && string(l[0]) != "#" {
+			rawList[i] = l
+			i++
+		}
+	}
+	rv := rawList[:i]
+	return rv
+}
+
 // createFilelist reads lines from the given file, converts the relative
 // paths to full paths, and returns a sorted list of full paths.
 func (f *Factory) createFileList(listFilePath string) ([]string, error) {
@@ -46,7 +63,10 @@ func (f *Factory) createFileList(listFilePath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	list := prependToEachPath(f.RepoPath, rawList)
+
+	filteredList := f.purgeCommentsFromList(rawList)
+
+	list := prependToEachPath(f.RepoPath, filteredList)
 	sort.Strings(list)
 	return list, nil
 }
