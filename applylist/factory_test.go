@@ -69,9 +69,8 @@ func TestPurgeComments(t *testing.T) {
 	f := &Factory{"", "", "", fs}
 	for _, td := range testData {
 
-		rv, err := f.purgeCommentsFromList(td.rawList)
+		rv := f.purgeCommentsFromList(td.rawList)
 		assert.Equal(rv, td.expectedReturn)
-		assert.Equal(err, nil)
 	}
 }
 

@@ -38,7 +38,7 @@ func (f *Factory) Create() ([]string, []string, []string, error) {
 
 // purgeCommentsFromList iterates over the list contents and deletes comment
 // lines. A comment is a line whose first non-space character is #
-func (f *Factory) purgeCommentsFromList(rawList []string) ([]string, error) {
+func (f *Factory) purgeCommentsFromList(rawList []string) []string {
 
 	// http://stackoverflow.com/a/20551116/5771861
 	i := 0
@@ -50,7 +50,7 @@ func (f *Factory) purgeCommentsFromList(rawList []string) ([]string, error) {
 		}
 	}
 	rv := rawList[:i]
-	return rv, nil
+	return rv
 }
 
 // createFilelist reads lines from the given file, converts the relative
@@ -64,10 +64,7 @@ func (f *Factory) createFileList(listFilePath string) ([]string, error) {
 		return nil, err
 	}
 
-	filteredList, err := f.purgeCommentsFromList(rawList)
-	if err != nil {
-		return nil, err
-	}
+	filteredList := f.purgeCommentsFromList(rawList)
 
 	list := prependToEachPath(f.RepoPath, filteredList)
 	sort.Strings(list)
