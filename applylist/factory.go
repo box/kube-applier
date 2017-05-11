@@ -110,7 +110,7 @@ func (f *Factory) createApplyList(blacklist, whitelist []string) ([]string, erro
 // 1. File path is not a .json or .yaml file
 // 2. File path is matched against an entry in the blacklist
 // 3. File path is not explicitly listed in the whitelist
-func shouldApplyPath(path string, blacklist []string, whitelistMap map[string]struct{}) bool {
+func shouldApplyPath(path string, blacklist []string, whitelist []string) bool {
 	inBlacklist := false
 	for _, regexPath := range blacklist {
 		if matched, err := regexp.MatchString(regexPath, path); err == nil {
@@ -124,22 +124,32 @@ func shouldApplyPath(path string, blacklist []string, whitelistMap map[string]st
 	}
 
 	// If whitelist is empty, essentially there is no whitelist.
-	inWhiteList := len(whitelistMap) == 0
-	if !inWhiteList {
-		_, inWhiteList = whitelistMap[path]
+	inWhitelist := len(whitelist) == 0
+	if !inWhitelist {
+		for _, regexPath := range whitelist {
+			if matched, err := regexp.MatchString(regexPath, path); err == nil {
+				if matched {
+					inWhitelist = true
+					break
+				}
+			} else {
+				log.Printf("Error in regular expression: %v", err)
+			}
+		}
 	}
+
 	ext := filepath.Ext(path)
-	return inWhiteList && !inBlacklist && (ext == ".json" || ext == ".yaml")
+	return inWhitelist && !inBlacklist && (ext == ".json" || ext == ".yaml")
 }
 
 // filter iterates through the list of all files in the repo and filters it
 // down to a list of those that should be applied.
 func filter(rawApplyList, blacklist, whitelist []string) []string {
-	whitelistMap := stringSliceToMap(whitelist)
+	//whitelistMap := stringSliceToMap(whitelist)
 
 	applyList := []string{}
 	for _, filePath := range rawApplyList {
-		if shouldApplyPath(filePath, blacklist, whitelistMap) {
+		if shouldApplyPath(filePath, blacklist, whitelist) {
 			applyList = append(applyList, filePath)
 		}
 	}
