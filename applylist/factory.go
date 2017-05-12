@@ -68,23 +68,14 @@ func (f *Factory) createFileList(listFilePath string) ([]string, error) {
 
 	filteredList := f.purgeCommentsFromList(rawList)
 
-	list := prependToEachPath(f.RepoPath, filteredList)
-	sort.Strings(list)
-	return list, nil
+	sort.Strings(filteredList)
+	return filteredList, nil
 }
 
 // createBlacklist reads lines from the blacklist file, converts the relative
 // paths to full paths, and returns a sorted list of full paths.
 func (f *Factory) createBlacklist() ([]string, error) {
-	if f.BlacklistPath == "" {
-		return []string{}, nil
-	}
-	rawList, err := f.FileSystem.ReadLines(f.BlacklistPath)
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(rawList)
-	return rawList, nil
+	return f.createFileList(f.BlacklistPath)
 }
 
 // createWhitelist reads lines from the whitelist file, converts the relative
