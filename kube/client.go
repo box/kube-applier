@@ -30,10 +30,12 @@ var pruneWhitelist = []string{
 	"core/v1/ConfigMap",
 	"core/v1/Pod",
 	"core/v1/Service",
+	"core/v1/ServiceAccount",
 	"batch/v1/Job",
 	"extensions/v1beta1/DaemonSet",
 	"extensions/v1beta1/Deployment",
 	"extensions/v1beta1/Ingress",
+	"extensions/v1beta1/NetworkPolicy",
 	"apps/v1beta1/StatefulSet",
 	"autoscaling/v1/HorizontalPodAutoscaler",
 }
