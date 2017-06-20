@@ -29,9 +29,7 @@ const (
 var pruneWhitelist = []string{
 	"core/v1/ConfigMap",
 	"core/v1/Namespace",
-	"core/v1/PersistentVolumeClaim",
 	"core/v1/Pod",
-	"core/v1/Secret",
 	"core/v1/Service",
 	"core/v1/ServiceAccount",
 	"batch/v1/Job",
@@ -41,10 +39,6 @@ var pruneWhitelist = []string{
 	"extensions/v1beta1/NetworkPolicy",
 	"apps/v1beta1/StatefulSet",
 	"autoscaling/v1/HorizontalPodAutoscaler",
-	"rbac/v1beta1/Role",
-	"rbac/v1beta1/RoleBinding",
-	"rbac/v1beta1/ClusterRole",
-	"rbac/v1beta1/ClusterRoleBinding",
 }
 
 type AutomaticDeploymentOption string
