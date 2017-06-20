@@ -28,14 +28,23 @@ const (
 //todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
 var pruneWhitelist = []string{
 	"core/v1/ConfigMap",
+	"core/v1/Namespace",
+	"core/v1/PersistentVolumeClaim",
 	"core/v1/Pod",
+	"core/v1/Secret",
 	"core/v1/Service",
+	"core/v1/ServiceAccount",
 	"batch/v1/Job",
 	"extensions/v1beta1/DaemonSet",
 	"extensions/v1beta1/Deployment",
 	"extensions/v1beta1/Ingress",
+	"extensions/v1beta1/NetworkPolicy",
 	"apps/v1beta1/StatefulSet",
 	"autoscaling/v1/HorizontalPodAutoscaler",
+	"rbac/v1beta1/Role",
+	"rbac/v1beta1/RoleBinding",
+	"rbac/v1beta1/ClusterRole",
+	"rbac/v1beta1/ClusterRoleBinding",
 }
 
 type AutomaticDeploymentOption string
