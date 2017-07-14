@@ -58,11 +58,17 @@ func main() {
 	batchApplier := &run.BatchApplier{kubeClient, metrics}
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
-	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem, gitUtil}
+	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem}
 
-	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
+	// Webserver and scheduler send run requests to FullRunQueue channel.
+	// Runner receives the requests and initiates full runs.
 	// Only 1 pending request may sit in the queue at a time.
-	runQueue := make(chan bool, 1)
+	fullRunQueue := make(chan bool, 1)
+
+	// When a new Git commit comes in, scheduler sends the commit hash to QuickRunQueue channel.
+	// Runner receives the hash and initiates a quick run, using the hash for a diff.
+	// Only 1 pending request may sit in the queue at a time.
+	quickRunQueue := make(chan string, 1)
 
 	// Runner sends run results to runResults channel, webserver receives the results and displays them.
 	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
@@ -72,6 +78,15 @@ func main() {
 	// No limit needed, as a single fatal error will exit the program anyway.
 	errors := make(chan error)
 
+	// runCount keeps a count of total runs and used as a run ID for logging purposes.
+	// Implementing as an unbuffered channel allows for blocking on both sides.
+	// The counter will block on incrementing until some run pops the current count.
+	// The runner will block on popping the current count until it is updated.
+	runCount := make(chan int)
+
+	pollTicker := time.Tick(pollInterval)
+	fullRunTicker := time.Tick(fullRunInterval)
+
 	runner := &run.Runner{
 		batchApplier,
 		listFactory,
@@ -79,15 +94,20 @@ func main() {
 		clock,
 		metrics,
 		diffURLFormat,
-		runQueue,
+		"",
+		quickRunQueue,
+		fullRunQueue,
 		runResults,
 		errors,
+		runCount,
 	}
-	scheduler := &run.Scheduler{gitUtil, pollInterval, fullRunInterval, runQueue, errors}
-	webserver := &webserver.WebServer{listenPort, clock, metrics.GetHandler(), runQueue, runResults, errors}
+	scheduler := &run.Scheduler{gitUtil, pollTicker, fullRunTicker, quickRunQueue, fullRunQueue, errors, ""}
+	webserver := &webserver.WebServer{listenPort, clock, metrics.GetHandler(), fullRunQueue, runResults, errors}
 
 	go scheduler.Start()
-	go runner.Start()
+	go runner.StartRunCounter()
+	go runner.StartQuickLoop()
+	go runner.StartFullLoop()
 	go webserver.Start()
 
 	for err := range errors {

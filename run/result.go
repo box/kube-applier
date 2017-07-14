@@ -9,6 +9,7 @@ import (
 // Result stores the data from a single run of the apply loop.
 // The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
 type Result struct {
+	RunID         int
 	Start         time.Time
 	Finish        time.Time
 	CommitHash    string

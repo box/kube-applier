@@ -1,7 +1,6 @@
 package applylist
 
 import (
-	"github.com/box/kube-applier/git"
 	"github.com/box/kube-applier/sysutil"
 	"path/filepath"
 	"sort"
@@ -9,7 +8,7 @@ import (
 
 // FactoryInterface allows for mocking out the functionality of Factory when testing the full process of an apply run.
 type FactoryInterface interface {
-	Create() ([]string, []string, []string, error)
+	Create([]string) (applyList, blacklist, whitelist []string, err error)
 }
 
 // Factory handles constructing the list of files to apply and the blacklist.
@@ -18,23 +17,21 @@ type Factory struct {
 	BlacklistPath string
 	WhitelistPath string
 	FileSystem    sysutil.FileSystemInterface
-	GitUtil       git.GitUtilInterface
 }
 
-// Create returns two alphabetically sorted lists: the list of files to apply, and the blacklist of files to skip.
-func (f *Factory) Create() ([]string, []string, []string, error) {
-	blacklist, err := f.createBlacklist()
+// Create takes in a preliminary list of candidate files for applying, and filters against the blacklist and whitelist.
+// Three alphabetically sorted lists are returned: the final list of files to apply, the blacklist, and the whitelist.
+func (f *Factory) Create(rawList []string) (applyList, blacklist, whitelist []string, err error) {
+	blacklist, err = f.createBlacklist()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	whitelist, err := f.createWhitelist()
+	whitelist, err = f.createWhitelist()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	applyList, err := f.createApplyList(blacklist, whitelist)
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	applyList = filter(rawList, blacklist, whitelist)
+	sort.Strings(applyList)
 	return applyList, blacklist, whitelist, nil
 }
 
@@ -68,7 +65,7 @@ func (f *Factory) createFileList(listFilePath string) ([]string, error) {
 
 	filteredList := f.purgeCommentsFromList(rawList)
 
-	list := prependToEachPath(f.RepoPath, filteredList)
+	list := PrependToEachPath(f.RepoPath, filteredList)
 	sort.Strings(list)
 	return list, nil
 }
@@ -83,19 +80,6 @@ func (f *Factory) createBlacklist() ([]string, error) {
 // paths to full paths, and returns a sorted list of full paths.
 func (f *Factory) createWhitelist() ([]string, error) {
 	return f.createFileList(f.WhitelistPath)
-}
-
-// createApplyList gets all files within the repo directory and returns a
-// filtered and sorted list of full paths.
-func (f *Factory) createApplyList(blacklist, whitelist []string) ([]string, error) {
-	rawApplyListRelative, err := f.GitUtil.ListAllFiles()
-	if err != nil {
-		return nil, err
-	}
-	rawApplyList := prependToEachPath(f.RepoPath, rawApplyListRelative)
-	applyList := filter(rawApplyList, blacklist, whitelist)
-	sort.Strings(applyList)
-	return applyList, nil
 }
 
 // shouldApplyPath returns true if file path should be applied, false otherwise.

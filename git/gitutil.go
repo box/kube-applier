@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"github.com/box/kube-applier/applylist"
 	"os/exec"
 	"strings"
 )
@@ -9,8 +10,9 @@ import (
 // GitUtilInterface allows for mocking out the functionality of GitUtil when testing the full process of an apply run.
 type GitUtilInterface interface {
 	HeadHash() (string, error)
-	HeadCommitLog() (string, error)
 	ListAllFiles() ([]string, error)
+	CommitLog(string) (string, error)
+	ListDiffFiles(string, string) ([]string, error)
 }
 
 // GitUtil allows for fetching information about a Git repository using Git CLI commands.
@@ -24,9 +26,9 @@ func (g *GitUtil) HeadHash() (string, error) {
 	return strings.TrimSuffix(hash, "\n"), err
 }
 
-// HeadCommitLog returns the log of the current HEAD commit, including a list of the files that were modified.
-func (g *GitUtil) HeadCommitLog() (string, error) {
-	log, err := runGitCmd(g.RepoPath, "log", "-1", "--name-status")
+// CommitLog returns the log of the specified commit, including a list of the files that were modified.
+func (g *GitUtil) CommitLog(hash string) (string, error) {
+	log, err := runGitCmd(g.RepoPath, "log", "-1", "--name-status", hash)
 	return log, err
 }
 
@@ -36,8 +38,24 @@ func (g *GitUtil) ListAllFiles() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	files := strings.Split(raw, "\n")
-	return files, nil
+	relativePaths := strings.Split(raw, "\n")
+	fullPaths := applylist.PrependToEachPath(g.RepoPath, relativePaths)
+	return fullPaths, nil
+}
+
+// ListDiffFiles returns the file names that were added, modified, copied, or renamed.
+// Deletes are ignored because kube-applier should not apply files deleted by a commit.
+func (g *GitUtil) ListDiffFiles(oldHash, newHash string) ([]string, error) {
+	raw, err := runGitCmd(g.RepoPath, "diff", "--diff-filter=AMCR", "--name-only", "--relative", oldHash, newHash)
+	if err != nil {
+		return nil, err
+	}
+	if raw == "" {
+		return []string{}, nil
+	}
+	relativePaths := strings.Split(raw, "\n")
+	fullPaths := applylist.PrependToEachPath(g.RepoPath, relativePaths)
+	return fullPaths, nil
 }
 
 func runGitCmd(dir string, args ...string) (string, error) {

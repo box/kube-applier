@@ -16,7 +16,7 @@ type ApplyAttempt struct {
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
 type BatchApplierInterface interface {
-	Apply([]string) ([]ApplyAttempt, []ApplyAttempt)
+	Apply(int, []string) (successes []ApplyAttempt, failures []ApplyAttempt)
 }
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
@@ -25,27 +25,27 @@ type BatchApplier struct {
 	Metrics    metrics.PrometheusInterface
 }
 
-// Apply takes a list of files and attempts an apply command on each.
+// Apply takes a list of files and attempts an apply command on each, labeling logs with the run ID.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
-func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt) {
+func (a *BatchApplier) Apply(id int, applyList []string) (successes []ApplyAttempt, failures []ApplyAttempt) {
 	if err := a.KubeClient.CheckVersion(); err != nil {
 		log.Fatal(err)
 	}
 
-	successes := []ApplyAttempt{}
-	failures := []ApplyAttempt{}
+	successes = []ApplyAttempt{}
+	failures = []ApplyAttempt{}
 	for _, path := range applyList {
-		log.Printf("Applying file %v", path)
+		log.Printf("RUN %v: Applying file %v", id, path)
 		cmd, output, err := a.KubeClient.Apply(path)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
 			successes = append(successes, appliedFile)
-			log.Printf("%v\n%v", cmd, output)
+			log.Printf("RUN %v: %v\n%v", id, cmd, output)
 		} else {
 			appliedFile.ErrorMessage = err.Error()
 			failures = append(failures, appliedFile)
-			log.Printf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage)
+			log.Printf("RUN %v: %v\n%v\n%v", id, cmd, output, appliedFile.ErrorMessage)
 		}
 		a.Metrics.UpdateFileSuccess(path, success)
 	}
