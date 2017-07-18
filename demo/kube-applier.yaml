@@ -1,0 +1,123 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kube-applier
+  namespace: kube-system
+  labels:
+    app: kube-applier
+spec:
+  rules:
+  - host: kube-applier-my-team.dev.uw.systems
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kube-applier
+          servicePort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/path: /__/metrics
+    prometheus.io/port: '8080'
+  name: kube-applier
+  namespace: kube-system
+  labels:
+    app: kube-applier
+spec:
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  selector:
+    app: kube-applier
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kube-applier
+  namespace: kube-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        uw/scmRepository: https://github.com/utilitywarehouse/kube-applier
+      labels:
+        app: kube-applier
+    spec:
+      containers:
+      - name: kube-applier
+        image: utilitywarehouse/kube-applier:latest
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: git-repo
+          mountPath: /kubernetes-manifests
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 500m
+            memory: 200Mi
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REPO_PATH
+          value: "/kubernetes-manifests/repo/experimental/my-namespace"
+        - name: LISTEN_PORT
+          value: "8080"
+        - name: DIFF_URL_FORMAT
+          value: "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
+        - name: DRY_RUN
+          value: "false"
+        - name: LABEL
+          value: automaticDeployment
+      - name: git-sync
+        image: gcr.io/google_containers/git-sync-amd64:v2.0.4
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 0
+        command:
+         - /bin/sh
+         - -c
+         - apk add --no-cache go && export GOPATH=/go && export GOBIN=$GOPATH/bin && git clone git@github.com:uw-labs/strongbox.git && cd strongbox && go get .&& go build -ldflags '-s -extldflags "-static"' -o /usr/local/bin/strongbox && /git-sync
+        volumeMounts:
+        - name: git-repo
+          mountPath: /git
+        - name: git-secret
+          mountPath: /etc/git-secret
+        - name: strongbox-secret
+          mountPath: /root
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 500m
+            memory: 200Mi
+        env:
+        - name: GIT_SYNC_REPO
+          value: "git@github.com:utilitywarehouse/kubernetes-manifests.git"
+        - name: GIT_SYNC_SSH
+          value: "true"
+        - name: GIT_SYNC_BRANCH
+          value: "master"
+        - name: GIT_SYNC_DEST
+          value: "repo"
+        - name: GIT_SYNC_ROOT
+          value: "/git"
+      volumes:
+      - name: git-repo
+        emptyDir: {}
+      - name: git-secret
+        secret:
+          secretName: github-secret-ssh
+          defaultMode: 0400
+      - name: strongbox-secret
+        secret:
+          secretName: stronbox-secret-keys
+          defaultMode: 0400
