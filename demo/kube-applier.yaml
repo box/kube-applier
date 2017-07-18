@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: kube-applier
-  namespace: kube-system
+  namespace: my-team
   labels:
     app: kube-applier
 spec:
@@ -23,7 +23,7 @@ metadata:
     prometheus.io/path: /__/metrics
     prometheus.io/port: '8080'
   name: kube-applier
-  namespace: kube-system
+  namespace: my-team
   labels:
     app: kube-applier
 spec:
@@ -35,11 +35,17 @@ spec:
   selector:
     app: kube-applier
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-applier
+  namespace: my-team
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: kube-applier
-  namespace: kube-system
+  namespace: my-team
 spec:
   replicas: 1
   template:
@@ -49,10 +55,10 @@ spec:
       labels:
         app: kube-applier
     spec:
+      serviceAccountName: kube-applier
       containers:
       - name: kube-applier
         image: utilitywarehouse/kube-applier:latest
-        imagePullPolicy: Always
         volumeMounts:
         - name: git-repo
           mountPath: /kubernetes-manifests
@@ -66,8 +72,12 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: REPO_PATH
-          value: "/kubernetes-manifests/repo/experimental/my-namespace"
+          value: "/kubernetes-manifests/repo/experimental"
         - name: LISTEN_PORT
           value: "8080"
         - name: DIFF_URL_FORMAT

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,10 +31,15 @@ const (
 func main() {
 
 	app := cli.App(webserver.AppName, webserver.AppDescription)
-	repoPath := app.String(cli.StringOpt{
-		Name:   "repo-path",
-		Desc:   "Git repo path",
-		EnvVar: "REPO_PATH",
+	basePath := app.String(cli.StringOpt{
+		Name:   "base-path",
+		Desc:   "Git repo base path",
+		EnvVar: "BASE_PATH",
+	})
+	namespace := app.String(cli.StringOpt{
+		Name:   "namespace",
+		Desc:   "Namespace kube-applier operates on",
+		EnvVar: "NAMESPACE",
 	})
 	listenPort := app.Int(cli.IntOpt{
 		Name:   "listenport",
@@ -81,20 +87,27 @@ func main() {
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
 		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat)
 	}
+
+	if *basePath == "" || *namespace == "" {
+		log.Fatalf("Must provide base-path and namespace")
+	}
+
+	repoPath := filepath.Join(*basePath, *namespace)
+
 	app.Action = func() {
 		metrics := &metrics.Prometheus{}
 		metrics.Init()
 
 		clock := &sysutil.Clock{}
 
-		if err := sysutil.WaitForDir(*repoPath, clock, waitForRepoInterval); err != nil {
+		if err := sysutil.WaitForDir(repoPath, clock, waitForRepoInterval); err != nil {
 			log.Fatal(err)
 		}
 
 		kubeClient := &kube.Client{Server: *server, Label: *label}
 		kubeClient.Configure()
 		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Metrics: metrics}
-		gitUtil := &git.GitUtil{*repoPath}
+		gitUtil := &git.GitUtil{repoPath}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 		// Only 1 pending request may sit in the queue at a time.
@@ -109,7 +122,7 @@ func main() {
 		errors := make(chan error)
 
 		runner := &run.Runner{
-			RepoPath:      *repoPath,
+			RepoPath:      repoPath,
 			BatchApplier:  batchApplier,
 			GitUtil:       gitUtil,
 			Clock:         clock,
