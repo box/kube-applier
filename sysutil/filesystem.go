@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -13,7 +12,6 @@ import (
 // FileSystemInterface allows for mocking out the functionality of FileSystem to avoid calls to the actual file system during testing.
 type FileSystemInterface interface {
 	ReadLines(filePath string) ([]string, error)
-	ListAllFiles(rootPath string) ([]string, error)
 }
 
 // FileSystem provides utility functions for interacting with the file system.
@@ -34,26 +32,6 @@ func (fs *FileSystem) ReadLines(filePath string) ([]string, error) {
 	}
 	if err := s.Err(); err != nil {
 		return nil, fmt.Errorf("Error reading the file at %v: %v", filePath, err)
-	}
-	return result, nil
-}
-
-// ListAllFiles walks the directory tree rooted at the path and adds all
-// non-directory file paths to a []string.
-func (fs *FileSystem) ListAllFiles(rootPath string) ([]string, error) {
-	var result []string
-	err := filepath.Walk(rootPath,
-		func(path string, f os.FileInfo, e error) error {
-			if e != nil {
-				return e
-			}
-			if !f.IsDir() {
-				result = append(result, path)
-			}
-			return nil
-		})
-	if err != nil {
-		return nil, fmt.Errorf("Error walking the directory tree rooted at %v: %v", rootPath, err)
 	}
 	return result, nil
 }

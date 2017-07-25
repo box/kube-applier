@@ -58,7 +58,7 @@ func main() {
 	batchApplier := &run.BatchApplier{kubeClient, metrics}
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
-	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem}
+	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem, gitUtil}
 
 	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 	// Only 1 pending request may sit in the queue at a time.
