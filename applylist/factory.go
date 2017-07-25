@@ -1,6 +1,7 @@
 package applylist
 
 import (
+	"github.com/box/kube-applier/git"
 	"github.com/box/kube-applier/sysutil"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ type Factory struct {
 	BlacklistPath string
 	WhitelistPath string
 	FileSystem    sysutil.FileSystemInterface
+	GitUtil       git.GitUtilInterface
 }
 
 // Create returns two alphabetically sorted lists: the list of files to apply, and the blacklist of files to skip.
@@ -86,10 +88,11 @@ func (f *Factory) createWhitelist() ([]string, error) {
 // createApplyList gets all files within the repo directory and returns a
 // filtered and sorted list of full paths.
 func (f *Factory) createApplyList(blacklist, whitelist []string) ([]string, error) {
-	rawApplyList, err := f.FileSystem.ListAllFiles(f.RepoPath)
+	rawApplyListRelative, err := f.GitUtil.ListAllFiles()
 	if err != nil {
 		return nil, err
 	}
+	rawApplyList := prependToEachPath(f.RepoPath, rawApplyListRelative)
 	applyList := filter(rawApplyList, blacklist, whitelist)
 	sort.Strings(applyList)
 	return applyList, nil

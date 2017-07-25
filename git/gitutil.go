@@ -10,6 +10,7 @@ import (
 type GitUtilInterface interface {
 	HeadHash() (string, error)
 	HeadCommitLog() (string, error)
+	ListAllFiles() ([]string, error)
 }
 
 // GitUtil allows for fetching information about a Git repository using Git CLI commands.
@@ -27,6 +28,16 @@ func (g *GitUtil) HeadHash() (string, error) {
 func (g *GitUtil) HeadCommitLog() (string, error) {
 	log, err := runGitCmd(g.RepoPath, "log", "-1", "--name-status")
 	return log, err
+}
+
+// ListAllFiles returns a list of all files under $REPO_PATH, with paths relative to $REPO_PATH.
+func (g *GitUtil) ListAllFiles() ([]string, error) {
+	raw, err := runGitCmd(g.RepoPath, "ls-files")
+	if err != nil {
+		return nil, err
+	}
+	files := strings.Split(raw, "\n")
+	return files, nil
 }
 
 func runGitCmd(dir string, args ...string) (string, error) {
