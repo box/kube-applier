@@ -6,7 +6,11 @@ kube-applier is a service that enables continuous deployment of Kubernetes objec
 
 kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-the-git-repository) to ensure that the cluster objects are up-to-date with their associated spec files (JSON or YAML) in the repo.
 
-Whenever a new commit to the repo occurs, or at a [specified interval](#run-interval), kube-applier performs a "run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands for all JSON and YAML files within the repo.
+At a [specified interval](#run-interval), kube-applier performs a "full run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands for all JSON and YAML files within the repo.
+
+When a new commit to the repo occurs, kube-applier performs a "quick run", issuing apply commands only for files that have changed since the last run.
+
+Quick runs and full runs are handled separately and concurrently.
 
 kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics) for monitoring.
 
@@ -39,11 +43,11 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 ### Environment Variables
 
 **Required:**
-* `REPO_PATH` - (string) Absolute path to the directory containing
-* configuration files to be applied. It must be a Git repository or a path
-* within one. All .json and .yaml files within this directory (and its
-* subdirectories) will be applied, unless listed on the blacklist or excluded
-* from the whitelist.
+* `REPO_PATH` - (string) Absolute path to the directory containing configuration files to be applied.
+It must be a Git repository or a path
+within one. All .json and .yaml files within this directory (and its
+subdirectories) will be applied, unless listed on the blacklist or excluded
+from the whitelist.
 * `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
@@ -57,24 +61,17 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
  set to `/git/repo`, and the file to be blacklisted is
  `/git/repo/apps/app1.json`, the line in the blacklist file should be
  `apps/app1.json`).
-* `WHITELIST_PATH` - (string) Path to a "whiltelist" file which is used to
+* `WHITELIST_PATH` - (string) Path to a "whitelist" file which is used to
  make the applier consider a specific subset of files from the repo.
  Only the files listed in the whitelist file will be considered for apply.
  Empty whitelist (or unset env var) means all files in repo are eligible to be applied.
  In case of a file is listed in both the whitelist and the blacklist, the file is
  not applied.
- This path should be absolute (e.g.
- `/k8s/conf/kube_applier_whitelist`), not relative to `REPO_PATH` (although
- you may want to check the whitelist file into the repo). The whitelist file
- itself should be a plaintext file, with a file path on each line. Each of
- these paths should be relative to `REPO_PATH` (for example, if `REPO_PATH` is
- set to `/git/repo`, and the file to be whitelisted is
- `/git/repo/apps/app1.json`, the line in the whiltelist file should be
- `apps/app1.json`).
+ The environment variable and file itself should formatted the same as for the blacklist above.
 
 ---
 **NOTE**
-The blacklist and whiltelist files support line comments.
+The blacklist and whitelist files support line comments.
 A single line gets ignored if the first non-blank character is # in that line.
 
 ---

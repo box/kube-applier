@@ -24,11 +24,13 @@ func TestBatchApplierApply(t *testing.T) {
 
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
+	runCount := 0
 
 	// Empty apply list
 	tc := batchTestCase{kubeClient, metrics, []string{}, []ApplyAttempt{}, []ApplyAttempt{}}
 	expectCheckVersionAndReturnNil(kubeClient)
-	applyAndAssert(t, tc)
+	applyAndAssert(t, runCount, tc)
+	runCount++
 
 	// All files succeed
 	applyList := []string{"file1", "file2", "file3"}
@@ -47,7 +49,8 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file3", "cmd file3", "output file3", ""},
 	}
 	tc = batchTestCase{kubeClient, metrics, applyList, successes, []ApplyAttempt{}}
-	applyAndAssert(t, tc)
+	applyAndAssert(t, runCount, tc)
+	runCount++
 
 	// All files fail
 	applyList = []string{"file1", "file2", "file3"}
@@ -66,7 +69,8 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file3", "cmd file3", "output file3", "error file3"},
 	}
 	tc = batchTestCase{kubeClient, metrics, applyList, []ApplyAttempt{}, failures}
-	applyAndAssert(t, tc)
+	applyAndAssert(t, runCount, tc)
+	runCount++
 
 	// Some successes, some failures
 	applyList = []string{"file1", "file2", "file3", "file4"}
@@ -90,7 +94,8 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file4", "cmd file4", "output file4", "error file4"},
 	}
 	tc = batchTestCase{kubeClient, metrics, applyList, successes, failures}
-	applyAndAssert(t, tc)
+	applyAndAssert(t, runCount, tc)
+	runCount++
 }
 
 func expectCheckVersionAndReturnNil(kubeClient *kube.MockClientInterface) *gomock.Call {
@@ -113,10 +118,10 @@ func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) 
 	return metrics.EXPECT().UpdateFileSuccess(file, false).Times(1)
 }
 
-func applyAndAssert(t *testing.T, tc batchTestCase) {
+func applyAndAssert(t *testing.T, runCount int, tc batchTestCase) {
 	assert := assert.New(t)
 	ba := BatchApplier{tc.kubeClient, tc.metrics}
-	successes, failures := ba.Apply(tc.applyList)
+	successes, failures := ba.Apply(runCount, tc.applyList)
 	assert.Equal(tc.expectedSuccesses, successes)
 	assert.Equal(tc.expectedFailures, failures)
 }

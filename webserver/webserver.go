@@ -16,7 +16,7 @@ type WebServer struct {
 	ListenPort     int
 	Clock          sysutil.ClockInterface
 	MetricsHandler http.Handler
-	RunQueue       chan<- bool
+	FullRunQueue   chan<- bool
 	RunResults     <-chan run.Result
 	Errors         chan<- error
 }
@@ -50,12 +50,12 @@ func handleTemplateError(w http.ResponseWriter, err error, clock sysutil.ClockIn
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- bool
+	FullRunQueue chan<- bool
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
 func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Print("Force run requested.")
+	log.Print("Full run requested by webserver.")
 	var data struct {
 		Result  string `json:"result"`
 		Message string `json:"message"`
@@ -64,10 +64,10 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		select {
-		case f.RunQueue <- true:
-			log.Print("Run queued.")
+		case f.FullRunQueue <- true:
+			log.Print("Full run queued.")
 		default:
-			log.Print("Run queue is already full.")
+			log.Print("Full run queue is already full.")
 		}
 		data.Result = "success"
 		data.Message = "Run queued, will begin upon completion of current run."
@@ -90,7 +90,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 4. Endpoint for forcing a run
 func (ws *WebServer) Start() {
 	log.Println("Launching webserver")
-	lastRun := &run.Result{}
+	lastRun := &run.Result{RunID: -1}
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
 	if err != nil {
@@ -102,12 +102,17 @@ func (ws *WebServer) Start() {
 	http.Handle("/", statusPageHandler)
 	http.Handle("/metrics", ws.MetricsHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	forceRunHandler := &ForceRunHandler{ws.RunQueue}
+	forceRunHandler := &ForceRunHandler{ws.FullRunQueue}
 	http.Handle("/api/v1/forceRun", forceRunHandler)
 
 	go func() {
 		for result := range ws.RunResults {
-			*lastRun = result
+			// If the new result is from a run that started later than the currently displayed run, update the page.
+			// Otherwise, a run with info from an older commit might replace a newer commit.
+			if result.RunID > lastRun.RunID {
+				log.Printf("Updating status page with info from Run %v.", result.RunID)
+				*lastRun = result
+			}
 		}
 	}()
 
