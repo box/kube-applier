@@ -1,21 +1,17 @@
 package metrics
 
 import (
+	"github.com/box/kube-applier/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strconv"
 )
 
-// PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
-type PrometheusInterface interface {
-	UpdateFileSuccess(string, bool)
-	UpdateRunLatency(float64, bool)
-}
-
 // Prometheus implements instrumentation of metrics for kube-applier.
 // fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
 // runLatency is a Summary vector that keeps track of the duration for apply runs.
 type Prometheus struct {
+	RunMetrics     <-chan run.Result
 	fileApplyCount *prometheus.CounterVec
 	runLatency     *prometheus.SummaryVec
 }
@@ -25,8 +21,8 @@ func (p *Prometheus) GetHandler() http.Handler {
 	return prometheus.UninstrumentedHandler()
 }
 
-// Init creates and registers the custom metrics for kube-applier.
-func (p *Prometheus) Init() {
+// Configure creates and registers the custom metrics for kube-applier, and starts a loop to receive run results.
+func (p *Prometheus) Configure() {
 	p.fileApplyCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "file_apply_count",
 		Help: "Success metric for every file applied",
@@ -45,6 +41,8 @@ func (p *Prometheus) Init() {
 		[]string{
 			// Result: true if the run was successful, false otherwise
 			"success",
+			// FullRun or QuickRun
+			"run_type",
 		},
 	)
 
@@ -52,16 +50,26 @@ func (p *Prometheus) Init() {
 	prometheus.MustRegister(p.runLatency)
 }
 
-// UpdateFileSuccess increments the given file's Counter for either successful apply attempts or failed apply attempts.
-func (p *Prometheus) UpdateFileSuccess(file string, success bool) {
-	p.fileApplyCount.With(prometheus.Labels{
-		"file": file, "success": strconv.FormatBool(success),
-	}).Inc()
+// StartMetricsLoop receives from the RunMetrics channel and calls processResult when a run result comes in.
+func (p *Prometheus) StartMetricsLoop() {
+	for result := range p.RunMetrics {
+		p.processResult(result)
+	}
 }
 
-// UpdateRunLatency adds a data point (latency of the most recent run) to the run_latency_seconds Summary metric, with a tag indicating whether or not the run was successful.
-func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
+// processResult parses a run result for info and updates the metrics (file_apply_count and run_latency_seconds).
+func (p *Prometheus) processResult(result run.Result) {
+	runSuccess := len(result.Failures) == 0
+	runType := result.RunType
+	latency := result.Finish.Sub(result.Start).Seconds()
+	for _, successFile := range result.Successes {
+		p.fileApplyCount.With(prometheus.Labels{"file": successFile.FilePath, "success": "true"}).Inc()
+	}
+	for _, failureFile := range result.Failures {
+		p.fileApplyCount.With(prometheus.Labels{"file": failureFile.FilePath, "success": "false"}).Inc()
+	}
 	p.runLatency.With(prometheus.Labels{
-		"success": strconv.FormatBool(success),
-	}).Observe(runLatency)
+		"success":  strconv.FormatBool(runSuccess),
+		"run_type": string(runType),
+	}).Observe(latency)
 }

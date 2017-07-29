@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 	"github.com/box/kube-applier/kube"
-	"github.com/box/kube-applier/metrics"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -11,7 +10,6 @@ import (
 
 type batchTestCase struct {
 	kubeClient kube.ClientInterface
-	metrics    metrics.PrometheusInterface
 	applyList  []string
 
 	expectedSuccesses []ApplyAttempt
@@ -23,11 +21,10 @@ func TestBatchApplierApply(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
-	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 	runCount := 0
 
 	// Empty apply list
-	tc := batchTestCase{kubeClient, metrics, []string{}, []ApplyAttempt{}, []ApplyAttempt{}}
+	tc := batchTestCase{kubeClient, []string{}, []ApplyAttempt{}, []ApplyAttempt{}}
 	expectCheckVersionAndReturnNil(kubeClient)
 	applyAndAssert(t, runCount, tc)
 	runCount++
@@ -37,18 +34,15 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectApplyAndReturnSuccess("file1", kubeClient),
-		expectSuccessMetric("file1", metrics),
 		expectApplyAndReturnSuccess("file2", kubeClient),
-		expectSuccessMetric("file2", metrics),
 		expectApplyAndReturnSuccess("file3", kubeClient),
-		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", ""},
 		{"file2", "cmd file2", "output file2", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	tc = batchTestCase{kubeClient, metrics, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{kubeClient, applyList, successes, []ApplyAttempt{}}
 	applyAndAssert(t, runCount, tc)
 	runCount++
 
@@ -57,18 +51,15 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectApplyAndReturnFailure("file1", kubeClient),
-		expectFailureMetric("file1", metrics),
 		expectApplyAndReturnFailure("file2", kubeClient),
-		expectFailureMetric("file2", metrics),
 		expectApplyAndReturnFailure("file3", kubeClient),
-		expectFailureMetric("file3", metrics),
 	)
 	failures := []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", "error file1"},
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file3", "cmd file3", "output file3", "error file3"},
 	}
-	tc = batchTestCase{kubeClient, metrics, applyList, []ApplyAttempt{}, failures}
+	tc = batchTestCase{kubeClient, applyList, []ApplyAttempt{}, failures}
 	applyAndAssert(t, runCount, tc)
 	runCount++
 
@@ -77,13 +68,9 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectApplyAndReturnSuccess("file1", kubeClient),
-		expectSuccessMetric("file1", metrics),
 		expectApplyAndReturnFailure("file2", kubeClient),
-		expectFailureMetric("file2", metrics),
 		expectApplyAndReturnSuccess("file3", kubeClient),
-		expectSuccessMetric("file3", metrics),
 		expectApplyAndReturnFailure("file4", kubeClient),
-		expectFailureMetric("file4", metrics),
 	)
 	successes = []ApplyAttempt{
 		{"file1", "cmd file1", "output file1", ""},
@@ -93,7 +80,7 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file4", "cmd file4", "output file4", "error file4"},
 	}
-	tc = batchTestCase{kubeClient, metrics, applyList, successes, failures}
+	tc = batchTestCase{kubeClient, applyList, successes, failures}
 	applyAndAssert(t, runCount, tc)
 	runCount++
 }
@@ -110,17 +97,9 @@ func expectApplyAndReturnFailure(file string, kubeClient *kube.MockClientInterfa
 	return kubeClient.EXPECT().Apply(file).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
-func expectSuccessMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {
-	return metrics.EXPECT().UpdateFileSuccess(file, true).Times(1)
-}
-
-func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {
-	return metrics.EXPECT().UpdateFileSuccess(file, false).Times(1)
-}
-
 func applyAndAssert(t *testing.T, runCount int, tc batchTestCase) {
 	assert := assert.New(t)
-	ba := BatchApplier{tc.kubeClient, tc.metrics}
+	ba := BatchApplier{tc.kubeClient}
 	successes, failures := ba.Apply(runCount, tc.applyList)
 	assert.Equal(tc.expectedSuccesses, successes)
 	assert.Equal(tc.expectedFailures, failures)
