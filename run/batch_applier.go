@@ -2,7 +2,6 @@ package run
 
 import (
 	"github.com/box/kube-applier/kube"
-	"github.com/box/kube-applier/metrics"
 	"log"
 )
 
@@ -19,10 +18,9 @@ type BatchApplierInterface interface {
 	Apply(int, []string) (successes []ApplyAttempt, failures []ApplyAttempt)
 }
 
-// BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
+// BatchApplier makes apply calls for a batch of files.
 type BatchApplier struct {
 	KubeClient kube.ClientInterface
-	Metrics    metrics.PrometheusInterface
 }
 
 // Apply takes a list of files and attempts an apply command on each, labeling logs with the run ID.
@@ -47,7 +45,6 @@ func (a *BatchApplier) Apply(id int, applyList []string) (successes []ApplyAttem
 			failures = append(failures, appliedFile)
 			log.Printf("RUN %v: %v\n%v\n%v", id, cmd, output, appliedFile.ErrorMessage)
 		}
-		a.Metrics.UpdateFileSuccess(path, success)
 	}
 	return successes, failures
 }

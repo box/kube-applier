@@ -6,10 +6,18 @@ import (
 	"time"
 )
 
+type RunType string
+
+const (
+	FullRun  RunType = "FullRun"
+	QuickRun RunType = "QuickRun"
+)
+
 // Result stores the data from a single run of the apply loop.
 // The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
 type Result struct {
 	RunID         int
+	RunType       RunType
 	Start         time.Time
 	Finish        time.Time
 	CommitHash    string
@@ -29,6 +37,15 @@ func (r *Result) FormattedStart() string {
 // FormattedStart returns the Finish time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
 func (r *Result) FormattedFinish() string {
 	return r.Finish.Truncate(time.Second).String()
+}
+
+// FormattedRunType returns the run type in a string formatted for display.
+func (r *Result) FormattedRunType() string {
+	if r.RunType == QuickRun {
+		return "Quick Run"
+	} else {
+		return "Full Run"
+	}
 }
 
 // Latency returns the latency for the run in seconds, truncated to 3 decimal places.

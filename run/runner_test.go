@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/box/kube-applier/applylist"
 	"github.com/box/kube-applier/git"
-	"github.com/box/kube-applier/metrics"
 	"github.com/box/kube-applier/sysutil"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +13,7 @@ import (
 
 type testCase struct {
 	runResults     <-chan Result
+	runMetrics     <-chan Result
 	errors         <-chan error
 	expectedResult Result
 	expectedErr    error
@@ -27,14 +27,14 @@ func TestRunnerStartFullLoop(t *testing.T) {
 	repo := git.NewMockGitUtilInterface(mockCtrl)
 	batchApplier := NewMockBatchApplierInterface(mockCtrl)
 	factory := applylist.NewMockFactoryInterface(mockCtrl)
-	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	errors := make(chan error)
 	quickRunQueue := make(chan string, 1)
 	fullRunQueue := make(chan bool, 1)
-	runResults := make(chan Result, 1)
+	runResults := make(chan Result, 5)
+	runMetrics := make(chan Result, 5)
 	runCount := make(chan int)
-	r := Runner{batchApplier, factory, repo, clock, metrics, "", "", quickRunQueue, fullRunQueue, runResults, errors, runCount}
+	r := Runner{batchApplier, factory, repo, clock, "", "", quickRunQueue, fullRunQueue, runResults, runMetrics, errors, runCount}
 
 	go r.StartRunCounter()
 	go r.StartFullLoop()
@@ -48,11 +48,10 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(0, []string{}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult := Result{
 		0,
+		FullRun,
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -64,7 +63,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		"",
 	}
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 
 	// Apply list and blacklist, empty successes and failures
 	gomock.InOrder(
@@ -75,11 +74,10 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(1, []string{"file1", "file2", "file3"}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult = Result{
 		1,
+		FullRun,
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -91,7 +89,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		"",
 	}
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 
 	// Apply list and blacklist, successes and failures
 	successes := []ApplyAttempt{
@@ -111,11 +109,10 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(2, []string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
 	expectedResult = Result{
 		2,
+		FullRun,
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -127,7 +124,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		"",
 	}
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 
 	// Apply list, blacklist and whitelist , successes and failures
 	successes = []ApplyAttempt{
@@ -147,11 +144,10 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(3, []string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
 	expectedResult = Result{
 		3,
+		FullRun,
 		time.Time{},
 		time.Time{},
 		"hash",
@@ -163,14 +159,14 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		"",
 	}
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 
 	// HeadHash() error
 	gomock.InOrder(
 		repo.EXPECT().HeadHash().Times(1).Return("", fmt.Errorf("hash error")),
 	)
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, Result{}, fmt.Errorf("hash error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, Result{}, fmt.Errorf("hash error")})
 
 	// Need to restart, error shuts down goroutine
 	go r.StartFullLoop()
@@ -181,7 +177,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().ListAllFiles().Times(1).Return(nil, fmt.Errorf("list error")),
 	)
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, fmt.Errorf("list error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, fmt.Errorf("list error")})
 
 	// Need to restart, error shuts down goroutine
 	go r.StartFullLoop()
@@ -194,7 +190,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		factory.EXPECT().Create([]string{}).Times(1).Return(nil, nil, nil, fmt.Errorf("create error")),
 	)
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, fmt.Errorf("create error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, fmt.Errorf("create error")})
 
 	// Need to restart, error shuts down goroutine
 	go r.StartFullLoop()
@@ -208,7 +204,7 @@ func TestRunnerStartFullLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash").Times(1).Return("", fmt.Errorf("log error")),
 	)
 	fullRunQueue <- true
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, fmt.Errorf("log error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, fmt.Errorf("log error")})
 }
 
 func TestRunnerStartQuickLoop(t *testing.T) {
@@ -220,14 +216,14 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 	repo := git.NewMockGitUtilInterface(mockCtrl)
 	batchApplier := NewMockBatchApplierInterface(mockCtrl)
 	factory := applylist.NewMockFactoryInterface(mockCtrl)
-	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	errors := make(chan error)
 	quickRunQueue := make(chan string, 1)
 	fullRunQueue := make(chan bool, 1)
-	runResults := make(chan Result, 1)
+	runResults := make(chan Result, 5)
+	runMetrics := make(chan Result, 5)
 	runCount := make(chan int)
-	r := Runner{batchApplier, factory, repo, clock, metrics, "", "", quickRunQueue, fullRunQueue, runResults, errors, runCount}
+	r := Runner{batchApplier, factory, repo, clock, "", "", quickRunQueue, fullRunQueue, runResults, runMetrics, errors, runCount}
 
 	go r.StartRunCounter()
 
@@ -242,11 +238,10 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash0").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(0, []string{}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult := Result{
 		0,
+		QuickRun,
 		time.Time{},
 		time.Time{},
 		"hash0",
@@ -258,7 +253,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		"",
 	}
 	quickRunQueue <- "hash0"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 	assert.Equal("hash0", r.LastHash)
 
 	// Apply list and blacklist, empty successes and failures
@@ -269,11 +264,10 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash1").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(1, []string{"file1", "file2", "file3"}).Times(1).Return([]ApplyAttempt{}, []ApplyAttempt{}),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, true).Times(1),
 	)
 	expectedResult = Result{
 		1,
+		QuickRun,
 		time.Time{},
 		time.Time{},
 		"hash1",
@@ -285,7 +279,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		"",
 	}
 	quickRunQueue <- "hash1"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 	assert.Equal("hash1", r.LastHash)
 
 	// Apply list and blacklist, successes and failures
@@ -305,11 +299,10 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash2").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(2, []string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
 	expectedResult = Result{
 		2,
+		QuickRun,
 		time.Time{},
 		time.Time{},
 		"hash2",
@@ -321,7 +314,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		"",
 	}
 	quickRunQueue <- "hash2"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 	assert.Equal("hash2", r.LastHash)
 
 	// Apply list, blacklist and whitelist , successes and failures
@@ -341,11 +334,10 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash3").Times(1).Return("log", nil),
 		batchApplier.EXPECT().Apply(3, []string{"file1", "file2", "file3", "file4", "file5"}).Times(1).Return(successes, failures),
 		clock.EXPECT().Now().Times(1).Return(time.Time{}),
-		clock.EXPECT().Since(time.Time{}).Times(1).Return(5*time.Second),
-		metrics.EXPECT().UpdateRunLatency(5.0, false).Times(1),
 	)
 	expectedResult = Result{
 		3,
+		QuickRun,
 		time.Time{},
 		time.Time{},
 		"hash3",
@@ -357,7 +349,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		"",
 	}
 	quickRunQueue <- "hash3"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, nil})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, nil})
 	assert.Equal("hash3", r.LastHash)
 
 	// ListDiffFiles() error
@@ -365,7 +357,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().ListDiffFiles("hash3", "hash4").Times(1).Return(nil, fmt.Errorf("diff error")),
 	)
 	quickRunQueue <- "hash4"
-	waitAndAssert(t, testCase{runResults, errors, Result{}, fmt.Errorf("diff error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, Result{}, fmt.Errorf("diff error")})
 
 	// Need to restart, error shuts down goroutine
 	repo.EXPECT().HeadHash().Times(1).Return("hash4", nil)
@@ -378,7 +370,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		factory.EXPECT().Create([]string{}).Times(1).Return(nil, nil, nil, fmt.Errorf("create error")),
 	)
 	quickRunQueue <- "hash5"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, fmt.Errorf("create error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, fmt.Errorf("create error")})
 
 	// Need to restart, error shuts down goroutine
 	repo.EXPECT().HeadHash().Times(1).Return("hash5", nil)
@@ -392,7 +384,7 @@ func TestRunnerStartQuickLoop(t *testing.T) {
 		repo.EXPECT().CommitLog("hash6").Times(1).Return("", fmt.Errorf("log error")),
 	)
 	quickRunQueue <- "hash6"
-	waitAndAssert(t, testCase{runResults, errors, expectedResult, fmt.Errorf("log error")})
+	waitAndAssert(t, testCase{runResults, runMetrics, errors, expectedResult, fmt.Errorf("log error")})
 }
 
 func waitAndAssert(t *testing.T, tc testCase) {
@@ -401,6 +393,8 @@ func waitAndAssert(t *testing.T, tc testCase) {
 	select {
 	case result := <-tc.runResults:
 		assert.Equal(tc.expectedResult, result)
+		metricsResult := <-tc.runMetrics
+		assert.Equal(tc.expectedResult, metricsResult)
 	case err := <-tc.errors:
 		assert.Equal(tc.expectedErr, err)
 	}

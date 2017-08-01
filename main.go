@@ -43,9 +43,6 @@ func main() {
 		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", diffURLFormat)
 	}
 
-	metrics := &metrics.Prometheus{}
-	metrics.Init()
-
 	clock := &sysutil.Clock{}
 
 	if err := sysutil.WaitForDir(repoPath, clock, waitForRepoInterval); err != nil {
@@ -55,7 +52,6 @@ func main() {
 	kubeClient := &kube.Client{Server: server}
 	kubeClient.Configure()
 
-	batchApplier := &run.BatchApplier{kubeClient, metrics}
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
 	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem}
@@ -74,6 +70,10 @@ func main() {
 	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
 	runResults := make(chan run.Result, 5)
 
+	// Runner sends run results to runMetrics channel, metrics handler receives the results and updates its metrics.
+	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled hear instantaneously.
+	runMetrics := make(chan run.Result, 5)
+
 	// Runner, webserver, and scheduler all send fatal errors to errors channel, and main() exits upon receiving an error.
 	// No limit needed, as a single fatal error will exit the program anyway.
 	errors := make(chan error)
@@ -84,6 +84,10 @@ func main() {
 	// The runner will block on popping the current count until it is updated.
 	runCount := make(chan int)
 
+	metrics := &metrics.Prometheus{RunMetrics: runMetrics}
+	metrics.Configure()
+	batchApplier := &run.BatchApplier{kubeClient}
+
 	pollTicker := time.Tick(pollInterval)
 	fullRunTicker := time.Tick(fullRunInterval)
 
@@ -92,18 +96,19 @@ func main() {
 		listFactory,
 		gitUtil,
 		clock,
-		metrics,
 		diffURLFormat,
 		"",
 		quickRunQueue,
 		fullRunQueue,
 		runResults,
+		runMetrics,
 		errors,
 		runCount,
 	}
 	scheduler := &run.Scheduler{gitUtil, pollTicker, fullRunTicker, quickRunQueue, fullRunQueue, errors, ""}
 	webserver := &webserver.WebServer{listenPort, clock, metrics.GetHandler(), fullRunQueue, runResults, errors}
 
+	go metrics.StartMetricsLoop()
 	go scheduler.Start()
 	go runner.StartRunCounter()
 	go runner.StartQuickLoop()

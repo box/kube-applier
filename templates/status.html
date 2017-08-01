@@ -11,7 +11,7 @@
 </head>
 <body>
     <h1 class="text-center">kube-applier</h1>
-    {{ if .Start }}
+    {{ if .CommitHash }}
     <div class="row">
         <div class="text-center"><button id="force-button" class="btn btn-warning btn-s"><strong>Force Run</strong></button></div>
     </div>
@@ -27,6 +27,7 @@
                     <h3 class="panel-title">Last Run</h3>
                 </div>
                 <div class="panel-body">
+                    <strong>Run Type: {{ .FormattedRunType }}</strong><br>
                     <strong>Started: {{ .FormattedStart }}</strong><br>
                     <strong>Finished: {{ .FormattedFinish }}</strong><br>
                     <strong>Latency: {{ .Latency }}</strong><br>

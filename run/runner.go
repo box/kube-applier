@@ -3,7 +3,6 @@ package run
 import (
 	"github.com/box/kube-applier/applylist"
 	"github.com/box/kube-applier/git"
-	"github.com/box/kube-applier/metrics"
 	"github.com/box/kube-applier/sysutil"
 	"log"
 )
@@ -14,12 +13,12 @@ type Runner struct {
 	ListFactory   applylist.FactoryInterface
 	GitUtil       git.GitUtilInterface
 	Clock         sysutil.ClockInterface
-	Metrics       metrics.PrometheusInterface
 	DiffURLFormat string
 	LastHash      string
 	QuickRunQueue <-chan string
 	FullRunQueue  <-chan bool
 	RunResults    chan<- Result
+	RunMetrics    chan<- Result
 	Errors        chan<- error
 	RunCount      chan int
 }
@@ -34,6 +33,7 @@ func (r *Runner) StartFullLoop() {
 			return
 		}
 		r.RunResults <- *result
+		r.RunMetrics <- *result
 	}
 }
 
@@ -53,6 +53,7 @@ func (r *Runner) StartQuickLoop() {
 			return
 		}
 		r.RunResults <- *result
+		r.RunMetrics <- *result
 	}
 }
 
@@ -79,7 +80,7 @@ func (r *Runner) fullRun(id int) (*Result, error) {
 		return nil, err
 	}
 	log.Printf("RUN %v: Starting full run with hash %v", id, hash)
-	result, err := r.run(id, rawList, hash)
+	result, err := r.run(id, FullRun, rawList, hash)
 	log.Printf("RUN %v: Finished full run.", id)
 	if err != nil {
 		return nil, err
@@ -95,7 +96,7 @@ func (r *Runner) quickRun(id int, hash string) (*Result, error) {
 		return nil, err
 	}
 	log.Printf("RUN %v: Starting quick run with hash %v.", id, hash)
-	result, err := r.run(id, rawList, hash)
+	result, err := r.run(id, QuickRun, rawList, hash)
 	log.Printf("RUN %v: Finished quick run.", id)
 	if err != nil {
 		return nil, err
@@ -108,7 +109,7 @@ func (r *Runner) quickRun(id int, hash string) (*Result, error) {
 
 // run takes in a list of candidate files, filters using the whitelist/blacklist, and applies them.
 // run returns a Result with info about the run.
-func (r *Runner) run(id int, rawList []string, hash string) (*Result, error) {
+func (r *Runner) run(id int, runType RunType, rawList []string, hash string) (*Result, error) {
 	start := r.Clock.Now()
 
 	applyList, blacklist, whitelist, err := r.ListFactory.Create(rawList)
@@ -125,9 +126,6 @@ func (r *Runner) run(id int, rawList []string, hash string) (*Result, error) {
 
 	finish := r.Clock.Now()
 
-	success := len(failures) == 0
-	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
-
-	newRun := &Result{id, start, finish, hash, commitLog, blacklist, whitelist, successes, failures, r.DiffURLFormat}
+	newRun := &Result{id, runType, start, finish, hash, commitLog, blacklist, whitelist, successes, failures, r.DiffURLFormat}
 	return newRun, err
 }
