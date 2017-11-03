@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 ADD . /go/src/github.com/utilitywarehouse/kube-applier
 ADD templates/* /templates/
 ADD static/ /static/
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.8.1/bin/linux/amd64/kubectl /usr/local/bin/kubectl
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.7.6/bin/linux/amd64/kubectl /usr/local/bin/kubectl
 
 RUN apk --update --no-cache add ca-certificates git go musl-dev \
   && chmod +x /usr/local/bin/kubectl \
