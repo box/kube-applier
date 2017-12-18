@@ -1,4 +1,4 @@
-FROM alpine:3.5
+FROM alpine:3.7
 
 ENV GOPATH=/go
 
@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 ADD . /go/src/github.com/utilitywarehouse/kube-applier
 ADD templates/* /templates/
 ADD static/ /static/
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.9.0-beta.2/bin/linux/amd64/kubectl /usr/local/bin/kubectl
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl /usr/local/bin/kubectl
 
 RUN apk --update --no-cache add ca-certificates git go musl-dev \
   && chmod +x /usr/local/bin/kubectl \
