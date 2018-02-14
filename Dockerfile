@@ -13,6 +13,6 @@ RUN \
  chmod +x /usr/local/bin/kubectl && \
  go get ./... && \
  CGO_ENABLED=0 go build -ldflags '-s -extldflags "-static"' -o /kube-applier . && \
- apk del curl git go musl-dev
+ apk del curl go musl-dev
 
 CMD [ "/kube-applier" ]
