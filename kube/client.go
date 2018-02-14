@@ -151,7 +151,7 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+	args := []string{"kubectl", "apply", "--validate=false", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	for _, w := range pruneWhitelist {
 		args = append(args, "--prune-whitelist="+w)
 	}
