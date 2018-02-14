@@ -71,6 +71,12 @@ func main() {
 		Desc:   "Dry run",
 		EnvVar: "DRY_RUN",
 	})
+	strictApply := app.Bool(cli.BoolOpt{
+		Name:   "strict-apply",
+		Value:  false,
+		Desc:   "Use kube-applier service-accounts for every namespace",
+		EnvVar: "STRICT_APPLY",
+	})
 	label := app.String(cli.StringOpt{
 		Name:   "label",
 		Value:  "automaticDeployment",
@@ -93,7 +99,7 @@ func main() {
 
 		kubeClient := &kube.Client{Server: *server, Label: *label}
 		kubeClient.Configure()
-		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Metrics: metrics}
+		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, StrictApply: *strictApply, Metrics: metrics}
 		gitUtil := &git.GitUtil{*repoPath}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
