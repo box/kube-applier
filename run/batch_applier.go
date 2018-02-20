@@ -23,9 +23,10 @@ type BatchApplierInterface interface {
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubeClient kube.ClientInterface
-	Metrics    metrics.PrometheusInterface
-	DryRun     bool
+	KubeClient  kube.ClientInterface
+	Metrics     metrics.PrometheusInterface
+	DryRun      bool
+	StrictApply bool
 }
 
 // Apply takes a list of files and attempts an apply command on each.
@@ -55,7 +56,12 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		default:
 			continue
 		}
-		cmd, output, err := a.KubeClient.Apply(path, ns, a.DryRun || disabled)
+		var cmd, output string
+		if a.StrictApply {
+			cmd, output, err = a.KubeClient.StrictApply(path, ns, a.DryRun || disabled)
+		} else {
+			cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || disabled)
+		}
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

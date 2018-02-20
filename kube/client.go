@@ -1,16 +1,18 @@
 package kube
 
 import (
-	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
@@ -21,9 +23,15 @@ const (
 	// Location of the kubeconfig template file within the container - see ADD command in Dockerfile
 	kubeconfigTemplatePath = "/templates/kubeconfig"
 
+	// Location of the kubeconfig template for temporary templates - see ADD command in Dockerfile
+	tempkubeConfigTemplatePath = "/templates/tempKubeConfig"
+
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath = "/etc/kubeconfig"
 )
+
+// To make testing possible
+var execCommand = exec.Command
 
 //todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
 var pruneWhitelist = []string{
@@ -40,8 +48,10 @@ var pruneWhitelist = []string{
 	"autoscaling/v1/HorizontalPodAutoscaler",
 }
 
+// AutomaticDeploymentOption type used for labels
 type AutomaticDeploymentOption string
 
+// Automatic Deployment labels
 const (
 	DryRun AutomaticDeploymentOption = "dry-run"
 	On     AutomaticDeploymentOption = "on"
@@ -51,8 +61,12 @@ const (
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(path, namespace string, dryRun bool) (string, string, error)
+	StrictApply(path, namespace string, dryRun bool) (string, string, error)
 	CheckVersion() error
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
+	GetNamespaceUserSecretName(namespace, username string) (string, error)
+	GetUserDataFromSecret(namespace, secret string) (string, string, error)
+	CreateTempConfig(namespace, serviceAccount string) (string, string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -71,13 +85,13 @@ func (c *Client) Configure() error {
 
 	f, err := os.Create(kubeconfigFilePath)
 	if err != nil {
-		return fmt.Errorf("Error creating kubeconfig file: %v", err)
+		return errors.Wrap(err, "creating kubeconfig file failed")
 	}
 	defer f.Close()
 
 	token, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
-		return fmt.Errorf("Error accessing token for kubeconfig file: %v", err)
+		return errors.Wrap(err, "cannot access token for kubeconfig file")
 	}
 
 	var data struct {
@@ -89,10 +103,10 @@ func (c *Client) Configure() error {
 
 	template, err := sysutil.CreateTemplate(kubeconfigTemplatePath)
 	if err != nil {
-		return fmt.Errorf("Error parsing kubeconfig template: %v", err)
+		return errors.Wrap(err, "parsing kubeconfig template failed")
 	}
 	if err := template.Execute(f, data); err != nil {
-		return fmt.Errorf("Error applying kubeconfig template: %v", err)
+		return errors.Wrap(err, "applying kubeconfig template failed")
 	}
 
 	return nil
@@ -104,10 +118,10 @@ func (c *Client) CheckVersion() error {
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
-	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	output := strings.TrimSuffix(string(stdout), "\n")
 	if err != nil {
-		return fmt.Errorf("Error checking kubectl version: %v", output)
+		return errors.Wrapf(err, "checking kubectl version failed: %v", output)
 	}
 
 	// Using regular expressions, parse for the Major and Minor version numbers for both client and server.
@@ -127,18 +141,18 @@ func (c *Client) CheckVersion() error {
 
 // isCompatible compares the major and minor release numbers for the client and server, returning nil if they are compatible and an error otherwise.
 func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) error {
-	incompatible := fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server.", clientMajor, clientMinor, serverMajor, serverMinor)
+	incompatible := errors.Errorf("kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server", clientMajor, clientMinor, serverMajor, serverMinor)
 
 	if strings.Replace(clientMajor, "+", "", -1) != strings.Replace(serverMajor, "+", "", -1) {
 		return incompatible
 	}
 	clientMinorInt, err := strconv.Atoi(strings.Replace(clientMinor, "+", "", -1))
 	if err != nil {
-		return fmt.Errorf("Error checking kubectl version: unable to parse client minor release from string \"%v\"", clientMinor)
+		return errors.Errorf("error checking kubectl version: unable to parse client minor release from string \"%v\"", clientMinor)
 	}
 	serverMinorInt, err := strconv.Atoi(strings.Replace(serverMinor, "+", "", -1))
 	if err != nil {
-		return fmt.Errorf("Error checking kubectl version: unable to parse server minor release from string \"%v\"", serverMinor)
+		return errors.Errorf("error checking kubectl version: unable to parse server minor release from string \"%v\"", serverMinor)
 	}
 
 	minorDiff := serverMinorInt - clientMinorInt
@@ -148,41 +162,186 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 	return nil
 }
 
-// Apply attempts to "kubectl apply" the file located at path.
-// It returns the full apply command and its output.
-func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
-	args := []string{"kubectl", "apply", "--validate=false", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+func prepareApplyArgs(path, namespace, label string, dryRun bool) []string {
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", label, Off), "-n", namespace}
 	for _, w := range pruneWhitelist {
 		args = append(args, "--prune-whitelist="+w)
 	}
-	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
-	}
+
+	return args
+}
+
+func executeApply(args []string) (string, string, error) {
 	cmd := strings.Join(args, " ")
-	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
-		err = fmt.Errorf("Error: %v", err)
+		err = errors.Wrap(err, "kubectl apply command failed")
 	}
 	return cmd, string(stdout), err
 }
 
+// Apply attempts to "kubectl apply" the file located at path.
+// It returns the full apply command and its output.
+func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
+	args := prepareApplyArgs(path, namespace, c.Label, dryRun)
+	if c.Server != "" {
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+	}
+
+	return executeApply(args)
+}
+
+// StrictApply will attempt to "kubectl apply" the file located at path using a `kube-applier` service account under the given namespace.
+// `kube-applier` service account must exist for the given namespace and must contain a secret that include token and ca.cert.
+// It returns the full apply command and its output.
+func (c *Client) StrictApply(path, namespace string, dryRun bool) (string, string, error) {
+	args := prepareApplyArgs(path, namespace, c.Label, dryRun)
+
+	tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
+	if err != nil {
+		return "", "", fmt.Errorf("error creating temp config: %v", err)
+	}
+	defer func() { os.Remove(tempKubeConfigFilepath); os.Remove(tempCertFilepath) }()
+	args = append(args, fmt.Sprintf("--kubeconfig=%s", tempKubeConfigFilepath))
+
+	return executeApply(args)
+}
+
+// GetNamespaceStatus returns the AutmaticDeployment label for the given namespace
 func (c *Client) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
 	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
-	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
 		return Off, err
 	}
-	dec := json.NewDecoder(bytes.NewReader(stdout))
+
 	var nr struct {
 		Metadata struct {
 			Labels map[string]string
 		}
 	}
-	if err := dec.Decode(&nr); err != nil {
-		return Off, fmt.Errorf("Get namespace response is not json format: %v error=(%v)", string(stdout), err)
+	if err := json.Unmarshal(stdout, &nr); err != nil {
+		return Off, err
 	}
+
 	return AutomaticDeploymentOption(nr.Metadata.Labels[c.Label]), nil
+}
+
+// GetNamespaceUserSecretName returns the first secret name found for the given user
+func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string, error) {
+	args := []string{"kubectl", "get", "serviceaccount", username, "-o", "json", "-n", namespace}
+	if c.Server != "" {
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+	}
+	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+
+	type secret struct {
+		Name string
+	}
+	var nr struct {
+		Secrets []secret
+	}
+	if err := json.Unmarshal(stdout, &nr); err != nil {
+		return "", err
+	}
+
+	if len(nr.Secrets) > 1 {
+		log.Printf("Found many secrets for kube-applier on %s using the first on the list", namespace)
+	}
+	if len(nr.Secrets) == 0 {
+		return "", errors.Errorf("no secrets found for %s user", username)
+	}
+	return nr.Secrets[0].Name, nil
+}
+
+// GetUserDataFromSecret returns the token and the ca.crt path
+func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string, error) {
+	args := []string{"kubectl", "get", "secret", secret, "-o", "json", "-n", namespace}
+	if c.Server != "" {
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
+	}
+	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
+	if err != nil {
+		return "", "", err
+	}
+
+	var nr struct {
+		Data map[string]string
+	}
+	if err := json.Unmarshal(stdout, &nr); err != nil {
+		return "", "", err
+	}
+
+	token, ok := nr.Data["token"]
+	if !ok {
+		return "", "", errors.Errorf("secret %s missing token", secret)
+	}
+	cert, ok := nr.Data["ca.crt"]
+	if !ok {
+		return "", "", errors.Errorf("secret %s missing ca.crt", secret)
+	}
+	return token, cert, nil
+}
+
+// CreateTempConfig generates a config file for a serviceAccount under a namespace and the respective ca.cert
+// Caution: files should be deleted by caller later when not needed any more!!
+func (c *Client) CreateTempConfig(namespace, serviceAccount string) (string, string, error) {
+	f, err := ioutil.TempFile("", "tempKubeConfig")
+	if err != nil {
+		return "", "", errors.Wrap(err, "creating temp kubeconfig file failed")
+	}
+	defer f.Close()
+
+	secretName, err := c.GetNamespaceUserSecretName(namespace, serviceAccount)
+	if err != nil {
+		return "", "", errors.Errorf("error getting secret name for %s : %v", serviceAccount, err)
+	}
+	encToken, encCert, err := c.GetUserDataFromSecret(namespace, secretName)
+
+	// Create certificate
+	cert, err := base64.StdEncoding.DecodeString(encCert)
+	if err != nil {
+		return "", "", errors.Errorf("error while decoding ca.cert for %s : %v", serviceAccount, err)
+	}
+	certFile, err := ioutil.TempFile("", "temp-ca.crt")
+	if err != nil {
+		return "", "", errors.Wrap(err, "creating temp cert file failed")
+	}
+	defer certFile.Close()
+	if _, err := certFile.Write(cert); err != nil {
+		return "", "", errors.Wrap(err, "writing certificate to file failed")
+	}
+
+	// Get token and write the temp kubeconfig
+	token, err := base64.StdEncoding.DecodeString(encToken)
+	if err != nil {
+		return "", "", errors.Errorf("Error while decoding token for %s : %v", serviceAccount, err)
+	}
+
+	var data struct {
+		Cert   string
+		Token  string
+		Server string
+		User   string
+	}
+	data.Cert = certFile.Name()
+	data.Token = string(token)
+	// The default empty "" server string will point to the running cluster's kube API
+	data.Server = c.Server
+	data.User = serviceAccount
+
+	template, err := sysutil.CreateTemplate(tempkubeConfigTemplatePath)
+	if err != nil {
+		return "", "", errors.Wrap(err, "parsing kubeconfig template failed")
+	}
+	if err := template.Execute(f, data); err != nil {
+		return "", "", errors.Wrap(err, "applying kubeconfig template failed")
+	}
+	return f.Name(), certFile.Name(), nil
 }
