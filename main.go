@@ -16,12 +16,6 @@ import (
 )
 
 const (
-	// Default number of seconds to wait before checking the Git repo for new commits.
-	defaultPollIntervalSeconds = 5
-
-	// Default number of seconds to wait in between apply runs (if no new commits to the repo have been made).
-	defaultFullRunIntervalSeconds = 5 * 60
-
 	// Number of seconds to wait in between attempts to locate the repo at the specified path.
 	// Git-sync atomically places the repo at the specified path once it is finished pulling, so it will not be present immediately.
 	waitForRepoInterval = 1 * time.Second
@@ -98,9 +92,11 @@ func main() {
 		}
 
 		kubeClient := &kube.Client{Server: *server, Label: *label}
-		kubeClient.Configure()
+		if err := kubeClient.Configure(); err != nil {
+			log.Printf("kubectl configuration failed: %v", err)
+		}
 		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, StrictApply: *strictApply, Metrics: metrics}
-		gitUtil := &git.GitUtil{*repoPath}
+		gitUtil := &git.GitUtil{RepoPath: *repoPath}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 		// Only 1 pending request may sit in the queue at a time.
@@ -125,8 +121,20 @@ func main() {
 			RunResults:    runResults,
 			Errors:        errors,
 		}
-		scheduler := &run.Scheduler{gitUtil, time.Duration(*pollInterval) * time.Second, time.Duration(*fullRunInterval) * time.Second, runQueue, errors}
-		webserver := &webserver.WebServer{*listenPort, clock, runQueue, runResults, errors}
+		scheduler := &run.Scheduler{
+			GitUtil:         gitUtil,
+			PollInterval:    time.Duration(*pollInterval) * time.Second,
+			FullRunInterval: time.Duration(*fullRunInterval) * time.Second,
+			RunQueue:        runQueue,
+			Errors:          errors,
+		}
+		webserver := &webserver.WebServer{
+			ListenPort: *listenPort,
+			Clock:      clock,
+			RunQueue:   runQueue,
+			RunResults: runResults,
+			Errors:     errors,
+		}
 
 		go scheduler.Start()
 		go runner.Start()
