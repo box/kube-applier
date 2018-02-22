@@ -303,6 +303,9 @@ func (c *Client) CreateTempConfig(namespace, serviceAccount string) (string, str
 		return "", "", errors.Errorf("error getting secret name for %s : %v", serviceAccount, err)
 	}
 	encToken, encCert, err := c.GetUserDataFromSecret(namespace, secretName)
+	if err != nil {
+		return "", "", errors.Errorf("error getting data for secret %s : %v", secretName, err)
+	}
 
 	// Create certificate
 	cert, err := base64.StdEncoding.DecodeString(encCert)
