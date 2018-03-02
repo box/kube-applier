@@ -11,8 +11,9 @@ RUN \
  apk --no-cache add curl ca-certificates git go musl-dev && \
  curl -sSL -o /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.9.3/bin/linux/amd64/kubectl && \
  chmod +x /usr/local/bin/kubectl && \
- go get ./... && \
+ go get -t ./... && \
+ go test ./... && \
  CGO_ENABLED=0 go build -ldflags '-s -extldflags "-static"' -o /kube-applier . && \
- apk del curl go musl-dev
+ apk del curl go musl-dev && rm -r /go
 
 CMD [ "/kube-applier" ]
