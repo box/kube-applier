@@ -26,6 +26,7 @@ type BatchApplier struct {
 	KubeClient  kube.ClientInterface
 	Metrics     metrics.PrometheusInterface
 	DryRun      bool
+	Prune       bool
 	StrictApply bool
 }
 
@@ -58,9 +59,9 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 		var cmd, output string
 		if a.StrictApply {
-			cmd, output, err = a.KubeClient.StrictApply(path, ns, a.DryRun || disabled)
+			cmd, output, err = a.KubeClient.StrictApply(path, ns, a.DryRun || disabled, a.Prune)
 		} else {
-			cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || disabled)
+			cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || disabled, a.Prune)
 		}
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
