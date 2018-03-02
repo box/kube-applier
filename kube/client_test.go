@@ -2,12 +2,12 @@ package kube
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"os/exec"
 )
 
 type testCase struct {

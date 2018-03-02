@@ -1,14 +1,17 @@
 package webserver
 
 import (
-	"github.com/utilitywarehouse/kube-applier/sysutil"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/utilitywarehouse/kube-applier/log"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -85,6 +88,7 @@ var statusPageTests = []StatusPageTestCase{
 }
 
 func TestStatusPageHandlerServeHTTP(t *testing.T) {
+	log.InitLogger("info")
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -92,7 +96,11 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 
 	for _, test := range statusPageTests {
 		clock.EXPECT().Now().Times(2).Return(time.Time{})
-		handler := StatusPageHandler{test.tmpl, test.data, clock}
+		handler := StatusPageHandler{
+			test.tmpl,
+			test.data,
+			clock,
+		}
 		req, _ := http.NewRequest("GET", "", nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
@@ -114,7 +122,9 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 //**** Tests for Force Run Handler ****
 func TestForceRunHandlerServeHTTP(t *testing.T) {
 	runQueue := make(chan bool, 1)
-	handler := ForceRunHandler{runQueue}
+	handler := ForceRunHandler{
+		runQueue,
+	}
 
 	// GET request gives an error.
 	RequestAndExpect(t, handler, errorBody, "GET")

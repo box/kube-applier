@@ -3,7 +3,6 @@ package sysutil
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,7 +26,6 @@ func ListDirs(rootPath string) ([]string, error) {
 
 // WaitForDir returns when the specified directory is located in the filesystem, or if there is an error opening the directory once it is found.
 func WaitForDir(path string, clock ClockInterface, interval time.Duration) error {
-	log.Printf("Waiting for directory at %v...", path)
 	for {
 		f, err := os.Stat(path)
 		if err != nil {
@@ -37,7 +35,6 @@ func WaitForDir(path string, clock ClockInterface, interval time.Duration) error
 		} else if !f.IsDir() {
 			return fmt.Errorf("Error: %v is not a directory", path)
 		} else {
-			log.Printf("Found directory at %v", path)
 			break
 		}
 		clock.Sleep(interval)
