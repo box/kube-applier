@@ -35,13 +35,13 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, false, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", false, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", false, false, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -57,13 +57,13 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
-		expectApplyAndReturnFailure("file1", "file1", false, kubeClient),
+		expectApplyAndReturnFailure("file1", "file1", false, false, kubeClient),
 		expectFailureMetric("file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", false, kubeClient),
+		expectApplyAndReturnFailure("file2", "file2", false, false, kubeClient),
 		expectFailureMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
-		expectApplyAndReturnFailure("file3", "file3", false, kubeClient),
+		expectApplyAndReturnFailure("file3", "file3", false, false, kubeClient),
 		expectFailureMetric("file3", metrics),
 	)
 	failures := []ApplyAttempt{
@@ -79,16 +79,16 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, false, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", false, kubeClient),
+		expectApplyAndReturnFailure("file2", "file2", false, false, kubeClient),
 		expectFailureMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", false, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", false, false, kubeClient),
 		expectSuccessMetric("file3", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file4", kubeClient),
-		expectApplyAndReturnFailure("file4", "file4", false, kubeClient),
+		expectApplyAndReturnFailure("file4", "file4", false, false, kubeClient),
 		expectFailureMetric("file4", metrics),
 	)
 	successes = []ApplyAttempt{
@@ -107,13 +107,13 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", true, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", true, false, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", true, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", true, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", true, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", true, false, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes = []ApplyAttempt{
@@ -129,13 +129,13 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.DryRun, "file1", kubeClient),
-		expectApplyAndReturnSuccess("repo/file1", "file1", true, kubeClient),
+		expectApplyAndReturnSuccess("repo/file1", "file1", true, false, kubeClient),
 		expectSuccessMetric("repo/file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.DryRun, "file3", kubeClient),
-		expectApplyAndReturnSuccess("repo/file3", "file3", true, kubeClient),
+		expectApplyAndReturnSuccess("repo/file3", "file3", true, false, kubeClient),
 		expectSuccessMetric("repo/file3", metrics),
 	)
 	successes = []ApplyAttempt{
@@ -151,13 +151,13 @@ func TestBatchApplierApply(t *testing.T) {
 	gomock.InOrder(
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.DryRun, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", true, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", true, false, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", true, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", true, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.DryRun, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", true, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", true, false, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes = []ApplyAttempt{
@@ -174,7 +174,7 @@ func TestBatchApplierApply(t *testing.T) {
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.Off, "file1", kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.Off, "file3", kubeClient),
 	)
@@ -190,7 +190,7 @@ func TestBatchApplierApply(t *testing.T) {
 		expectCheckVersionAndReturnNil(kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.AutomaticDeploymentOption("unsupportedOption"), "file1", kubeClient),
 		expectGetNamespaceStatusAndReturn(kube.On, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, false, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectGetNamespaceStatusAndReturn(kube.AutomaticDeploymentOption("unsupportedOption"), "file3", kubeClient),
 	)
@@ -205,12 +205,12 @@ func expectCheckVersionAndReturnNil(kubeClient *kube.MockClientInterface) *gomoc
 	return kubeClient.EXPECT().CheckVersion().Times(1).Return(nil)
 }
 
-func expectApplyAndReturnSuccess(file, namespace string, dryRun bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun).Times(1).Return("cmd "+file, "output "+file, nil)
+func expectApplyAndReturnSuccess(file, namespace string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune).Times(1).Return("cmd "+file, "output "+file, nil)
 }
 
-func expectApplyAndReturnFailure(file, namespace string, dryRun bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
+func expectApplyAndReturnFailure(file, namespace string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
 func expectGetNamespaceStatusAndReturn(ret kube.AutomaticDeploymentOption, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {

@@ -60,8 +60,8 @@ const (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace string, dryRun bool) (string, string, error)
-	StrictApply(path, namespace string, dryRun bool) (string, string, error)
+	Apply(path, namespace string, dryRun, prune bool) (string, string, error)
+	StrictApply(path, namespace string, dryRun, prune bool) (string, string, error)
 	CheckVersion() error
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
@@ -162,12 +162,14 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 	return nil
 }
 
-func prepareApplyArgs(path, namespace, label string, dryRun bool) []string {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, "--prune", fmt.Sprintf("-l %s!=%s", label, Off), "-n", namespace}
-	for _, w := range pruneWhitelist {
-		args = append(args, "--prune-whitelist="+w)
+func prepareApplyArgs(path, namespace, label string, dryRun, prune bool) []string {
+	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", label, Off), "-n", namespace}
+	if prune {
+		args = append(args, "--prune")
+		for _, w := range pruneWhitelist {
+			args = append(args, "--prune-whitelist="+w)
+		}
 	}
-
 	return args
 }
 
@@ -182,8 +184,8 @@ func executeApply(args []string) (string, string, error) {
 
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
-func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, error) {
-	args := prepareApplyArgs(path, namespace, c.Label, dryRun)
+func (c *Client) Apply(path, namespace string, dryRun, prune bool) (string, string, error) {
+	args := prepareApplyArgs(path, namespace, c.Label, dryRun, prune)
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
@@ -194,8 +196,8 @@ func (c *Client) Apply(path, namespace string, dryRun bool) (string, string, err
 // StrictApply will attempt to "kubectl apply" the file located at path using a `kube-applier` service account under the given namespace.
 // `kube-applier` service account must exist for the given namespace and must contain a secret that include token and ca.cert.
 // It returns the full apply command and its output.
-func (c *Client) StrictApply(path, namespace string, dryRun bool) (string, string, error) {
-	args := prepareApplyArgs(path, namespace, c.Label, dryRun)
+func (c *Client) StrictApply(path, namespace string, dryRun, prune bool) (string, string, error) {
+	args := prepareApplyArgs(path, namespace, c.Label, dryRun, prune)
 
 	tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
 	if err != nil {

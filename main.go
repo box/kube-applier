@@ -65,6 +65,12 @@ func main() {
 		Desc:   "Dry run",
 		EnvVar: "DRY_RUN",
 	})
+	prune := app.Bool(cli.BoolOpt{
+		Name:   "prune",
+		Value:  true,
+		Desc:   "kubectl --prune flag used when applying manifests. Default true",
+		EnvVar: "KUBE_PRUNE",
+	})
 	strictApply := app.Bool(cli.BoolOpt{
 		Name:   "strict-apply",
 		Value:  false,
@@ -95,7 +101,7 @@ func main() {
 		if err := kubeClient.Configure(); err != nil {
 			log.Printf("kubectl configuration failed: %v", err)
 		}
-		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, StrictApply: *strictApply, Metrics: metrics}
+		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Prune: *prune, StrictApply: *strictApply, Metrics: metrics}
 		gitUtil := &git.GitUtil{RepoPath: *repoPath}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
