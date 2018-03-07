@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/log"
+	"github.com/utilitywarehouse/kube-applier/metrics"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/utilitywarehouse/kube-applier/kube"
-	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 type batchTestCase struct {
@@ -19,6 +21,7 @@ type batchTestCase struct {
 }
 
 func TestBatchApplierApply(t *testing.T) {
+	log.InitLogger("info")
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -26,7 +29,15 @@ func TestBatchApplierApply(t *testing.T) {
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Empty apply list
-	tc := batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics}, []string{}, []ApplyAttempt{}, []ApplyAttempt{}}
+	tc := batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+		},
+		[]string{},
+		[]ApplyAttempt{},
+		[]ApplyAttempt{},
+	}
 	expectCheckVersionAndReturnNil(kubeClient)
 	applyAndAssert(t, tc)
 
@@ -49,7 +60,15 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 
 	// All files fail
@@ -71,7 +90,15 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file3", "cmd file3", "output file3", "error file3"},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics}, applyList, []ApplyAttempt{}, failures}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+		},
+		applyList,
+		[]ApplyAttempt{},
+		failures,
+	}
 	applyAndAssert(t, tc)
 
 	// Some successes, some failures
@@ -99,7 +126,15 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", "error file2"},
 		{"file4", "cmd file4", "output file4", "error file4"},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics}, applyList, successes, failures}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+		},
+		applyList,
+		successes,
+		failures,
+	}
 	applyAndAssert(t, tc)
 
 	// All files succeed dry-run
@@ -121,7 +156,16 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: true}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+			DryRun:     true,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 
 	// All files succeed dry-run namespaces
@@ -143,7 +187,16 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", ""},
 		{"repo/file3", "cmd repo/file3", "output repo/file3", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+			DryRun:     false,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 
 	// All files succeed dry-run and dry-run namespaces
@@ -165,7 +218,16 @@ func TestBatchApplierApply(t *testing.T) {
 		{"file2", "cmd file2", "output file2", ""},
 		{"file3", "cmd file3", "output file3", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: true}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+			DryRun:     true,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 
 	//Disabled namespaces
@@ -181,7 +243,16 @@ func TestBatchApplierApply(t *testing.T) {
 	successes = []ApplyAttempt{
 		{"file2", "cmd file2", "output file2", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+			DryRun:     false,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 
 	//Unsupported automatic deployment option on namespace
@@ -197,7 +268,16 @@ func TestBatchApplierApply(t *testing.T) {
 	successes = []ApplyAttempt{
 		{"file2", "cmd file2", "output file2", ""},
 	}
-	tc = batchTestCase{BatchApplier{KubeClient: kubeClient, Metrics: metrics, DryRun: false}, applyList, successes, []ApplyAttempt{}}
+	tc = batchTestCase{
+		BatchApplier{
+			KubeClient: kubeClient,
+			Metrics:    metrics,
+			DryRun:     false,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
 	applyAndAssert(t, tc)
 }
 

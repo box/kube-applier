@@ -1,9 +1,10 @@
 package run
 
 import (
-	"github.com/utilitywarehouse/kube-applier/git"
-	"log"
 	"time"
+
+	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/log"
 )
 
 // Scheduler handles queueing apply runs at a given time interval and upon every new Git commit.
@@ -32,23 +33,23 @@ func (s *Scheduler) Start() {
 				return
 			}
 			if newCommitHash != lastCommitHash {
-				log.Printf("Most recent commit hash is %v (previously was %v), queueing run.", newCommitHash, lastCommitHash)
-				enqueue(s.RunQueue)
+				log.Logger.Info("Queueing run", "newest-commit", newCommitHash, "last-commit", lastCommitHash)
+				s.enqueue(s.RunQueue)
 				lastCommitHash = newCommitHash
 			}
 		case <-fullRunTicker:
-			log.Printf("Full run interval (%v) reached, queueing run.", s.FullRunInterval)
-			enqueue(s.RunQueue)
+			log.Logger.Info("Full run interval reached, queueing run", "interval", s.FullRunInterval)
+			s.enqueue(s.RunQueue)
 		}
 	}
 }
 
 // enqueue attempts to add a run to the queue, logging the result of the request.
-func enqueue(runQueue chan<- bool) {
+func (s *Scheduler) enqueue(runQueue chan<- bool) {
 	select {
 	case runQueue <- true:
-		log.Print("Run queued.")
+		log.Logger.Info("Run queued")
 	default:
-		log.Print("Run queue is already full.")
+		log.Logger.Info("Run queue is already full")
 	}
 }

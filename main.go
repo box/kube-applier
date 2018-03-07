@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -9,6 +9,7 @@ import (
 	cli "github.com/jawher/mow.cli"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -22,7 +23,6 @@ const (
 )
 
 func main() {
-
 	app := cli.App(webserver.AppName, webserver.AppDescription)
 	repoPath := app.String(cli.StringOpt{
 		Name:   "repo-path",
@@ -83,9 +83,19 @@ func main() {
 		Desc:   "K8s label used to enable/disable automatic deployments.",
 		EnvVar: "LABEL",
 	})
+	logLevel := app.String(cli.StringOpt{
+		Name:   "log",
+		Value:  "warn",
+		Desc:   "Log level [trace|debug|info|warn|error] case insensitive",
+		EnvVar: "LOG_LEVEL",
+	})
+
+	log.InitLogger(*logLevel)
 
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
-		log.Fatalf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat)
+		log.Logger.Error(fmt.Sprintf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat))
+		os.Exit(1)
+
 	}
 	app.Action = func() {
 		metrics := &metrics.Prometheus{}
@@ -94,15 +104,26 @@ func main() {
 		clock := &sysutil.Clock{}
 
 		if err := sysutil.WaitForDir(*repoPath, clock, waitForRepoInterval); err != nil {
-			log.Fatal(err)
+			log.Logger.Error("error", err)
+			os.Exit(1)
 		}
 
 		kubeClient := &kube.Client{Server: *server, Label: *label}
 		if err := kubeClient.Configure(); err != nil {
-			log.Printf("kubectl configuration failed: %v", err)
+			log.Logger.Error("kubectl configuration failed", "error", err)
 		}
-		batchApplier := &run.BatchApplier{KubeClient: kubeClient, DryRun: *dryRun, Prune: *prune, StrictApply: *strictApply, Metrics: metrics}
-		gitUtil := &git.GitUtil{RepoPath: *repoPath}
+
+		batchApplier := &run.BatchApplier{
+			KubeClient:  kubeClient,
+			DryRun:      *dryRun,
+			Prune:       *prune,
+			StrictApply: *strictApply,
+			Metrics:     metrics,
+		}
+
+		gitUtil := &git.GitUtil{
+			RepoPath: *repoPath,
+		}
 
 		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 		// Only 1 pending request may sit in the queue at a time.
@@ -147,7 +168,8 @@ func main() {
 		go webserver.Start()
 
 		for err := range errors {
-			log.Fatal(err)
+			log.Logger.Error("error", err)
+			os.Exit(1)
 		}
 	}
 	app.Run(os.Args)

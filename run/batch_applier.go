@@ -1,10 +1,12 @@
 package run
 
 import (
-	"log"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
@@ -34,17 +36,18 @@ type BatchApplier struct {
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
 func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt) {
 	if err := a.KubeClient.CheckVersion(); err != nil {
-		log.Fatal(err)
+		log.Logger.Error("", "error", err)
+		os.Exit(1)
 	}
 
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 	for _, path := range applyList {
-		log.Printf("Applying dir %v", path)
+		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 		ns := filepath.Base(path)
 		s, err := a.KubeClient.GetNamespaceStatus(ns)
 		if err != nil {
-			log.Printf("ERROR: Error while getting namespace status, defaulting to off: error=(%v)", err)
+			log.Logger.Error("Error while getting namespace status, defaulting to off", "error", err)
 		}
 		var disabled bool
 		switch s {
@@ -67,11 +70,11 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
 			successes = append(successes, appliedFile)
-			log.Printf("%v\n%v", cmd, output)
+			log.Logger.Info(fmt.Sprintf("%v\n%v", cmd, output))
 		} else {
 			appliedFile.ErrorMessage = err.Error()
 			failures = append(failures, appliedFile)
-			log.Printf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage)
+			log.Logger.Warn(fmt.Sprintf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage))
 		}
 		a.Metrics.UpdateNamespaceSuccess(path, success)
 

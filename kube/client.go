@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
@@ -254,7 +254,7 @@ func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string,
 	}
 
 	if len(nr.Secrets) > 1 {
-		log.Printf("Found many secrets for kube-applier on %s using the first on the list", namespace)
+		log.Logger.Info("Found many secrets for kube-applier using the first on the list", "namespace", namespace)
 	}
 	if len(nr.Secrets) == 0 {
 		return "", errors.Errorf("no secrets found for %s user", username)

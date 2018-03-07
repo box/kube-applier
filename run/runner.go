@@ -1,9 +1,8 @@
 package run
 
 import (
-	"log"
-
 	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
@@ -37,7 +36,7 @@ func (r *Runner) Start() {
 func (r *Runner) run() (*Result, error) {
 
 	start := r.Clock.Now()
-	log.Printf("Started apply run at %v", start)
+	log.Logger.Info("Started apply run", "start-time", start)
 
 	dirs, err := sysutil.ListDirs(r.RepoPath)
 	if err != nil {
@@ -56,7 +55,7 @@ func (r *Runner) run() (*Result, error) {
 
 	finish := r.Clock.Now()
 
-	log.Printf("Finished apply run at %v", finish)
+	log.Logger.Info("Finished apply run", "stop-time", finish)
 
 	success := len(failures) == 0
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
