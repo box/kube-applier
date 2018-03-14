@@ -47,15 +47,15 @@ var totalFilesTestCases = []totalFilesTestCase{
 	// Both empty
 	{[]ApplyAttempt{}, []ApplyAttempt{}, 0},
 	// Single apply attempt, other nil
-	{[]ApplyAttempt{ApplyAttempt{}}, nil, 1},
+	{[]ApplyAttempt{{}}, nil, 1},
 	// Single apply attempt, other empty
-	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{}, 1},
+	{[]ApplyAttempt{{}}, []ApplyAttempt{}, 1},
 	// Both single apply attempt
-	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{ApplyAttempt{}}, 2},
+	{[]ApplyAttempt{{}}, []ApplyAttempt{{}}, 2},
 	// Both multiple apply attempts
 	{
-		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}, ApplyAttempt{}},
-		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}},
+		[]ApplyAttempt{{}, {}, {}},
+		[]ApplyAttempt{{}, {}},
 		5,
 	},
 }
