@@ -3,3 +3,4 @@ go:
   - 1.7
 script:
   - make test-unit
+  - .travis/check_workspace.sh
