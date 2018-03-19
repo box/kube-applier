@@ -6,7 +6,7 @@ kube-applier is a service that enables continuous deployment of Kubernetes objec
 
 kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-the-git-repository) to ensure that the cluster objects are up-to-date with their associated spec files (JSON or YAML) in the repo.
 
-At a [specified interval](#run-interval), kube-applier performs a "full run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands for all JSON and YAML files within the repo.
+At a [specified interval](#run-interval), kube-applier performs a "full run", issuing [kubectl apply](https://kubernetes.io/docs/concepts/cluster-administration/manage-deployment/#kubectl-apply) commands for all JSON and YAML files within the repo.
 
 When a new commit to the repo occurs, kube-applier performs a "quick run", issuing apply commands only for files that have changed since the last run.
 
@@ -17,10 +17,18 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 ## Requirements
 * [Go (1.7+)](https://golang.org/dl/)
 * [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
-* [Kubernetes cluster (1.2.x-1.4.x)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
+* [Kubernetes cluster](http://kubernetes.io/docs/getting-started-guides/binary_release/)
     * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
-    * 1.5.x and 1.6.x are not currently supported due to an [issue](https://github.com/kubernetes/kubernetes/issues/7789#issuecomment-280568960) with applying to namespaces specified in a spec file. Work is in progress to add support for these versions soon.
-    * There are [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects. These issues are [fixed in Kubernetes 1.6](https://github.com/kubernetes/kubernetes/pull/40666).
+    * Supported Kubernetes releases:
+        * Note: Releases prior to 1.6.0 are subject [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects.
+        * 1.2.x
+        * 1.3.x
+        * 1.4.x
+        * 1.5.8+ (earlier 1.5 releases not supported due to [issue](https://github.com/kubernetes/kubernetes/issues/7789#issuecomment-280568960), fixed [here](https://github.com/kubernetes/kubernetes/pull/44862/)).
+        * 1.6.3+ (same as 1.5)
+        * 1.7.x
+        * 1.8.x
+        * 1.9.x
 
 ## Setup
 
