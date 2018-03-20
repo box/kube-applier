@@ -34,7 +34,7 @@
                 value: "https://github.com/kubernetes/kubernetes.git"
               - name: "GIT_SYNC_DEST"
                 value: "resources"
-            image: "gcr.io/google_containers/git-sync:v2.0.5"
+            image: "gcr.io/google_containers/git-sync:v2.0.6"
             ports:
               - containerPort: 2020
             volumeMounts:
