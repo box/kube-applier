@@ -1,45 +1,45 @@
 ---
   apiVersion: "extensions/v1beta1"
   kind: "Deployment"
-  metadata: 
+  metadata:
     name: "kube-applier"
     namespace: "kube-system"
-  spec: 
+  spec:
     replicas: 1
-    template: 
-      metadata: 
-        labels: 
+    template:
+      metadata:
+        labels:
           app: "kube-applier"
-      spec: 
-        containers: 
+      spec:
+        containers:
           - name: "kube-applier"
-            command: 
+            command:
               - "/kube-applier"
-            env: 
+            env:
               - name: "REPO_PATH"
                 value: "/k8s/resources"
               - name: "LISTEN_PORT"
                 value: "2020"
             image: "kube-applier:v0.1.0"
-            ports: 
+            ports:
               - containerPort: 2020
             volumeMounts:
               - name: "git-repo"
                 mountPath: "/k8s"
           - name: "git-sync"
-            command: 
+            command:
               - "/git-sync"
-            env: 
+            env:
               - name: "GIT_SYNC_REPO"
                 value: "https://github.com/kubernetes/kubernetes.git"
               - name: "GIT_SYNC_DEST"
                 value: "resources"
-            image: "gcr.io/google_containers/git-sync:v2.0.0"
-            ports: 
+            image: "gcr.io/google_containers/git-sync:v2.0.6"
+            ports:
               - containerPort: 2020
-            volumeMounts: 
+            volumeMounts:
               - name: "git-repo"
                 mountPath: "/git"
-        volumes: 
+        volumes:
           - name: "git-repo"
             emptyDir: {}
