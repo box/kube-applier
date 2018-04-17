@@ -46,10 +46,6 @@ var pruneWhitelist = []string{
 	"core/v1/ServiceAccount",
 	"extensions/v1beta1/Ingress",
 	"networking.k8s.io/v1/NetworkPolicy",
-	"rbac/v1/ClusterRole",
-	"rbac/v1/ClusterRoleRoleBinding",
-	"rbac/v1/Role",
-	"rbac/v1/RoleBinding",
 }
 
 // AutomaticDeploymentOption type used for labels
