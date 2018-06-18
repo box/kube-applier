@@ -36,6 +36,7 @@ var execCommand = exec.Command
 //todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
 var pruneWhitelist = []string{
 	"apps/v1/DaemonSet",
+	"apps/v1beta1/DaemonSet",
 	"apps/v1/Deployment",
 	"apps/v1/StatefulSet",
 	"autoscaling/v1/HorizontalPodAutoscaler",
