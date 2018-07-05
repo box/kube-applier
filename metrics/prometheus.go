@@ -5,12 +5,16 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/utilitywarehouse/kube-applier/log"
+	"strings"
+	"fmt"
 )
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
+	UpdateResultSummary(successfulApplyAttempts map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
@@ -19,6 +23,7 @@ type PrometheusInterface interface {
 type Prometheus struct {
 	namespaceApplyCount *prometheus.CounterVec
 	runLatency          *prometheus.HistogramVec
+	resultSummary		*prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
@@ -43,7 +48,23 @@ func (p *Prometheus) Init() {
 			"success",
 		},
 	)
+	p.resultSummary = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "result_summary",
+		Help: "Result summary for every manifest",
+	},
+		[]string{
+			// The object namespace
+			"namespace",
+			// The object type
+			"type",
+			// The object name
+			"name",
+			// The resulting action
+			"result",
+		},
+	)
 
+	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
 }
@@ -60,4 +81,24 @@ func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
 	p.runLatency.With(prometheus.Labels{
 		"success": strconv.FormatBool(success),
 	}).Observe(runLatency)
+}
+
+// UpdateResultSummary
+func (p *Prometheus) UpdateResultSummary(results map[string]string)  {
+	p.resultSummary.Reset() //prob not as this func may be invoked for each ns
+
+	for filePath, output := range results {
+		outputParts := strings.Split(output, " ")
+		if len(outputParts) != 3 {
+			log.Logger.Warn(fmt.Sprintf("unable to pass output: %s", output))
+			continue
+		}
+
+		p.resultSummary.With(prometheus.Labels{
+			"namespace": filePath,
+			"type": outputParts[0],
+			"name": strings.TrimSuffix(strings.TrimPrefix(outputParts[1], "\""), "\""),
+			"result": outputParts[2],
+		}).Inc()
+	}
 }

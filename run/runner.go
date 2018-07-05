@@ -58,6 +58,13 @@ func (r *Runner) run() (*Result, error) {
 	log.Logger.Info("Finished apply run", "stop-time", finish)
 
 	success := len(failures) == 0
+
+	results := make(map[string]string)
+	for _, success := range successes {
+		results[success.FilePath] = success.Output
+	}
+
+	r.Metrics.UpdateResultSummary(results)
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
