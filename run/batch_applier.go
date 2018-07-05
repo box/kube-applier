@@ -60,12 +60,14 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		default:
 			continue
 		}
-		var cmd, output string
-		if a.StrictApply {
-			cmd, output, err = a.KubeClient.StrictApply(path, ns, a.DryRun || disabled, a.Prune)
-		} else {
-			cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || disabled, a.Prune)
+
+		var kustomize bool
+		if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
+			kustomize = true
 		}
+
+		var cmd, output string
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || disabled, a.Prune, a.StrictApply, kustomize)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

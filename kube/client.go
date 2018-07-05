@@ -36,7 +36,6 @@ var execCommand = exec.Command
 //todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
 var pruneWhitelist = []string{
 	"apps/v1/DaemonSet",
-	"apps/v1beta1/DaemonSet",
 	"apps/v1/Deployment",
 	"apps/v1/StatefulSet",
 	"autoscaling/v1/HorizontalPodAutoscaler",
@@ -61,8 +60,7 @@ const (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace string, dryRun, prune bool) (string, string, error)
-	StrictApply(path, namespace string, dryRun, prune bool) (string, string, error)
+	Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error)
 	CheckVersion() error
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
@@ -163,51 +161,73 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 	return nil
 }
 
-func prepareApplyArgs(path, namespace, label string, dryRun, prune bool) []string {
-	args := []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", label, Off), "-n", namespace}
+// Apply attempts to "kubectl apply" the files located at path. It returns the
+// full apply command and its output.
+//
+// strict - attempt to "kubectl apply" the files located at path using a
+//          `kube-applier` service account under the given namespace.
+//          `kube-applier` service account must exist for the given namespace and
+//          must contain a secret that include token and ca.cert.  It returns the
+//          full apply command and its output.
+//
+// kustomize - Do a `kuztomize build` on the path before piping to `kubectl
+//             apply`, set to if there is a `kustomization.yaml` found in the path
+func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error) {
+	var args []string
+
+	if kustomize {
+		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-f", "-", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+	} else {
+		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+	}
+
 	if prune {
 		args = append(args, "--prune")
 		for _, w := range pruneWhitelist {
 			args = append(args, "--prune-whitelist="+w)
 		}
 	}
-	return args
-}
 
-func executeApply(args []string) (string, string, error) {
-	cmd := strings.Join(args, " ")
-	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
-	if err != nil {
-		err = errors.Wrap(err, "kubectl apply command failed")
-	}
-	return cmd, string(stdout), err
-}
-
-// Apply attempts to "kubectl apply" the file located at path.
-// It returns the full apply command and its output.
-func (c *Client) Apply(path, namespace string, dryRun, prune bool) (string, string, error) {
-	args := prepareApplyArgs(path, namespace, c.Label, dryRun, prune)
-	if c.Server != "" {
+	if strict {
+		tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
+		if err != nil {
+			return "", "", fmt.Errorf("error creating temp config: %v", err)
+		}
+		defer func() { os.Remove(tempKubeConfigFilepath); os.Remove(tempCertFilepath) }()
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", tempKubeConfigFilepath))
+	} else if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
 
-	return executeApply(args)
-}
+	kubectlCmd := exec.Command(args[0], args[1:]...)
 
-// StrictApply will attempt to "kubectl apply" the file located at path using a `kube-applier` service account under the given namespace.
-// `kube-applier` service account must exist for the given namespace and must contain a secret that include token and ca.cert.
-// It returns the full apply command and its output.
-func (c *Client) StrictApply(path, namespace string, dryRun, prune bool) (string, string, error) {
-	args := prepareApplyArgs(path, namespace, c.Label, dryRun, prune)
+	var out []byte
+	var err error
+	var cmdStr string
 
-	tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
-	if err != nil {
-		return "", "", fmt.Errorf("error creating temp config: %v", err)
+	if kustomize {
+		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
+		kustomizeCmd := exec.Command("kustomize", "build", path)
+		pipe, err := kustomizeCmd.StdoutPipe()
+		if err != nil {
+			return cmdStr, "", err
+		}
+		kubectlCmd.Stdin = pipe
+
+		err = kustomizeCmd.Start()
+		if err != nil {
+			return cmdStr, "", err
+		}
+	} else {
+		cmdStr = strings.Join(args, " ")
 	}
-	defer func() { os.Remove(tempKubeConfigFilepath); os.Remove(tempCertFilepath) }()
-	args = append(args, fmt.Sprintf("--kubeconfig=%s", tempKubeConfigFilepath))
 
-	return executeApply(args)
+	out, err = kubectlCmd.CombinedOutput()
+	if err != nil {
+		return cmdStr, string(out), err
+	}
+
+	return cmdStr, string(out), err
 }
 
 // GetNamespaceStatus returns the AutmaticDeployment label for the given namespace

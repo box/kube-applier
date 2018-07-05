@@ -163,20 +163,3 @@ func TestGetUserDataFromSecret(t *testing.T) {
 		t.Fatal("Got unexpected cert")
 	}
 }
-
-func TestPrepareApplyArgsPrune(t *testing.T) {
-	assert := assert.New(t)
-
-	// Prune == false
-	expected := []string{"kubectl", "apply", "--dry-run=false", "-R", "-f", "/path", "-l autoDeployment!=off", "-n", "namespace"}
-	actual := prepareApplyArgs("/path", "namespace", "autoDeployment", false, false)
-	assert.Equal(expected, actual)
-
-	// Prune == true
-	expected = append(expected, "--prune")
-	for _, w := range pruneWhitelist {
-		expected = append(expected, "--prune-whitelist="+w)
-	}
-	actual = prepareApplyArgs("/path", "namespace", "autoDeployment", false, true)
-	assert.Equal(expected, actual)
-}

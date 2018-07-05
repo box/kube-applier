@@ -286,11 +286,11 @@ func expectCheckVersionAndReturnNil(kubeClient *kube.MockClientInterface) *gomoc
 }
 
 func expectApplyAndReturnSuccess(file, namespace string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune).Times(1).Return("cmd "+file, "output "+file, nil)
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, nil)
 }
 
 func expectApplyAndReturnFailure(file, namespace string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
 func expectGetNamespaceStatusAndReturn(ret kube.AutomaticDeploymentOption, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {
