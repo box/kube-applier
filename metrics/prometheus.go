@@ -10,6 +10,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 
+//go:generate mockgen -package=metrics -destination=mock_prometheus.go -source prometheus.go
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
 	UpdateNamespaceSuccess(string, bool)
