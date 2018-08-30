@@ -60,11 +60,10 @@ func (r *Runner) run() (*Result, error) {
 	success := len(failures) == 0
 
 	results := make(map[string]string)
-	for _, success := range successes {
-		results[success.FilePath] = success.Output
+	for _, failure := range failures {
+		results[failure.FilePath] = failure.Output
 	}
-
-	r.Metrics.UpdateResultSummary(results)
+	r.Metrics.UpdateFailedResultSummary(results)
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
