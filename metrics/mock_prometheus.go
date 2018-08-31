@@ -52,12 +52,12 @@ func (mr *MockPrometheusInterfaceMockRecorder) UpdateRunLatency(arg0, arg1 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRunLatency", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateRunLatency), arg0, arg1)
 }
 
-// UpdateFailedResultSummary mocks base method
-func (m *MockPrometheusInterface) UpdateFailedResultSummary(failures map[string]string) {
-	m.ctrl.Call(m, "UpdateFailedResultSummary", failures)
+// UpdateResultSummary mocks base method
+func (m *MockPrometheusInterface) UpdateResultSummary(arg0 map[string]string) {
+	m.ctrl.Call(m, "UpdateResultSummary", arg0)
 }
 
-// UpdateFailedResultSummary indicates an expected call of UpdateFailedResultSummary
-func (mr *MockPrometheusInterfaceMockRecorder) UpdateFailedResultSummary(failures interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFailedResultSummary", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateFailedResultSummary), failures)
+// UpdateResultSummary indicates an expected call of UpdateResultSummary
+func (mr *MockPrometheusInterfaceMockRecorder) UpdateResultSummary(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateResultSummary", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateResultSummary), arg0)
 }

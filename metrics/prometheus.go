@@ -1,13 +1,11 @@
 package metrics
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/utilitywarehouse/kube-applier/log"
 )
 
 //go:generate mockgen -package=metrics -destination=mock_prometheus.go -source prometheus.go
@@ -15,7 +13,7 @@ import (
 type PrometheusInterface interface {
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
-	UpdateFailedResultSummary(failures map[string]string)
+	UpdateResultSummary(map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
@@ -82,21 +80,52 @@ func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
 	}).Observe(runLatency)
 }
 
-// UpdateResultSummary sets failure gauges
-func (p *Prometheus) UpdateFailedResultSummary(failures map[string]string) {
+// UpdateResultSummary sets gauges for each deployment
+func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
 	p.resultSummary.Reset()
 
 	for filePath, output := range failures {
-		outputParts := strings.Split(output, " ")
-		if len(outputParts) != 3 {
-			log.Logger.Warn(fmt.Sprintf("unable to pass output: %s", output))
+		res := parseKubectlOutput(output)
+		for _, r := range res {
+			var value float64
+			switch r.Action {
+			case "unchanged":
+				value = 0
+			case "configured":
+				value = 1
+			case "pruned":
+				value = 2
+			}
+
+			p.resultSummary.With(prometheus.Labels{
+				"namespace": filepath.Base(filePath),
+				"type":      r.Type,
+				"name":      r.Name,
+			}).Set(value)
+		}
+	}
+}
+
+type Result struct {
+	Type, Name, Action string
+}
+
+func parseKubectlOutput(output string) []Result {
+	lines := strings.Split(output, "\n")
+
+	var results []Result
+	for _, line := range lines {
+		o := strings.Split(line, " ")
+		if len(o) < 3 {
 			continue
 		}
 
-		p.resultSummary.With(prometheus.Labels{
-			"namespace": filePath,
-			"type":      outputParts[0],
-			"name":      strings.TrimSuffix(strings.TrimPrefix(outputParts[1], "\""), "\""),
-		}).Set(1)
+		results = append(results, Result{
+			Type:   o[0],
+			Name:   strings.Trim(o[1], "\""),
+			Action: o[2],
+		})
 	}
+
+	return results
 }
