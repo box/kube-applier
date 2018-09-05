@@ -58,6 +58,8 @@ func (p *Prometheus) Init() {
 			"type",
 			// The object name
 			"name",
+			// The applied action
+			"action",
 		},
 	)
 
@@ -87,21 +89,12 @@ func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
 	for filePath, output := range failures {
 		res := parseKubectlOutput(output)
 		for _, r := range res {
-			var value float64
-			switch r.Action {
-			case "unchanged":
-				value = 0
-			case "configured":
-				value = 1
-			case "pruned":
-				value = 2
-			}
-
 			p.resultSummary.With(prometheus.Labels{
 				"namespace": filepath.Base(filePath),
 				"type":      r.Type,
 				"name":      r.Name,
-			}).Set(value)
+				"action":    r.Action,
+			}).Set(1)
 		}
 	}
 }
