@@ -3,14 +3,17 @@ package metrics
 import (
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+//go:generate mockgen -package=metrics -destination=mock_prometheus.go -source prometheus.go
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
+	UpdateResultSummary(map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
@@ -19,6 +22,7 @@ type PrometheusInterface interface {
 type Prometheus struct {
 	namespaceApplyCount *prometheus.CounterVec
 	runLatency          *prometheus.HistogramVec
+	resultSummary       *prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
@@ -43,7 +47,23 @@ func (p *Prometheus) Init() {
 			"success",
 		},
 	)
+	p.resultSummary = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "result_summary",
+		Help: "Result summary for every manifest",
+	},
+		[]string{
+			// The object namespace
+			"namespace",
+			// The object type
+			"type",
+			// The object name
+			"name",
+			// The applied action
+			"action",
+		},
+	)
 
+	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
 }
@@ -60,4 +80,45 @@ func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
 	p.runLatency.With(prometheus.Labels{
 		"success": strconv.FormatBool(success),
 	}).Observe(runLatency)
+}
+
+// UpdateResultSummary sets gauges for each deployment
+func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
+	p.resultSummary.Reset()
+
+	for filePath, output := range failures {
+		res := parseKubectlOutput(output)
+		for _, r := range res {
+			p.resultSummary.With(prometheus.Labels{
+				"namespace": filepath.Base(filePath),
+				"type":      r.Type,
+				"name":      r.Name,
+				"action":    r.Action,
+			}).Set(1)
+		}
+	}
+}
+
+type Result struct {
+	Type, Name, Action string
+}
+
+func parseKubectlOutput(output string) []Result {
+	lines := strings.Split(output, "\n")
+
+	var results []Result
+	for _, line := range lines {
+		o := strings.Split(line, " ")
+		if len(o) < 3 {
+			continue
+		}
+
+		results = append(results, Result{
+			Type:   o[0],
+			Name:   strings.Trim(o[1], "\""),
+			Action: o[2],
+		})
+	}
+
+	return results
 }

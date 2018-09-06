@@ -78,6 +78,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 			failures = append(failures, appliedFile)
 			log.Logger.Warn(fmt.Sprintf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage))
 		}
+
 		a.Metrics.UpdateNamespaceSuccess(path, success)
 
 	}

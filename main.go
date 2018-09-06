@@ -95,8 +95,8 @@ func main() {
 	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
 		log.Logger.Error(fmt.Sprintf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat))
 		os.Exit(1)
-
 	}
+
 	app.Action = func() {
 		metrics := &metrics.Prometheus{}
 		metrics.Init()
@@ -109,6 +109,7 @@ func main() {
 		}
 
 		kubeClient := &kube.Client{Server: *server, Label: *label}
+
 		if err := kubeClient.Configure(); err != nil {
 			log.Logger.Error("kubectl configuration failed", "error", err)
 		}
