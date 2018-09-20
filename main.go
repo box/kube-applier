@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	cli "github.com/jawher/mow.cli"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -22,156 +22,193 @@ const (
 	waitForRepoInterval = 1 * time.Second
 )
 
-func main() {
-	app := cli.App(webserver.AppName, webserver.AppDescription)
-	repoPath := app.String(cli.StringOpt{
-		Name:   "repo-path",
-		Desc:   "Git repo path",
-		EnvVar: "REPO_PATH",
-	})
-	listenPort := app.Int(cli.IntOpt{
-		Name:   "listenport",
-		Value:  8080,
-		Desc:   "Listen port",
-		EnvVar: "LISTEN_PORT",
-	})
-	server := app.String(cli.StringOpt{
-		Name:   "server",
-		Value:  "",
-		Desc:   "K8s server. Mainly for local testing.",
-		EnvVar: "SERVER",
-	})
-	diffURLFormat := app.String(cli.StringOpt{
-		Name:   "diff-url-format",
-		Value:  "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s",
-		Desc:   "Github commit diff url",
-		EnvVar: "DIFF_URL_FORMAT",
-	})
-	pollInterval := app.Int(cli.IntOpt{
-		Name:   "poll-interval-seconds",
-		Value:  5,
-		Desc:   "Poll interval",
-		EnvVar: "POLL_INTERVAL_SECONDS",
-	})
-	fullRunInterval := app.Int(cli.IntOpt{
-		Name:   "full-run-interval-seconds",
-		Value:  60,
-		Desc:   "Full run interval",
-		EnvVar: "FULL_RUN_INTERVAL_SECONDS",
-	})
-	dryRun := app.Bool(cli.BoolOpt{
-		Name:   "dry-run",
-		Value:  false,
-		Desc:   "Dry run",
-		EnvVar: "DRY_RUN",
-	})
-	prune := app.Bool(cli.BoolOpt{
-		Name:   "prune",
-		Value:  true,
-		Desc:   "kubectl --prune flag used when applying manifests. Default true",
-		EnvVar: "KUBE_PRUNE",
-	})
-	strictApply := app.Bool(cli.BoolOpt{
-		Name:   "strict-apply",
-		Value:  false,
-		Desc:   "Use kube-applier service-accounts for every namespace",
-		EnvVar: "STRICT_APPLY",
-	})
-	label := app.String(cli.StringOpt{
-		Name:   "label",
-		Value:  "automaticDeployment",
-		Desc:   "K8s label used to enable/disable automatic deployments.",
-		EnvVar: "LABEL",
-	})
-	logLevel := app.String(cli.StringOpt{
-		Name:   "log",
-		Value:  "warn",
-		Desc:   "Log level [trace|debug|info|warn|error] case insensitive",
-		EnvVar: "LOG_LEVEL",
-	})
+var (
+	repoPath        = os.Getenv("REPO_PATH")
+	listenPort      = os.Getenv("LISTEN_PORT")
+	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
+	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
+	dryRun          = os.Getenv("DRY_RUN")
+	prune           = os.Getenv("KUBE_PRUNE")
+	strictApply     = os.Getenv("STRICT_APPLY")
+	label           = os.Getenv("LABEL")
+	logLevel        = os.Getenv("LOG_LEVEL")
 
-	log.InitLogger(*logLevel)
+	// kube server. Mainly for local testing.
+	server = os.Getenv("SERVER")
 
-	if *diffURLFormat != "" && !strings.Contains(*diffURLFormat, "%s") {
-		log.Logger.Error(fmt.Sprintf("Invalid DIFF_URL_FORMAT, must contain %q: %v", "%s", *diffURLFormat))
+	// Github commit diff url
+	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
+)
+
+func validate() {
+	if repoPath == "" {
+		fmt.Println("Need to export REPO_PATH")
 		os.Exit(1)
 	}
 
-	app.Action = func() {
-		metrics := &metrics.Prometheus{}
-		metrics.Init()
-
-		clock := &sysutil.Clock{}
-
-		if err := sysutil.WaitForDir(*repoPath, clock, waitForRepoInterval); err != nil {
-			log.Logger.Error("error", err)
-			os.Exit(1)
-		}
-
-		kubeClient := &kube.Client{Server: *server, Label: *label}
-
-		if err := kubeClient.Configure(); err != nil {
-			log.Logger.Error("kubectl configuration failed", "error", err)
-		}
-
-		batchApplier := &run.BatchApplier{
-			KubeClient:  kubeClient,
-			DryRun:      *dryRun,
-			Prune:       *prune,
-			StrictApply: *strictApply,
-			Metrics:     metrics,
-		}
-
-		gitUtil := &git.GitUtil{
-			RepoPath: *repoPath,
-		}
-
-		// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
-		// Only 1 pending request may sit in the queue at a time.
-		runQueue := make(chan bool, 1)
-
-		// Runner sends run results to runResults channel, webserver receives the results and displays them.
-		// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
-		runResults := make(chan run.Result, 5)
-
-		// Runner, webserver, and scheduler all send fatal errors to errors channel, and main() exits upon receiving an error.
-		// No limit needed, as a single fatal error will exit the program anyway.
-		errors := make(chan error)
-
-		runner := &run.Runner{
-			RepoPath:      *repoPath,
-			BatchApplier:  batchApplier,
-			GitUtil:       gitUtil,
-			Clock:         clock,
-			Metrics:       metrics,
-			DiffURLFormat: *diffURLFormat,
-			RunQueue:      runQueue,
-			RunResults:    runResults,
-			Errors:        errors,
-		}
-		scheduler := &run.Scheduler{
-			GitUtil:         gitUtil,
-			PollInterval:    time.Duration(*pollInterval) * time.Second,
-			FullRunInterval: time.Duration(*fullRunInterval) * time.Second,
-			RunQueue:        runQueue,
-			Errors:          errors,
-		}
-		webserver := &webserver.WebServer{
-			ListenPort: *listenPort,
-			Clock:      clock,
-			RunQueue:   runQueue,
-			RunResults: runResults,
-			Errors:     errors,
-		}
-
-		go scheduler.Start()
-		go runner.Start()
-		go webserver.Start()
-
-		for err := range errors {
-			log.Logger.Error("error", err)
+	if listenPort == "" {
+		listenPort = "8080"
+	} else {
+		_, err := strconv.Atoi(listenPort)
+		if err != nil {
+			fmt.Println("LISTEN_PORT must be an int")
 			os.Exit(1)
 		}
 	}
-	app.Run(os.Args)
+
+	if diffURLFormat == "" {
+		diffURLFormat = "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
+	} else if !strings.Contains(diffURLFormat, "%s") {
+		fmt.Sprintf("Invalid DIFF_URL_FORMAT, must contain %q: %v\n", "%s", diffURLFormat)
+		os.Exit(1)
+	}
+
+	if pollInterval == "" {
+		pollInterval = "5"
+	} else {
+		_, err := strconv.Atoi(pollInterval)
+		if err != nil {
+			fmt.Println("POLL_INTERVAL_SECONDS must be an int")
+			os.Exit(1)
+		}
+	}
+
+	if fullRunInterval == "" {
+		fullRunInterval = "60"
+	} else {
+		_, err := strconv.Atoi(fullRunInterval)
+		if err != nil {
+			fmt.Println("FULL_RUN_INTERVAL_SECONDS must be an int")
+			os.Exit(1)
+		}
+	}
+
+	if dryRun == "" {
+		dryRun = "false"
+	} else {
+		_, err := strconv.ParseBool(dryRun)
+		if err != nil {
+			fmt.Println("DRY_RUN must be a boolean")
+			os.Exit(1)
+		}
+	}
+
+	// kubectl --prune flag used when applying manifests. Default true
+	if prune == "" {
+		prune = "true"
+	} else {
+		_, err := strconv.ParseBool(prune)
+		if err != nil {
+			fmt.Println("KUBE_PRUNE must be a boolean")
+			os.Exit(1)
+		}
+	}
+
+	// use kube-applier service-accounts for every namespace
+	if strictApply == "" {
+		strictApply = "false"
+	} else {
+		_, err := strconv.ParseBool(strictApply)
+		if err != nil {
+			fmt.Println("STRICT_APPLY must be a boolean")
+			os.Exit(1)
+		}
+	}
+
+	if label == "" {
+		label = "automaticDeployment"
+	}
+
+	// log level [trace|debug|info|warn|error] case insensitive
+	if logLevel == "" {
+		logLevel = "warn"
+	}
+}
+
+func main() {
+	validate()
+
+	log.InitLogger(logLevel)
+
+	metrics := &metrics.Prometheus{}
+	metrics.Init()
+
+	clock := &sysutil.Clock{}
+
+	if err := sysutil.WaitForDir(repoPath, clock, waitForRepoInterval); err != nil {
+		log.Logger.Error("error", err)
+		os.Exit(1)
+	}
+
+	kubeClient := &kube.Client{Server: server, Label: label}
+
+	if err := kubeClient.Configure(); err != nil {
+		log.Logger.Error("kubectl configuration failed", "error", err)
+	}
+
+	dr, _ := strconv.ParseBool(dryRun)
+	pr, _ := strconv.ParseBool(prune)
+	sa, _ := strconv.ParseBool(strictApply)
+	batchApplier := &run.BatchApplier{
+		KubeClient:  kubeClient,
+		DryRun:      dr,
+		Prune:       pr,
+		StrictApply: sa,
+		Metrics:     metrics,
+	}
+
+	gitUtil := &git.GitUtil{
+		RepoPath: repoPath,
+	}
+
+	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
+	// Only 1 pending request may sit in the queue at a time.
+	runQueue := make(chan bool, 1)
+
+	// Runner sends run results to runResults channel, webserver receives the results and displays them.
+	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
+	runResults := make(chan run.Result, 5)
+
+	// Runner, webserver, and scheduler all send fatal errors to errors channel, and main() exits upon receiving an error.
+	// No limit needed, as a single fatal error will exit the program anyway.
+	errors := make(chan error)
+
+	runner := &run.Runner{
+		RepoPath:      repoPath,
+		BatchApplier:  batchApplier,
+		GitUtil:       gitUtil,
+		Clock:         clock,
+		Metrics:       metrics,
+		DiffURLFormat: diffURLFormat,
+		RunQueue:      runQueue,
+		RunResults:    runResults,
+		Errors:        errors,
+	}
+
+	pi, _ := strconv.Atoi(pollInterval)
+	fi, _ := strconv.Atoi(fullRunInterval)
+	scheduler := &run.Scheduler{
+		GitUtil:         gitUtil,
+		PollInterval:    time.Duration(pi) * time.Second,
+		FullRunInterval: time.Duration(fi) * time.Second,
+		RunQueue:        runQueue,
+		Errors:          errors,
+	}
+
+	lp, _ := strconv.Atoi(listenPort)
+	webserver := &webserver.WebServer{
+		ListenPort: lp,
+		Clock:      clock,
+		RunQueue:   runQueue,
+		RunResults: runResults,
+		Errors:     errors,
+	}
+
+	go scheduler.Start()
+	go runner.Start()
+	go webserver.Start()
+
+	err := <-errors
+	log.Logger.Error("Fatal error, exiting", "error", err)
+	os.Exit(1)
 }
