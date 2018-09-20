@@ -1,5 +1,7 @@
 # kube-applier
 
+Forked from: https://github.com/box/kube-applier
+
 kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster. 
 
 kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-the-git-repository) to ensure that the cluster objects are up-to-date with their associated spec files (JSON or YAML) in the repo.
@@ -9,28 +11,10 @@ Whenever a new commit to the repo occurs, or at a [specified interval](#run-inte
 kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics) for monitoring.
 
 ## Requirements
-* [Go (1.7+)](https://golang.org/dl/)
-* [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
-* [Kubernetes cluster (1.2+)](http://kubernetes.io/docs/getting-started-guides/binary_release/)
-    * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
-    * There are [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects. These issues will be [fixed in Kubernetes 1.6](https://github.com/kubernetes/kubernetes/pull/40666).
 
-## Setup
-
-Download the source code and build the container image.
-```
-$ go get github.com/utilitywarehouse/kube-applier
-$ cd $GOPATH/src/github.com/utilitywarehouse/kube-applier
-```
-
-You will need to push the image to a registry in order to reference it in a Kubernetes container spec.
+* The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
 
 ## Usage
-
-### Container Spec
-We suggest running kube-applier as a Deployment (see [demo/](https://github.com/box/kube-applier/tree/master/demo) for example YAML files). We only support running one replica at a time at this point, so there may be a gap in application if the node serving the replica goes hard down until it is rescheduled onto another node.
-
-***IMPORTANT:*** The Pod containing the kube-applier container must be spawned in a namespace that has write permissions on all namespaces in the API Server (e.g. kube-system).
 
 ### Environment Variables
 
@@ -45,41 +29,24 @@ We suggest running kube-applier as a Deployment (see [demo/](https://github.com/
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --dry-run flag. This means live configuration of the cluster is not changed.
 * `LABEL` - (string) (on|dry-run|off)  K8s label which enables/disables automatic deployment. Label can either be specified at namespace level or on individual resources. Add label with value 'on' or 'dry-run' on a namespace to enable the namespace. By default namespaces are disabled. Add label with value 'off' on individual resources to disable the resource. Resources are enabled by default if their namespace is enabled. Only enabled resources are managed by the kube-applier. Applies to following resources:
-  * `core/v1/Namespace`
-  * `core/v1/ConfigMap`
-  * `core/v1/Pod`
-  * `core/v1/Service`
-  * `batch/v1/Job`
-  * `extensions/v1beta1/DaemonSet`
-  * `extensions/v1beta1/Deployment`
-  * `extensions/v1beta1/Ingress`
-  * `apps/v1beta1/StatefulSet`
-  * `autoscaling/v1/HorizontalPodAutoscaler`
+
+	"apps/v1/DaemonSet",
+	"apps/v1/Deployment",
+	"apps/v1/StatefulSet",
+	"autoscaling/v1/HorizontalPodAutoscaler",
+	"batch/v1/Job",
+	"core/v1/ConfigMap",
+	"core/v1/Pod",
+	"core/v1/Service",
+	"core/v1/ServiceAccount",
+	"extensions/v1beta1/Ingress",
+	"networking.k8s.io/v1/NetworkPolicy",
 
 ### Mounting the Git Repository
-
-There are two ways to mount the Git repository into the kube-applier container.
-
-**1. Git-sync sidecar container**
 
 Git-sync keeps a local directory up to date with a remote repo. The local directory resides in a shared emptyDir volume that is mounted in both the git-sync and kube-applier containers.
 
 Reference the [git-sync](https://github.com/kubernetes/git-sync) repo for setup and usage.
-
-**2. Host-mounted volume**
-
-Mount a Git repository from a host directory. This can be useful when you want kube-applier to apply changes to an object without checking the modified spec file into a remote repo.
-```
-"volumes": [
-   {
-      "hostPath": {
-         "path": <path-to-host-directory>
-      },
-      "name": "repo-volume"
-   }
-   ...
-]
-```
 
 **What happens if the contents of the local Git repo change in the middle of a kube-applier run?**
 
@@ -90,9 +57,6 @@ Given that the `$REPO_PATH` directory is a Git repo or located within one, it is
 **If I remove a configuration file, will kube-applier remove the associated Kubernetes object?**
 
 No. If a file is removed from the `$REPO_PATH` directory, kube-applier will no longer apply the file, but kube-applier **WILL NOT** delete the cluster object(s) described by the file. These objects must be manually cleaned up using `kubectl delete`.
-
-### "Force Run" Feature
-In rare cases, you may wish to trigger a kube-applier run without checking in a commit or waiting for the next scheduled run (e.g. some of your files failed to apply because of some background condition in the cluster, and you have fixed it since the last run). This can be accomplished with the "Force Run" button on the status page, which starts a run immediately if no run is currently in progress, or queues a run to start upon completion of the current run. Only one run may sit in the queue at any given time.
 
 ## Monitoring
 ### Status UI
@@ -114,23 +78,6 @@ kube-applier uses [Prometheus](https://github.com/prometheus/client_golang) for 
 * **file_apply_count** - A [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter) for each file that has had an apply attempt over the lifetime of the container, incremented with each apply attempt and tagged by the filepath and the result of the attempt.
 
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see the [Go library](https://github.com/prometheus/client_golang/tree/master/api/prometheus)) can be used for querying the metrics server.
-
-## Development
-
-All contributions are welcome to this project. Please review our [contributing guidelines](CONTRIBUTING.md).
-
-Some suggestions for running kube-applier locally for development:
-
-* To reach kube-applier's webserver from your browser, you can use an [apiserver proxy URL](https://kubernetes.io/docs/concepts/cluster-administration/access-cluster/#manually-constructing-apiserver-proxy-urls).
-* Although git-sync is recommended for live environments, using a [host-mounted volume](#mounting-the-git-repository) can simplify basic local usage of kube-applier.
-
-## Testing
-
-See our [contributing guidelines](CONTRIBUTING.md#step-7-run-the-tests).
-
-## Support
-
-Need to contact us directly? Email oss@box.com and be sure to include the name of this project in the subject.
 
 ## Copyright and License
 
