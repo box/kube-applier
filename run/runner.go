@@ -11,7 +11,7 @@ import (
 type Runner struct {
 	RepoPath      string
 	BatchApplier  BatchApplierInterface
-	GitUtil       git.GitUtilInterface
+	GitUtil       git.UtilInterface
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
 	DiffURLFormat string

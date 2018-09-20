@@ -9,7 +9,7 @@ import (
 
 // Scheduler handles queueing apply runs at a given time interval and upon every new Git commit.
 type Scheduler struct {
-	GitUtil         git.GitUtilInterface
+	GitUtil         git.UtilInterface
 	PollInterval    time.Duration
 	FullRunInterval time.Duration
 	RunQueue        chan<- bool

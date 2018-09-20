@@ -23,7 +23,7 @@ func (r *Result) FormattedStart() string {
 	return r.Start.Truncate(time.Second).String()
 }
 
-// FormattedStart returns the Finish time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
+// FormattedFinish returns the Finish time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
 func (r *Result) FormattedFinish() string {
 	return r.Finish.Truncate(time.Second).String()
 }

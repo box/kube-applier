@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// ListAllFiles walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
+// ListDirs walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
 func ListDirs(rootPath string) ([]string, error) {
 	var dirs []string
 	files, err := ioutil.ReadDir(rootPath)

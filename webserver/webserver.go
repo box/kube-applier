@@ -15,6 +15,7 @@ import (
 
 const serverTemplatePath = "/templates/status.html"
 
+// WebServer struct
 type WebServer struct {
 	ListenPort int
 	Clock      sysutil.ClockInterface
@@ -81,7 +82,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// Init starts the webserver using the given port, and sets up handlers for:
+// Start starts the webserver using the given port, and sets up handlers for:
 // 1. Status page
 // 2. Metrics
 // 3. Static content
