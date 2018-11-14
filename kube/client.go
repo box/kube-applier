@@ -261,7 +261,7 @@ func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string,
 	}
 	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
-		return "", errors.Errorf("error while getting SA %s:%s :v", namespace, username, err)
+		return "", errors.Errorf("error while getting SA %s:%s %v", namespace, username, err)
 	}
 
 	type secret struct {
