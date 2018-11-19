@@ -191,7 +191,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	if strict {
 		tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
 		if err != nil {
-			return "", "", fmt.Errorf("error creating temp config: %v", err)
+			return "", "", fmt.Errorf("error creating temp config for kube-applier serviceaccount: %v", err)
 		}
 		defer func() { os.Remove(tempKubeConfigFilepath); os.Remove(tempCertFilepath) }()
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", tempKubeConfigFilepath))
@@ -261,7 +261,7 @@ func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string,
 	}
 	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
-		return "", err
+		return "", errors.Errorf("error while getting SA %s:%s %v", namespace, username, err)
 	}
 
 	type secret struct {

@@ -1,6 +1,6 @@
 FROM golang:alpine AS build
-WORKDIR /go/src/app
-COPY . /go/src/app/
+WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
+COPY . /go/src/github.com/utilitywarehouse/kube-applier
 RUN apk --no-cache add git gcc musl-dev && \
  go get -t ./... && \
  go test ./... && \

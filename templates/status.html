@@ -57,7 +57,7 @@
                             <div id="failure-{{$i}}" class="panel-collapse collapse">
                                 <ul class="list-group">
                                     <li class="list-group-item">
-                                        <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}</pre>
+                                        <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}{{ $file.ErrorMessage }}</pre>
                                     </li>
                                 </ul>
                             </div>
