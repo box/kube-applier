@@ -1,0 +1,159 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kube-applier
+  namespace: kube-system
+  labels:
+    app: kube-applier
+    kubernetes.io/ingress.class: traefik-private
+  annotations:
+    external-dns.alpha.kubernetes.io/target: in-k8s-exp-1.dev.uw.systems
+spec:
+  rules:
+  - host: kube-applier-exp-1.dev.uw.systems
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kube-applier
+          servicePort: 80
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kube-applier
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/path: /__/metrics
+    prometheus.io/port: '8080'
+  name: kube-applier
+  namespace: kube-system
+  labels:
+    app: kube-applier
+spec:
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  selector:
+    app: kube-applier
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-applier
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-applier
+  template:
+    metadata:
+      labels:
+        app: kube-applier
+    spec:
+      serviceAccountName: kube-applier
+      initContainers:
+      - name: setup-strongbox
+        image: alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache curl git openssl ca-certificates &&\
+          curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/0.1.0-rc3/strongbox_0.1.0-rc3_linux_amd64 &&\
+          chmod +x strongbox &&\
+          mv strongbox /usr/local/bin/ &&\
+          strongbox -git-config
+        volumeMounts:
+        - name: gs-sb-bin
+          mountPath: /usr/local/bin/
+        - name: gs-gitconfig
+          mountPath: /root/
+      containers:
+      - name: kube-applier
+        image: quay.io/utilitywarehouse/kube-applier:2.0.4
+        env:
+        - name: REPO_PATH
+          value: "/kubernetes-manifests/repo/exp-1-aws"
+        - name: LISTEN_PORT
+          value: "8080"
+        - name: DIFF_URL_FORMAT
+          value: "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
+        - name: DRY_RUN
+          value: "false"
+        - name: LABEL
+          value: automaticDeployment
+        - name: STRICT_APPLY
+          value: "true"
+        - name: LOG_LEVEL
+          value: warn
+        volumeMounts:
+        - name: git-repo
+          mountPath: /kubernetes-manifests
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 500m
+            memory: 200Mi
+        ports:
+        - containerPort: 8080
+      - name: git-sync
+        image: k8s.gcr.io/git-sync:v3.1.0
+        securityContext:
+          runAsUser: 0
+        env:
+        - name: GIT_SYNC_REPO
+          value: "git@github.com:utilitywarehouse/kubernetes-manifests.git"
+        - name: GIT_SYNC_DEST
+          value: "repo"
+        - name: GIT_SYNC_SSH
+          value: "true"
+        - name: GIT_SYNC_MAX_SYNC_FAILURES
+          value: "5"
+        volumeMounts:
+        - name: git-repo
+          mountPath: /tmp/git
+        - name: git-secret
+          mountPath: /etc/git-secret
+        - name: strongbox-secret
+          mountPath: /tmp/.strongbox_keyring
+          subPath: .strongbox_keyring
+        - name: gs-sb-bin
+          mountPath: /usr/local/bin/strongbox
+          subPath: strongbox
+        - name: gs-gitconfig
+          mountPath: /tmp/.gitconfig
+          subPath: .gitconfig
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 500m
+            memory: 300Mi
+      volumes:
+      - name: gs-sb-bin
+        emptyDir: {}
+      - name: gs-gitconfig
+        emptyDir: {}
+      - name: git-repo
+        emptyDir: {}
+      - name: git-secret
+        secret:
+          secretName: github-secret-ssh
+          defaultMode: 0400
+      - name: strongbox-secret
+        secret:
+          secretName: strongbox-secret-keys
+          defaultMode: 0400
