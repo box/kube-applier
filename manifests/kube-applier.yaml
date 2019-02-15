@@ -60,6 +60,8 @@ spec:
         app: kube-applier
     spec:
       serviceAccountName: kube-applier
+      securityContext:
+        fsGroup: 65533 # to make SSH key readable
       initContainers:
       - name: setup-strongbox
         image: alpine
@@ -109,9 +111,9 @@ spec:
         ports:
         - containerPort: 8080
       - name: git-sync
-        image: k8s.gcr.io/git-sync:v3.1.0
+        image: k8s.gcr.io/git-sync:v3.1.1
         securityContext:
-          runAsUser: 0
+          runAsUser: 65533 # git-sync user
         env:
         - name: GIT_SYNC_REPO
           value: "git@github.com:utilitywarehouse/kubernetes-manifests.git"
@@ -152,7 +154,7 @@ spec:
       - name: git-secret
         secret:
           secretName: github-secret-ssh
-          defaultMode: 0400
+          defaultMode: 288 # = mode 0440
       - name: strongbox-secret
         secret:
           secretName: strongbox-secret-keys
