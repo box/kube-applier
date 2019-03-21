@@ -23,7 +23,7 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 * `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
-* `REPO_PATH_FILTERS` - (string) A comma separated list of absolute paths to be applied.
+* `REPO_PATH_FILTERS` - (string) A comma separated list of sub directories to be applied.
 * `SERVER` - (string) Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.

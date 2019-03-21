@@ -1,6 +1,7 @@
 package run
 
 import (
+	"fmt"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -56,6 +57,7 @@ func (r *Runner) run() (*Result, error) {
 		return nil, err
 	}
 
+	log.Logger.Debug(fmt.Sprintf("applying dirs: %v", dirs))
 	successes, failures := r.BatchApplier.Apply(dirs)
 
 	finish := r.Clock.Now()
@@ -81,7 +83,7 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 		return dirs
 	}
 
-	prunedDirs := []string{}
+	var prunedDirs []string
 	for _, dir := range dirs {
 		for _, repoPathFilter := range r.RepoPathFilters {
 			if dir == path.Join(r.RepoPath, repoPathFilter) {

@@ -176,7 +176,7 @@ func main() {
 
 	runner := &run.Runner{
 		RepoPath:        repoPath,
-		RepoPathFilters: strings.Split(repoPath, ","),
+		RepoPathFilters: strings.Split(repoPathFilters, ","),
 		BatchApplier:    batchApplier,
 		GitUtil:         gitUtil,
 		Clock:           clock,
