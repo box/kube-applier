@@ -20,13 +20,28 @@ type Scheduler struct {
 // One ticker queues a new run every X seconds, where X is the value from $FULL_RUN_INTERVAL_SECONDS.
 // The other ticker queues a new run upon every new Git commit, checking the repo every Y seconds where Y is the value from $POLL_INTERVAL_SECONDS.
 func (s *Scheduler) Start() {
-	pollTicker := time.NewTicker(s.PollInterval).C
-	fullRunTicker := time.NewTicker(s.FullRunInterval).C
-	lastCommitHash := ""
+	if s.FullRunInterval != 0 {
+		fullRunTicker := time.NewTicker(s.FullRunInterval)
+		defer fullRunTicker.Stop()
+		fullRunTickerChan := fullRunTicker.C
+		go func() {
+			for {
+				select {
+				case <-fullRunTickerChan:
+					log.Logger.Info("Full run interval reached, queueing run", "interval", s.FullRunInterval)
+					s.enqueue(s.RunQueue)
+				}
+			}
+		}()
+	}
 
+	pollTicker := time.NewTicker(s.PollInterval)
+	defer pollTicker.Stop()
+	pollTickerChan := pollTicker.C
+	lastCommitHash := ""
 	for {
 		select {
-		case <-pollTicker:
+		case <-pollTickerChan:
 			newCommitHash, err := s.GitUtil.HeadHash()
 			if err != nil {
 				s.Errors <- err
@@ -37,9 +52,6 @@ func (s *Scheduler) Start() {
 				s.enqueue(s.RunQueue)
 				lastCommitHash = newCommitHash
 			}
-		case <-fullRunTicker:
-			log.Logger.Info("Full run interval reached, queueing run", "interval", s.FullRunInterval)
-			s.enqueue(s.RunQueue)
 		}
 	}
 }
