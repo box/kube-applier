@@ -27,7 +27,7 @@ func TestPruneDirsWithFilter(t *testing.T) {
 `, "\n")
 
 	prunedDirs := runner.pruneDirs(dirs)
-	assert.Len(t, prunedDirs,2)
+	assert.Len(t, prunedDirs, 2)
 }
 
 func TestPruneDirsWithoutFilter(t *testing.T) {
@@ -51,5 +51,5 @@ func TestPruneDirsWithoutFilter(t *testing.T) {
 `, "\n")
 
 	prunedDirs := runner.pruneDirs(dirs)
-	assert.Len(t, prunedDirs,13)
+	assert.Len(t, prunedDirs, 13)
 }

@@ -175,16 +175,16 @@ func main() {
 	errors := make(chan error)
 
 	runner := &run.Runner{
-		RepoPath:      repoPath,
+		RepoPath:        repoPath,
 		RepoPathFilters: strings.Split(repoPath, ","),
-		BatchApplier:  batchApplier,
-		GitUtil:       gitUtil,
-		Clock:         clock,
-		Metrics:       metrics,
-		DiffURLFormat: diffURLFormat,
-		RunQueue:      runQueue,
-		RunResults:    runResults,
-		Errors:        errors,
+		BatchApplier:    batchApplier,
+		GitUtil:         gitUtil,
+		Clock:           clock,
+		Metrics:         metrics,
+		DiffURLFormat:   diffURLFormat,
+		RunQueue:        runQueue,
+		RunResults:      runResults,
+		Errors:          errors,
 	}
 
 	pi, _ := strconv.Atoi(pollInterval)
