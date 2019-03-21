@@ -5,19 +5,21 @@ import (
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
+	"path"
 )
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
-	RepoPath      string
-	BatchApplier  BatchApplierInterface
-	GitUtil       git.UtilInterface
-	Clock         sysutil.ClockInterface
-	Metrics       metrics.PrometheusInterface
-	DiffURLFormat string
-	RunQueue      <-chan bool
-	RunResults    chan<- Result
-	Errors        chan<- error
+	RepoPath        string
+	RepoPathFilters []string
+	BatchApplier    BatchApplierInterface
+	GitUtil         git.UtilInterface
+	Clock           sysutil.ClockInterface
+	Metrics         metrics.PrometheusInterface
+	DiffURLFormat   string
+	RunQueue        <-chan bool
+	RunResults      chan<- Result
+	Errors          chan<- error
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
@@ -42,6 +44,9 @@ func (r *Runner) run() (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	dirs = r.pruneDirs(dirs)
+
 	hash, err := r.GitUtil.HeadHash()
 	if err != nil {
 		return nil, err
@@ -69,4 +74,21 @@ func (r *Runner) run() (*Result, error) {
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
 	return &newRun, nil
+}
+
+func (r *Runner) pruneDirs(dirs []string) []string {
+	if len(r.RepoPathFilters) == 0 {
+		return dirs
+	}
+
+	prunedDirs := []string{}
+	for _, dir := range dirs {
+		for _, repoPathFilter := range r.RepoPathFilters {
+			if dir == path.Join(r.RepoPath, repoPathFilter) {
+				prunedDirs = append(prunedDirs, dir)
+			}
+		}
+	}
+
+	return prunedDirs
 }

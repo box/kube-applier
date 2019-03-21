@@ -24,6 +24,7 @@ const (
 
 var (
 	repoPath        = os.Getenv("REPO_PATH")
+	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
 	listenPort      = os.Getenv("LISTEN_PORT")
 	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
 	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
@@ -174,15 +175,16 @@ func main() {
 	errors := make(chan error)
 
 	runner := &run.Runner{
-		RepoPath:      repoPath,
-		BatchApplier:  batchApplier,
-		GitUtil:       gitUtil,
-		Clock:         clock,
-		Metrics:       metrics,
-		DiffURLFormat: diffURLFormat,
-		RunQueue:      runQueue,
-		RunResults:    runResults,
-		Errors:        errors,
+		RepoPath:        repoPath,
+		RepoPathFilters: strings.Split(repoPath, ","),
+		BatchApplier:    batchApplier,
+		GitUtil:         gitUtil,
+		Clock:           clock,
+		Metrics:         metrics,
+		DiffURLFormat:   diffURLFormat,
+		RunQueue:        runQueue,
+		RunResults:      runResults,
+		Errors:          errors,
 	}
 
 	pi, _ := strconv.Atoi(pollInterval)
