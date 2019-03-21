@@ -24,6 +24,7 @@ const (
 
 var (
 	repoPath        = os.Getenv("REPO_PATH")
+	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
 	listenPort      = os.Getenv("LISTEN_PORT")
 	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
 	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
@@ -175,6 +176,7 @@ func main() {
 
 	runner := &run.Runner{
 		RepoPath:      repoPath,
+		RepoPathFilters: strings.Split(repoPath, ","),
 		BatchApplier:  batchApplier,
 		GitUtil:       gitUtil,
 		Clock:         clock,
