@@ -174,9 +174,14 @@ func main() {
 	// No limit needed, as a single fatal error will exit the program anyway.
 	errors := make(chan error)
 
+	var repoPathFiltersSlice []string
+	if repoPathFilters != "" {
+		repoPathFiltersSlice = strings.Split(repoPathFilters, ",")
+	}
+
 	runner := &run.Runner{
 		RepoPath:        repoPath,
-		RepoPathFilters: strings.Split(repoPathFilters, ","),
+		RepoPathFilters: repoPathFiltersSlice,
 		BatchApplier:    batchApplier,
 		GitUtil:         gitUtil,
 		Clock:           clock,
