@@ -1,6 +1,8 @@
 language: go
 go:
   - 1.7
+install: 
+  - echo "remove default travis_install to avoid getting workspace dirty with go dependency"
 script:
   - make test-unit
   - .travis/check_workspace.sh

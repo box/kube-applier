@@ -20,7 +20,7 @@
                 value: "/k8s/resources"
               - name: "LISTEN_PORT"
                 value: "2020"
-            image: "kube-applier:v0.1.0"
+            image: "kube-applier:v0.2.0"
             ports:
               - containerPort: 2020
             volumeMounts:

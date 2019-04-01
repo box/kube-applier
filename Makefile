@@ -1,7 +1,7 @@
 all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-TAG = v0.1.0
+TAG = v0.2.0
 GODEP_BIN = $$GOPATH/bin/godep
 
 deps:
@@ -10,7 +10,7 @@ deps:
 build: clean deps fmt
 	$(ENVVAR) $(GODEP_BIN) go build -o kube-applier
 
-container: build
+container:
 	docker build -t kube-applier:$(TAG) .
 
 clean:
