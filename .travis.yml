@@ -1,6 +1,7 @@
 language: go
 go:
   - 1.7
+install: true 
 script:
   - make test-unit
   - .travis/check_workspace.sh
