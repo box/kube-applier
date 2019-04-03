@@ -16,7 +16,7 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 
 ## Requirements
 * [Go (1.7+)](https://golang.org/dl/)
-* [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
+* [Docker (17.05+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
 * [Kubernetes cluster](http://kubernetes.io/docs/getting-started-guides/binary_release/)
     * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
     * Supported Kubernetes releases:
