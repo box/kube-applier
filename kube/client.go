@@ -170,13 +170,13 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 //          must contain a secret that include token and ca.cert.  It returns the
 //          full apply command and its output.
 //
-// kustomize - Do a `kuztomize build` on the path before piping to `kubectl
-//             apply`, set to if there is a `kustomization.yaml` found in the path
+// kustomize - Do a `kubectl apply -k` on the path, set to if there is a
+//             `kustomization.yaml` found in the path
 func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-f", "-", fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-k", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	} else {
 		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	}
@@ -200,29 +200,9 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
+	cmdStr := strings.Join(args, " ")
 
-	var out []byte
-	var err error
-	var cmdStr string
-
-	if kustomize {
-		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
-		kustomizeCmd := exec.Command("kustomize", "build", path)
-		pipe, err := kustomizeCmd.StdoutPipe()
-		if err != nil {
-			return cmdStr, "", err
-		}
-		kubectlCmd.Stdin = pipe
-
-		err = kustomizeCmd.Start()
-		if err != nil {
-			return cmdStr, "", err
-		}
-	} else {
-		cmdStr = strings.Join(args, " ")
-	}
-
-	out, err = kubectlCmd.CombinedOutput()
+	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
 		return cmdStr, string(out), err
 	}
