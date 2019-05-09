@@ -81,7 +81,7 @@ spec:
           mountPath: /root/
       containers:
       - name: kube-applier
-        image: quay.io/utilitywarehouse/kube-applier:2.1.1
+        image: quay.io/utilitywarehouse/kube-applier:2.2.2
         env:
         - name: REPO_PATH
           value: "/kubernetes-manifests/repo/exp-1-aws"
