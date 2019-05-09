@@ -176,9 +176,9 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-k", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-k", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	} else {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
 	}
 
 	if prune {
