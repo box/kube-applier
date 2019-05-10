@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -61,7 +59,6 @@ const (
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error)
-	CheckVersion() error
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
@@ -108,56 +105,6 @@ func (c *Client) Configure() error {
 		return errors.Wrap(err, "applying kubeconfig template failed")
 	}
 
-	return nil
-}
-
-// CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
-func (c *Client) CheckVersion() error {
-	args := []string{"kubectl", "version"}
-	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
-	}
-	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
-	output := strings.TrimSuffix(string(stdout), "\n")
-	if err != nil {
-		return errors.Wrapf(err, "checking kubectl version failed: %v", output)
-	}
-
-	// Using regular expressions, parse for the Major and Minor version numbers for both client and server.
-	clientPattern := regexp.MustCompile("(?:Client Version: version.Info{Major:\"([0-9+]+)\", Minor:\"([0-9+]+)\")")
-	serverPattern := regexp.MustCompile("(?:Server Version: version.Info{Major:\"([0-9+]+)\", Minor:\"([0-9+]+)\")")
-
-	clientInfo := clientPattern.FindAllStringSubmatch(output, -1)
-	clientMajor := clientInfo[0][1]
-	clientMinor := clientInfo[0][2]
-
-	serverInfo := serverPattern.FindAllStringSubmatch(output, -1)
-	serverMajor := serverInfo[0][1]
-	serverMinor := serverInfo[0][2]
-
-	return isCompatible(clientMajor, clientMinor, serverMajor, serverMinor)
-}
-
-// isCompatible compares the major and minor release numbers for the client and server, returning nil if they are compatible and an error otherwise.
-func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) error {
-	incompatible := errors.Errorf("kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server", clientMajor, clientMinor, serverMajor, serverMinor)
-
-	if strings.Replace(clientMajor, "+", "", -1) != strings.Replace(serverMajor, "+", "", -1) {
-		return incompatible
-	}
-	clientMinorInt, err := strconv.Atoi(strings.Replace(clientMinor, "+", "", -1))
-	if err != nil {
-		return errors.Errorf("error checking kubectl version: unable to parse client minor release from string \"%v\"", clientMinor)
-	}
-	serverMinorInt, err := strconv.Atoi(strings.Replace(serverMinor, "+", "", -1))
-	if err != nil {
-		return errors.Errorf("error checking kubectl version: unable to parse server minor release from string \"%v\"", serverMinor)
-	}
-
-	minorDiff := serverMinorInt - clientMinorInt
-	if minorDiff != 0 && minorDiff != 1 {
-		return incompatible
-	}
 	return nil
 }
 

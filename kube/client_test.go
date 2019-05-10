@@ -5,72 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
-
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 )
-
-type testCase struct {
-	clientMajor string
-	clientMinor string
-	serverMajor string
-	serverMinor string
-	expected    error
-}
-
-func TestClientIsCompatible(t *testing.T) {
-
-	// Bad clientMinor string
-	tc := testCase{"1", "abcd", "1", "0", errors.Errorf("error checking kubectl version: unable to parse client minor release from string \"abcd\"")}
-	createAndAssert(t, tc)
-
-	// Bad serverMinor string
-	tc = testCase{"1", "0", "1", "defg", errors.Errorf("error checking kubectl version: unable to parse server minor release from string \"defg\"")}
-	createAndAssert(t, tc)
-
-	// Client 1.0, Server 1.0
-	tc = testCase{"1", "0", "1", "0", nil}
-	createAndAssert(t, tc)
-
-	// Client 1.0, Server 1.1
-	tc = testCase{"1", "0", "1", "1", nil}
-	createAndAssert(t, tc)
-
-	// Client 1.0, Server 1.2
-	tc = testCase{"1", "0", "1", "2", errors.New("kubectl client and server versions are incompatible. Client is 1.0; server is 1.2. Client must be same minor release as server or one minor release behind server")}
-	createAndAssert(t, tc)
-
-	// Client 1.1, Server 1.0
-	tc = testCase{"1", "1", "1", "0", errors.New("kubectl client and server versions are incompatible. Client is 1.1; server is 1.0. Client must be same minor release as server or one minor release behind server")}
-	createAndAssert(t, tc)
-
-	// Client 1.1, Server 1.1+
-	tc = testCase{"1", "1", "1", "1+", nil}
-	createAndAssert(t, tc)
-
-	// Client 1.1+, Server 1.1
-	tc = testCase{"1", "1+", "1", "1", nil}
-	createAndAssert(t, tc)
-
-	// Client 1.1, Server 1.2+
-	tc = testCase{"1", "1", "1", "2+", nil}
-	createAndAssert(t, tc)
-
-	// Client 1.2, Server 1.1+
-	tc = testCase{"1", "2", "1", "1+", errors.New("kubectl client and server versions are incompatible. Client is 1.2; server is 1.1+. Client must be same minor release as server or one minor release behind server")}
-	createAndAssert(t, tc)
-}
-
-func createAndAssert(t *testing.T, tc testCase) {
-	assert := assert.New(t)
-	err := isCompatible(tc.clientMajor, tc.clientMinor, tc.serverMajor, tc.serverMinor)
-	if err != nil && tc.expected != nil {
-		// errors now will have a different stack of callers so just compare the messages
-		assert.Equal(tc.expected.Error(), err.Error())
-	} else {
-		assert.Equal(tc.expected, err)
-	}
-}
 
 var testServiceAccount = false
 var testSecret = false
