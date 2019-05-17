@@ -10,22 +10,34 @@ import (
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
+	UpdateKubectlSignalExitCount(string)
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
 	UpdateResultSummary(map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
+// kubectlSignalExitCount is a Counter vector to increment the number of kubectl executions for each namespace that exit because of a signal (typically a SIGKILL from the OOM killer)
 // fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
 // runLatency is a Summary vector that keeps track of the duration for apply runs.
 type Prometheus struct {
-	namespaceApplyCount *prometheus.CounterVec
-	runLatency          *prometheus.HistogramVec
-	resultSummary       *prometheus.GaugeVec
+	kubectlSignalExitCount *prometheus.CounterVec
+	namespaceApplyCount    *prometheus.CounterVec
+	runLatency             *prometheus.HistogramVec
+	resultSummary          *prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
 func (p *Prometheus) Init() {
+	p.kubectlSignalExitCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kubectl_signal_exit_count",
+		Help: "Count of every case where kubectl has exited prematurely because of a signal",
+	},
+		[]string{
+			// Path of the file that was applied
+			"namespace",
+		},
+	)
 	p.namespaceApplyCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "namespace_apply_count",
 		Help: "Success metric for every namespace applied",
@@ -61,10 +73,17 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
-
+	prometheus.MustRegister(p.kubectlSignalExitCount)
 	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
+}
+
+// UpdateKubectlSignalExitCount increments the given namespace's Counter when the process is terminated by a signal
+func (p *Prometheus) UpdateKubectlSignalExitCount(file string) {
+	p.kubectlSignalExitCount.With(prometheus.Labels{
+		"namespace": filepath.Base(file),
+	}).Inc()
 }
 
 // UpdateNamespaceSuccess increments the given namespace's Counter for either successful apply attempts or failed apply attempts.
