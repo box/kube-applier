@@ -10,32 +10,34 @@ import (
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
-	UpdateKubectlSignalExitCount(string)
+	UpdateKubectlExitCodeCount(string, int)
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
 	UpdateResultSummary(map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
-// kubectlSignalExitCount is a Counter vector to increment the number of kubectl executions for each namespace that exit because of a signal (typically a SIGKILL from the OOM killer)
+// kubectlExitCodeCount is a Counter vector to increment the number of exit codes for each kubectl execution
 // fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
 // runLatency is a Summary vector that keeps track of the duration for apply runs.
 type Prometheus struct {
-	kubectlSignalExitCount *prometheus.CounterVec
-	namespaceApplyCount    *prometheus.CounterVec
-	runLatency             *prometheus.HistogramVec
-	resultSummary          *prometheus.GaugeVec
+	kubectlExitCodeCount *prometheus.CounterVec
+	namespaceApplyCount  *prometheus.CounterVec
+	runLatency           *prometheus.HistogramVec
+	resultSummary        *prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
 func (p *Prometheus) Init() {
-	p.kubectlSignalExitCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "kubectl_signal_exit_count",
-		Help: "Count of every case where kubectl has exited prematurely because of a signal",
+	p.kubectlExitCodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kubectl_exit_code_count",
+		Help: "Count of kubectl exit codes",
 	},
 		[]string{
 			// Path of the file that was applied
 			"namespace",
+			// Exit code
+			"exit_code",
 		},
 	)
 	p.namespaceApplyCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -73,16 +75,17 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
-	prometheus.MustRegister(p.kubectlSignalExitCount)
+	prometheus.MustRegister(p.kubectlExitCodeCount)
 	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
 }
 
-// UpdateKubectlSignalExitCount increments the given namespace's Counter when the process is terminated by a signal
-func (p *Prometheus) UpdateKubectlSignalExitCount(file string) {
-	p.kubectlSignalExitCount.With(prometheus.Labels{
+// UpdateKubectlExitCodeCount increments the given namespace's Counter when the process is terminated by a signal
+func (p *Prometheus) UpdateKubectlExitCodeCount(file string, code int) {
+	p.kubectlExitCodeCount.With(prometheus.Labels{
 		"namespace": filepath.Base(file),
+		"exit_code": strconv.Itoa(code),
 	}).Inc()
 }
 

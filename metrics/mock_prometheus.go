@@ -32,16 +32,16 @@ func (m *MockPrometheusInterface) EXPECT() *MockPrometheusInterfaceMockRecorder 
 	return m.recorder
 }
 
-// UpdateKubectlSignalExitCount mocks base method
-func (m *MockPrometheusInterface) UpdateKubectlSignalExitCount(arg0 string) {
+// UpdateKubectlExitCodeCount mocks base method
+func (m *MockPrometheusInterface) UpdateKubectlExitCodeCount(arg0 string, arg1 int) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UpdateKubectlSignalExitCount", arg0)
+	m.ctrl.Call(m, "UpdateKubectlExitCodeCount", arg0, arg1)
 }
 
-// UpdateKubectlSignalExitCount indicates an expected call of UpdateKubectlSignalExitCount
-func (mr *MockPrometheusInterfaceMockRecorder) UpdateKubectlSignalExitCount(arg0 interface{}) *gomock.Call {
+// UpdateKubectlExitCodeCount indicates an expected call of UpdateKubectlExitCodeCount
+func (mr *MockPrometheusInterfaceMockRecorder) UpdateKubectlExitCodeCount(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKubectlSignalExitCount", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateKubectlSignalExitCount), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKubectlExitCodeCount", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateKubectlExitCodeCount), arg0, arg1)
 }
 
 // UpdateNamespaceSuccess mocks base method

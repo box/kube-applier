@@ -1,10 +1,8 @@
 package run
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
@@ -44,17 +42,8 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		ns := filepath.Base(path)
 		s, err := a.KubeClient.GetNamespaceStatus(ns)
 		if err != nil {
-			var namespaceStatusError error
-			if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == -1 {
-				a.Metrics.UpdateKubectlSignalExitCount(path)
-				namespaceStatusError = errors.New(err.Error() + " - this may have been caused by the Out Of Memory killer, please investigate")
-
-			} else {
-				namespaceStatusError = err
-			}
-			log.Logger.Error("Error while getting namespace status, defaulting to off", "error", namespaceStatusError)
+			log.Logger.Error("Error while getting namespace status, defaulting to off", "error", err)
 		}
-
 		var disabled bool
 		switch s {
 		case kube.On:
@@ -84,12 +73,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 			successes = append(successes, appliedFile)
 			log.Logger.Info(fmt.Sprintf("%v\n%v", cmd, output))
 		} else {
-			if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == -1 {
-				appliedFile.ErrorMessage = err.Error() + " - this may have been caused by the Out Of Memory killer, please investigate"
-				a.Metrics.UpdateKubectlSignalExitCount(path)
-			} else {
-				appliedFile.ErrorMessage = err.Error()
-			}
+			appliedFile.ErrorMessage = err.Error()
 			failures = append(failures, appliedFile)
 			log.Logger.Warn(fmt.Sprintf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage))
 		}
