@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/utilitywarehouse/kube-applier/log"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
@@ -68,8 +69,9 @@ type ClientInterface interface {
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 // The Server field enables discovery of the API server when kube-proxy is not configured (see README.md for more information).
 type Client struct {
-	Server string
-	Label  string
+	Server  string
+	Label   string
+	Metrics metrics.PrometheusInterface
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -151,8 +153,12 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+		}
 		return cmdStr, string(out), err
 	}
+	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
 	return cmdStr, string(out), err
 }
@@ -165,8 +171,12 @@ func (c *Client) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption
 	}
 	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+		}
 		return Off, err
 	}
+	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
 
 	var nr struct {
 		Metadata struct {
@@ -188,8 +198,13 @@ func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string,
 	}
 	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+		}
 		return "", errors.Errorf("error while getting SA %s:%s %v", namespace, username, err)
 	}
+
+	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
 
 	type secret struct {
 		Name string
@@ -218,8 +233,12 @@ func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string
 	}
 	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+		}
 		return "", "", err
 	}
+	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
 
 	var nr struct {
 		Data map[string]string

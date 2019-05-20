@@ -141,7 +141,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeClient := &kube.Client{Server: server, Label: label}
+	kubeClient := &kube.Client{
+		Server:  server,
+		Label:   label,
+		Metrics: metrics,
+	}
 
 	if err := kubeClient.Configure(); err != nil {
 		log.Logger.Error("kubectl configuration failed", "error", err)

@@ -10,22 +10,36 @@ import (
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
+	UpdateKubectlExitCodeCount(string, int)
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
 	UpdateResultSummary(map[string]string)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
+// kubectlExitCodeCount is a Counter vector to increment the number of exit codes for each kubectl execution
 // fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
 // runLatency is a Summary vector that keeps track of the duration for apply runs.
 type Prometheus struct {
-	namespaceApplyCount *prometheus.CounterVec
-	runLatency          *prometheus.HistogramVec
-	resultSummary       *prometheus.GaugeVec
+	kubectlExitCodeCount *prometheus.CounterVec
+	namespaceApplyCount  *prometheus.CounterVec
+	runLatency           *prometheus.HistogramVec
+	resultSummary        *prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
 func (p *Prometheus) Init() {
+	p.kubectlExitCodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "kubectl_exit_code_count",
+		Help: "Count of kubectl exit codes",
+	},
+		[]string{
+			// Path of the file that was applied
+			"namespace",
+			// Exit code
+			"exit_code",
+		},
+	)
 	p.namespaceApplyCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "namespace_apply_count",
 		Help: "Success metric for every namespace applied",
@@ -61,10 +75,18 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
-
+	prometheus.MustRegister(p.kubectlExitCodeCount)
 	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
+}
+
+// UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
+func (p *Prometheus) UpdateKubectlExitCodeCount(file string, code int) {
+	p.kubectlExitCodeCount.With(prometheus.Labels{
+		"namespace": filepath.Base(file),
+		"exit_code": strconv.Itoa(code),
+	}).Inc()
 }
 
 // UpdateNamespaceSuccess increments the given namespace's Counter for either successful apply attempts or failed apply attempts.

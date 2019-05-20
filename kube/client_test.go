@@ -5,6 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	gomock "github.com/golang/mock/gomock"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 var testServiceAccount = false
@@ -67,7 +70,17 @@ func TestGetNamespaceUserSecretName(t *testing.T) {
 	testServiceAccount = true
 	defer func() { testServiceAccount = false }()
 
-	testClient := &Client{}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
+
+	testClient := &Client{
+		Metrics: metrics,
+	}
+
+	metrics.EXPECT().UpdateKubectlExitCodeCount("namespace", 0).Times(1)
+
 	secret, err := testClient.GetNamespaceUserSecretName("namespace", "username")
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +98,17 @@ func TestGetUserDataFromSecret(t *testing.T) {
 	testSecret = true
 	defer func() { testSecret = false }()
 
-	testClient := &Client{}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
+
+	testClient := &Client{
+		Metrics: metrics,
+	}
+
+	metrics.EXPECT().UpdateKubectlExitCodeCount("namespace", 0).Times(1)
+
 	token, cert, err := testClient.GetUserDataFromSecret("namespace", "secretname")
 	if err != nil {
 		t.Fatal(err)
