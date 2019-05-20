@@ -81,7 +81,7 @@ func (p *Prometheus) Init() {
 	prometheus.MustRegister(p.runLatency)
 }
 
-// UpdateKubectlExitCodeCount increments the given namespace's Counter when the process is terminated by a signal
+// UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
 func (p *Prometheus) UpdateKubectlExitCodeCount(file string, code int) {
 	p.kubectlExitCodeCount.With(prometheus.Labels{
 		"namespace": filepath.Base(file),
