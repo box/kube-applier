@@ -2,15 +2,14 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: kube-applier
-  namespace: kube-system
   labels:
     app: kube-applier
-    kubernetes.io/ingress.class: traefik-private
+    kubernetes.io/ingress.class: private-example-base
   annotations:
-    external-dns.alpha.kubernetes.io/target: in-k8s-exp-1.dev.uw.systems
+    external-dns.alpha.kubernetes.io/target: example-base.com
 spec:
   rules:
-  - host: kube-applier-exp-1.dev.uw.systems
+  - host: example-base.com
     http:
       paths:
       - path: /
@@ -22,7 +21,6 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kube-applier
-  namespace: kube-system
 ---
 apiVersion: v1
 kind: Service
@@ -32,7 +30,6 @@ metadata:
     prometheus.io/path: /__/metrics
     prometheus.io/port: '8080'
   name: kube-applier
-  namespace: kube-system
   labels:
     app: kube-applier
 spec:
@@ -48,7 +45,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-applier
-  namespace: kube-system
 spec:
   replicas: 1
   selector:
@@ -70,7 +66,7 @@ spec:
         - -c
         - |
           apk add --no-cache curl git openssl ca-certificates &&\
-          curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/0.1.0-rc3/strongbox_0.1.0-rc3_linux_amd64 &&\
+          curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/v0.1.0/strongbox_0.1.0_linux_amd64 &&\
           chmod +x strongbox &&\
           mv strongbox /usr/local/bin/ &&\
           strongbox -git-config
@@ -84,11 +80,11 @@ spec:
         image: quay.io/utilitywarehouse/kube-applier:2.2.4
         env:
         - name: REPO_PATH
-          value: "/kubernetes-manifests/repo/exp-1-aws"
+          value: "/src/manifests/base/"
         - name: LISTEN_PORT
           value: "8080"
         - name: DIFF_URL_FORMAT
-          value: "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
+          value: "https://github.com/org/repo/commit/%s"
         - name: DRY_RUN
           value: "false"
         - name: LABEL
@@ -99,7 +95,7 @@ spec:
           value: warn
         volumeMounts:
         - name: git-repo
-          mountPath: /kubernetes-manifests
+          mountPath: /src
           readOnly: true
         resources:
           requests:
@@ -116,9 +112,9 @@ spec:
           runAsUser: 65533 # git-sync user
         env:
         - name: GIT_SYNC_REPO
-          value: "git@github.com:utilitywarehouse/kubernetes-manifests.git"
+          value: "git@github.com:org/repo.git"
         - name: GIT_SYNC_DEST
-          value: "repo"
+          value: "manifests"
         - name: GIT_SYNC_SSH
           value: "true"
         - name: GIT_SYNC_MAX_SYNC_FAILURES

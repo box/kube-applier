@@ -1,5 +1,21 @@
 # kube-applier
 
+[![Docker Repository on Quay](https://quay.io/repository/utilitywarehouse/kube-applier/status "Docker Repository on Quay")](https://quay.io/repository/utilitywarehouse/kube-applier)
+
+<!-- vim-markdown-toc GFM -->
+
+* [Requirements](#requirements)
+* [Usage](#usage)
+	* [Environment Variables](#environment-variables)
+	* [Mounting the Git Repository](#mounting-the-git-repository)
+* [Deploying](#deploying)
+* [Monitoring](#monitoring)
+	* [Status UI](#status-ui)
+	* [Metrics](#metrics)
+* [Copyright and License](#copyright-and-license)
+
+<!-- vim-markdown-toc -->
+
 Forked from: https://github.com/box/kube-applier
 
 kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster. 
@@ -59,6 +75,19 @@ Given that the `$REPO_PATH` directory is a Git repo or located within one, it is
 **If I remove a configuration file, will kube-applier remove the associated Kubernetes object?**
 
 No. If a file is removed from the `$REPO_PATH` directory, kube-applier will no longer apply the file, but kube-applier **WILL NOT** delete the cluster object(s) described by the file. These objects must be manually cleaned up using `kubectl delete`.
+
+## Deploying
+
+Included is a Kustomize (https://kustomize.io/) base you can reference in your namespace:
+
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- github.com/utilitywarehouse/kube-applier//manifests?ref=2.2.4
+```
+
+and patch as pre example: [manifests/example/](manifests/example/)
 
 ## Monitoring
 ### Status UI

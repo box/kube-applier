@@ -1,0 +1,38 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kube-applier
+  namespace: kube-system
+  labels:
+    kubernetes.io/ingress.class: private-example
+  annotations:
+    external-dns.alpha.kubernetes.io/target: example.com
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kube-applier
+          servicePort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-applier
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: kube-applier
+        env:
+        - name: REPO_PATH
+          value: "/src/manifests/example-env/"
+        - name: DIFF_URL_FORMAT
+          value: "https://github.com/org/repo/commit/%s"
+      - name: git-sync
+        env:
+        - name: GIT_SYNC_REPO
+          value: "git@github.com:org/repo.git"
