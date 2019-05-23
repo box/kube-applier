@@ -2,20 +2,6 @@
 
 [![Docker Repository on Quay](https://quay.io/repository/utilitywarehouse/kube-applier/status "Docker Repository on Quay")](https://quay.io/repository/utilitywarehouse/kube-applier)
 
-<!-- vim-markdown-toc GFM -->
-
-* [Requirements](#requirements)
-* [Usage](#usage)
-	* [Environment Variables](#environment-variables)
-	* [Mounting the Git Repository](#mounting-the-git-repository)
-* [Deploying](#deploying)
-* [Monitoring](#monitoring)
-	* [Status UI](#status-ui)
-	* [Metrics](#metrics)
-* [Copyright and License](#copyright-and-license)
-
-<!-- vim-markdown-toc -->
-
 Forked from: https://github.com/box/kube-applier
 
 kube-applier is a service that enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster. 
