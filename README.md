@@ -70,7 +70,7 @@ Included is a Kustomize (https://kustomize.io/) base you can reference in your n
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests?ref=2.2.4
+- github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.2.5
 ```
 
 and patch as per example: [manifests/example/](manifests/example/)
