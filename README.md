@@ -87,7 +87,7 @@ bases:
 - github.com/utilitywarehouse/kube-applier//manifests?ref=2.2.4
 ```
 
-and patch as pre example: [manifests/example/](manifests/example/)
+and patch as per example: [manifests/example/](manifests/example/)
 
 ## Monitoring
 ### Status UI
