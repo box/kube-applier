@@ -150,7 +150,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
-	cmdStr := strings.Join(args, " ")
+	cmdStr := sanitiseCmdStr(strings.Join(args, " "))
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
@@ -161,7 +161,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
-	return sanitiseCmdStr(cmdStr), string(out), err
+	return cmdStr, string(out), err
 }
 
 // GetNamespaceStatus returns the AutmaticDeployment label for the given namespace
