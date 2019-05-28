@@ -46,18 +46,6 @@ func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, prune,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, prune, strict, kustomize)
 }
 
-// CheckVersion mocks base method
-func (m *MockClientInterface) CheckVersion() error {
-	ret := m.ctrl.Call(m, "CheckVersion")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckVersion indicates an expected call of CheckVersion
-func (mr *MockClientInterfaceMockRecorder) CheckVersion() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckVersion", reflect.TypeOf((*MockClientInterface)(nil).CheckVersion))
-}
-
 // GetNamespaceStatus mocks base method
 func (m *MockClientInterface) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
 	ret := m.ctrl.Call(m, "GetNamespaceStatus", namespace)
@@ -98,16 +86,15 @@ func (mr *MockClientInterfaceMockRecorder) GetUserDataFromSecret(namespace, secr
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDataFromSecret", reflect.TypeOf((*MockClientInterface)(nil).GetUserDataFromSecret), namespace, secret)
 }
 
-// CreateTempConfig mocks base method
-func (m *MockClientInterface) CreateTempConfig(namespace, serviceAccount string) (string, string, error) {
-	ret := m.ctrl.Call(m, "CreateTempConfig", namespace, serviceAccount)
+// GetSAToken mocks base method
+func (m *MockClientInterface) GetSAToken(namespace, serviceAccount string) (string, error) {
+	ret := m.ctrl.Call(m, "GetSAToken", namespace, serviceAccount)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// CreateTempConfig indicates an expected call of CreateTempConfig
-func (mr *MockClientInterfaceMockRecorder) CreateTempConfig(namespace, serviceAccount interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTempConfig", reflect.TypeOf((*MockClientInterface)(nil).CreateTempConfig), namespace, serviceAccount)
+// GetSAToken indicates an expected call of GetSAToken
+func (mr *MockClientInterfaceMockRecorder) GetSAToken(namespace, serviceAccount interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSAToken", reflect.TypeOf((*MockClientInterface)(nil).GetSAToken), namespace, serviceAccount)
 }
