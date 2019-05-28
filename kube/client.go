@@ -282,6 +282,6 @@ func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
 
 func sanitiseCmdStr(cmdStr string) string {
 	// Omit token string if included in the ccd output
-	r := regexp.MustCompile("--token=.*\\s|--token=.*\\S")
-	return strings.TrimSpace(r.ReplaceAllString(cmdStr, "--token=<omitted> "))
+	r := regexp.MustCompile(`--token=[\S]+`)
+	return r.ReplaceAllString(cmdStr, "--token=<omitted>")
 }

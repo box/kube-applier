@@ -124,12 +124,14 @@ func TestGetUserDataFromSecret(t *testing.T) {
 }
 
 func TestSanitiseCmdStr(t *testing.T) {
-	testCmdStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=xxxx"
+	testToken := "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ8.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia1ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI5ImRlZmF1bHQtdG9rZW4tbDR6OXgiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnBvc2VydmljZS1hY2NvdW50LnVpZCI6ImUwZjIyY2ZkLTk0ODgtMTFlNi1iMDg5LTBhZGE5OGZjODkxOSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.tu0n-N1dnpIBXSQtMO0_xHLRSrL9qXhGvdvUMFPno1Wswj5zP5pCM_TmCiMUPI0x4fKmQzTRuAk73gbTRMkWjA"
+
+	testCmdStr := fmt.Sprintf("$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=%s", testToken)
 	expectedStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted>"
 
 	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
 
-	testCmdStr = "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=xxxx --flag=more"
+	testCmdStr = fmt.Sprintf("$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=%s --flag=more", testToken)
 	expectedStr = "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted> --flag=more"
 
 	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
