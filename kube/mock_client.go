@@ -86,15 +86,15 @@ func (mr *MockClientInterfaceMockRecorder) GetUserDataFromSecret(namespace, secr
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDataFromSecret", reflect.TypeOf((*MockClientInterface)(nil).GetUserDataFromSecret), namespace, secret)
 }
 
-// GetSAToken mocks base method
-func (m *MockClientInterface) GetSAToken(namespace, serviceAccount string) (string, error) {
-	ret := m.ctrl.Call(m, "GetSAToken", namespace, serviceAccount)
+// SAToken mocks base method
+func (m *MockClientInterface) SAToken(namespace, serviceAccount string) (string, error) {
+	ret := m.ctrl.Call(m, "SAToken", namespace, serviceAccount)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSAToken indicates an expected call of GetSAToken
-func (mr *MockClientInterfaceMockRecorder) GetSAToken(namespace, serviceAccount interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSAToken", reflect.TypeOf((*MockClientInterface)(nil).GetSAToken), namespace, serviceAccount)
+// SAToken indicates an expected call of SAToken
+func (mr *MockClientInterfaceMockRecorder) SAToken(namespace, serviceAccount interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SAToken", reflect.TypeOf((*MockClientInterface)(nil).SAToken), namespace, serviceAccount)
 }

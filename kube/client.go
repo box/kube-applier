@@ -63,7 +63,7 @@ type ClientInterface interface {
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
-	GetSAToken(namespace, serviceAccount string) (string, error)
+	SAToken(namespace, serviceAccount string) (string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -137,21 +137,26 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 		}
 	}
 
-	cmdStr := strings.Join(args, " ")
-
 	if strict {
-		token, err := c.GetSAToken(namespace, "kube-applier")
+		token, err := c.SAToken(namespace, "kube-applier")
 		if err != nil {
 			return "", "", fmt.Errorf("error getting token for kube-applier serviceaccount: %v", err)
 		}
 		args = append(args, fmt.Sprintf("--token=%s", token))
-		cmdStr += " --token=<omitted>"
 	} else if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
-		cmdStr += fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath)
 	}
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
+
+	var cmdStr string
+	// In case of `STRICT_APPLY` omit the token string from command output
+	if strict {
+		cmdStr = strings.Join(args[:len(args)-1], " ")
+		cmdStr += " --token=<omitted>"
+	} else {
+		cmdStr = strings.Join(args, " ")
+	}
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
@@ -260,8 +265,8 @@ func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string
 	return token, cert, nil
 }
 
-// GetSAToken: Returns the base64 decoded token string for the given ns/sa
-func (c *Client) GetSAToken(namespace, serviceAccount string) (string, error) {
+// SAToken: Returns the base64 decoded token string for the given ns/sa
+func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
 
 	secretName, err := c.GetNamespaceUserSecretName(namespace, serviceAccount)
 	if err != nil {
