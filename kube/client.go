@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,7 @@ type ClientInterface interface {
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
-	CreateTempConfig(namespace, serviceAccount string) (string, string, error)
+	SAToken(namespace, serviceAccount string) (string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -138,17 +139,17 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 
 	if strict {
-		tempKubeConfigFilepath, tempCertFilepath, err := c.CreateTempConfig(namespace, "kube-applier")
+		token, err := c.SAToken(namespace, "kube-applier")
 		if err != nil {
-			return "", "", fmt.Errorf("error creating temp config for kube-applier serviceaccount: %v", err)
+			return "", "", fmt.Errorf("error getting token for kube-applier serviceaccount: %v", err)
 		}
-		defer func() { os.Remove(tempKubeConfigFilepath); os.Remove(tempCertFilepath) }()
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", tempKubeConfigFilepath))
+		args = append(args, fmt.Sprintf("--token=%s", token))
 	} else if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
+
 	cmdStr := strings.Join(args, " ")
 
 	out, err := kubectlCmd.CombinedOutput()
@@ -160,7 +161,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
-	return cmdStr, string(out), err
+	return sanitiseCmdStr(cmdStr), string(out), err
 }
 
 // GetNamespaceStatus returns the AutmaticDeployment label for the given namespace
@@ -258,62 +259,29 @@ func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string
 	return token, cert, nil
 }
 
-// CreateTempConfig generates a config file for a serviceAccount under a namespace and the respective ca.cert
-// Caution: files should be deleted by caller later when not needed any more!!
-func (c *Client) CreateTempConfig(namespace, serviceAccount string) (string, string, error) {
-	f, err := ioutil.TempFile("", "tempKubeConfig")
-	if err != nil {
-		return "", "", errors.Wrap(err, "creating temp kubeconfig file failed")
-	}
-	defer f.Close()
+// SAToken: Returns the base64 decoded token string for the given ns/sa
+func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
 
 	secretName, err := c.GetNamespaceUserSecretName(namespace, serviceAccount)
 	if err != nil {
-		return "", "", errors.Errorf("error getting secret name for %s : %v", serviceAccount, err)
+		return "", errors.Errorf("error getting secret name for %s : %v", serviceAccount, err)
 	}
-	encToken, encCert, err := c.GetUserDataFromSecret(namespace, secretName)
+	encToken, _, err := c.GetUserDataFromSecret(namespace, secretName)
 	if err != nil {
-		return "", "", errors.Errorf("error getting data for secret %s : %v", secretName, err)
-	}
-
-	// Create certificate
-	cert, err := base64.StdEncoding.DecodeString(encCert)
-	if err != nil {
-		return "", "", errors.Errorf("error while decoding ca.cert for %s : %v", serviceAccount, err)
-	}
-	certFile, err := ioutil.TempFile("", "temp-ca.crt")
-	if err != nil {
-		return "", "", errors.Wrap(err, "creating temp cert file failed")
-	}
-	defer certFile.Close()
-	if _, err := certFile.Write(cert); err != nil {
-		return "", "", errors.Wrap(err, "writing certificate to file failed")
+		return "", errors.Errorf("error getting data for secret %s : %v", secretName, err)
 	}
 
 	// Get token and write the temp kubeconfig
 	token, err := base64.StdEncoding.DecodeString(encToken)
 	if err != nil {
-		return "", "", errors.Errorf("Error while decoding token for %s : %v", serviceAccount, err)
+		return "", errors.Errorf("Error while decoding token for %s : %v", serviceAccount, err)
 	}
 
-	var data struct {
-		Cert   string
-		Token  string
-		Server string
-		User   string
-	}
-	data.Cert = certFile.Name()
-	data.Token = string(token)
-	// The default empty "" server string will point to the running cluster's kube API
-	data.Server = c.Server
-	data.User = serviceAccount
+	return string(token), nil
+}
 
-	template, err := sysutil.CreateTemplate(tempkubeConfigTemplatePath)
-	if err != nil {
-		return "", "", errors.Wrap(err, "parsing kubeconfig template failed")
-	}
-	if err := template.Execute(f, data); err != nil {
-		return "", "", errors.Wrap(err, "applying kubeconfig template failed")
-	}
-	return f.Name(), certFile.Name(), nil
+func sanitiseCmdStr(cmdStr string) string {
+	// Omit token string if included in the ccd output
+	r := regexp.MustCompile(`--token=[\S]+`)
+	return r.ReplaceAllString(cmdStr, "--token=<omitted>")
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
@@ -120,4 +121,18 @@ func TestGetUserDataFromSecret(t *testing.T) {
 	if cert != "LS0tLS1CRUdJTiBDRVJUSUZJQ0F==" {
 		t.Fatal("Got unexpected cert")
 	}
+}
+
+func TestSanitiseCmdStr(t *testing.T) {
+	testToken := "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ8.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia1ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI5ImRlZmF1bHQtdG9rZW4tbDR6OXgiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnBvc2VydmljZS1hY2NvdW50LnVpZCI6ImUwZjIyY2ZkLTk0ODgtMTFlNi1iMDg5LTBhZGE5OGZjODkxOSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.tu0n-N1dnpIBXSQtMO0_xHLRSrL9qXhGvdvUMFPno1Wswj5zP5pCM_TmCiMUPI0x4fKmQzTRuAk73gbTRMkWjA"
+
+	testCmdStr := fmt.Sprintf("$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=%s", testToken)
+	expectedStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted>"
+
+	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
+
+	testCmdStr = fmt.Sprintf("$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=%s --flag=more", testToken)
+	expectedStr = "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted> --flag=more"
+
+	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
 }
