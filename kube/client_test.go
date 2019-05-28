@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
@@ -120,4 +121,11 @@ func TestGetUserDataFromSecret(t *testing.T) {
 	if cert != "LS0tLS1CRUdJTiBDRVJUSUZJQ0F==" {
 		t.Fatal("Got unexpected cert")
 	}
+}
+
+func TestSanitiseCmdStr(t *testing.T) {
+	testCmdStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=xxxx"
+	expectedStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted>"
+
+	assert.Equal(t, sanitiseCmdStr(testCmdStr), expectedStr, "cmd sanitisation failed")
 }

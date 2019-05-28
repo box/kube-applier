@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -149,14 +150,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
-	var cmdStr string
-	// In case of `STRICT_APPLY` omit the token string from command output
-	if strict {
-		cmdStr = strings.Join(args[:len(args)-1], " ")
-		cmdStr += " --token=<omitted>"
-	} else {
-		cmdStr = strings.Join(args, " ")
-	}
+	cmdStr := strings.Join(args, " ")
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
@@ -167,7 +161,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
-	return cmdStr, string(out), err
+	return sanitiseCmdStr(cmdStr), string(out), err
 }
 
 // GetNamespaceStatus returns the AutmaticDeployment label for the given namespace
@@ -284,4 +278,10 @@ func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
 	}
 
 	return string(token), nil
+}
+
+func sanitiseCmdStr(cmdStr string) string {
+	// Omit token string if included in the ccd output
+	r := regexp.MustCompile("--token=.+$")
+	return r.ReplaceAllString(cmdStr, "--token=<omitted>")
 }
