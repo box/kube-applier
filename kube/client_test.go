@@ -127,5 +127,10 @@ func TestSanitiseCmdStr(t *testing.T) {
 	testCmdStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=xxxx"
 	expectedStr := "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted>"
 
-	assert.Equal(t, sanitiseCmdStr(testCmdStr), expectedStr, "cmd sanitisation failed")
+	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
+
+	testCmdStr = "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=xxxx --flag=more"
+	expectedStr = "$ kubectl apply --server-dry-run=false -R -f manifests -l automaticDeployment!=off -n namespace --token=<omitted> --flag=more"
+
+	assert.Equal(t, expectedStr, sanitiseCmdStr(testCmdStr), "cmd sanitisation failed")
 }
