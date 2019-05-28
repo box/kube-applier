@@ -77,7 +77,7 @@ spec:
           mountPath: /root/
       containers:
       - name: kube-applier
-        image: quay.io/utilitywarehouse/kube-applier:2.2.6
+        image: quay.io/utilitywarehouse/kube-applier:2.2.7
         env:
         - name: REPO_PATH
           value: "/src/manifests/base/"
