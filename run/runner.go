@@ -2,11 +2,13 @@ package run
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
+
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
-	"path"
 )
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
@@ -86,7 +88,10 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 	var prunedDirs []string
 	for _, dir := range dirs {
 		for _, repoPathFilter := range r.RepoPathFilters {
-			if dir == path.Join(r.RepoPath, repoPathFilter) {
+			matched, err := filepath.Match(path.Join(r.RepoPath, repoPathFilter), dir)
+			if err != nil {
+				log.Logger.Error(err.Error())
+			} else if matched {
 				prunedDirs = append(prunedDirs, dir)
 			}
 		}

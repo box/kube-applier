@@ -1,15 +1,16 @@
 package run
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPruneDirsWithFilter(t *testing.T) {
 	runner := Runner{
 		RepoPath:        "/repo/",
-		RepoPathFilters: []string{"run", "webserver"},
+		RepoPathFilters: []string{"run", "webserver", "sys*", "?anifests"},
 	}
 
 	dirs := strings.Split(`/repo/.git
@@ -22,12 +23,13 @@ func TestPruneDirsWithFilter(t *testing.T) {
 /repo/run
 /repo/static
 /repo/sysutil
+/repo/sys-log
 /repo/templates
 /repo/webserver
 `, "\n")
 
 	prunedDirs := runner.pruneDirs(dirs)
-	assert.Len(t, prunedDirs, 2)
+	assert.Len(t, prunedDirs, 5)
 }
 
 func TestPruneDirsWithoutFilter(t *testing.T) {
@@ -46,10 +48,11 @@ func TestPruneDirsWithoutFilter(t *testing.T) {
 /repo/run
 /repo/static
 /repo/sysutil
+/repo/sys-log
 /repo/templates
 /repo/webserver
 `, "\n")
 
 	prunedDirs := runner.pruneDirs(dirs)
-	assert.Len(t, prunedDirs, 13)
+	assert.Len(t, prunedDirs, 14)
 }
