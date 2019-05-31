@@ -5,8 +5,9 @@
 package kube
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockClientInterface is a mock of ClientInterface interface
@@ -33,8 +34,9 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error) {
-	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRun, prune, strict, kustomize)
+func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryRun, prune, strict, kustomize bool) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", path, namespace, serviceAccount, dryRun, prune, strict, kustomize)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -42,12 +44,14 @@ func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, stric
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, prune, strict, kustomize interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, prune, strict, kustomize)
+func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, serviceAccount, dryRun, prune, strict, kustomize interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, serviceAccount, dryRun, prune, strict, kustomize)
 }
 
 // GetNamespaceStatus mocks base method
 func (m *MockClientInterface) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNamespaceStatus", namespace)
 	ret0, _ := ret[0].(AutomaticDeploymentOption)
 	ret1, _ := ret[1].(error)
@@ -56,11 +60,13 @@ func (m *MockClientInterface) GetNamespaceStatus(namespace string) (AutomaticDep
 
 // GetNamespaceStatus indicates an expected call of GetNamespaceStatus
 func (mr *MockClientInterfaceMockRecorder) GetNamespaceStatus(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespaceStatus", reflect.TypeOf((*MockClientInterface)(nil).GetNamespaceStatus), namespace)
 }
 
 // GetNamespaceUserSecretName mocks base method
 func (m *MockClientInterface) GetNamespaceUserSecretName(namespace, username string) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNamespaceUserSecretName", namespace, username)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -69,11 +75,13 @@ func (m *MockClientInterface) GetNamespaceUserSecretName(namespace, username str
 
 // GetNamespaceUserSecretName indicates an expected call of GetNamespaceUserSecretName
 func (mr *MockClientInterfaceMockRecorder) GetNamespaceUserSecretName(namespace, username interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespaceUserSecretName", reflect.TypeOf((*MockClientInterface)(nil).GetNamespaceUserSecretName), namespace, username)
 }
 
 // GetUserDataFromSecret mocks base method
 func (m *MockClientInterface) GetUserDataFromSecret(namespace, secret string) (string, string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserDataFromSecret", namespace, secret)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
@@ -83,11 +91,13 @@ func (m *MockClientInterface) GetUserDataFromSecret(namespace, secret string) (s
 
 // GetUserDataFromSecret indicates an expected call of GetUserDataFromSecret
 func (mr *MockClientInterfaceMockRecorder) GetUserDataFromSecret(namespace, secret interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDataFromSecret", reflect.TypeOf((*MockClientInterface)(nil).GetUserDataFromSecret), namespace, secret)
 }
 
 // SAToken mocks base method
 func (m *MockClientInterface) SAToken(namespace, serviceAccount string) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SAToken", namespace, serviceAccount)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -96,5 +106,6 @@ func (m *MockClientInterface) SAToken(namespace, serviceAccount string) (string,
 
 // SAToken indicates an expected call of SAToken
 func (mr *MockClientInterfaceMockRecorder) SAToken(namespace, serviceAccount interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SAToken", reflect.TypeOf((*MockClientInterface)(nil).SAToken), namespace, serviceAccount)
 }

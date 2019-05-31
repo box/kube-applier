@@ -23,16 +23,17 @@ const (
 )
 
 var (
-	repoPath        = os.Getenv("REPO_PATH")
-	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
-	listenPort      = os.Getenv("LISTEN_PORT")
-	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
-	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
-	dryRun          = os.Getenv("DRY_RUN")
-	prune           = os.Getenv("KUBE_PRUNE")
-	strictApply     = os.Getenv("STRICT_APPLY")
-	label           = os.Getenv("LABEL")
-	logLevel        = os.Getenv("LOG_LEVEL")
+	repoPath           = os.Getenv("REPO_PATH")
+	repoPathFilters    = os.Getenv("REPO_PATH_FILTERS")
+	listenPort         = os.Getenv("LISTEN_PORT")
+	pollInterval       = os.Getenv("POLL_INTERVAL_SECONDS")
+	fullRunInterval    = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
+	dryRun             = os.Getenv("DRY_RUN")
+	prune              = os.Getenv("KUBE_PRUNE")
+	strictApply        = os.Getenv("STRICT_APPLY")
+	label              = os.Getenv("LABEL")
+	logLevel           = os.Getenv("LOG_LEVEL")
+	serviceAccountName = os.Getenv("SERVICE_ACCOUNT_NAME")
 
 	// kube server. Mainly for local testing.
 	server = os.Getenv("SERVER")
@@ -116,6 +117,10 @@ func validate() {
 		}
 	}
 
+	if serviceAccountName == "" {
+		serviceAccountName = "kube-applier"
+	}
+
 	if label == "" {
 		label = "automaticDeployment"
 	}
@@ -155,11 +160,12 @@ func main() {
 	pr, _ := strconv.ParseBool(prune)
 	sa, _ := strconv.ParseBool(strictApply)
 	batchApplier := &run.BatchApplier{
-		KubeClient:  kubeClient,
-		DryRun:      dr,
-		Prune:       pr,
-		StrictApply: sa,
-		Metrics:     metrics,
+		KubeClient:     kubeClient,
+		DryRun:         dr,
+		Prune:          pr,
+		ServiceAccount: serviceAccountName,
+		StrictApply:    sa,
+		Metrics:        metrics,
 	}
 
 	gitUtil := &git.Util{

@@ -60,7 +60,7 @@ const (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error)
+	Apply(path, namespace, serviceAccount string, dryRun, prune, strict, kustomize bool) (string, string, error)
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
@@ -122,7 +122,7 @@ func (c *Client) Configure() error {
 //
 // kustomize - Do a `kubectl apply -k` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
-func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize bool) (string, string, error) {
+func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, strict, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
@@ -139,7 +139,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, strict, kustomize 
 	}
 
 	if strict {
-		token, err := c.SAToken(namespace, "kube-applier")
+		token, err := c.SAToken(namespace, serviceAccount)
 		if err != nil {
 			return "", "", fmt.Errorf("error getting token for kube-applier serviceaccount: %v", err)
 		}
