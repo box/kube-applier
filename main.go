@@ -32,7 +32,7 @@ var (
 	prune              = os.Getenv("KUBE_PRUNE")
 	label              = os.Getenv("LABEL")
 	logLevel           = os.Getenv("LOG_LEVEL")
-	serviceAccountName = os.Getenv("SERVICE_ACCOUNT_NAME")
+	serviceAccountName = os.Getenv("ASSUMED_SERVICE_ACCOUNT_NAME")
 
 	// kube server. Mainly for local testing.
 	server = os.Getenv("SERVER")
