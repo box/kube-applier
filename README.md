@@ -72,20 +72,20 @@ Included is a Kustomize (https://kustomize.io/) base you can reference in your n
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/main/base?ref=2.2.7
+- github.com/utilitywarehouse/kube-applier//manifests/kube-applier/base?ref=2.2.7
 ```
 
-and patch as per example: [manifests/main/example/](manifests/main/example/)
+and patch as per example: [manifests/kube-applier/example/](manifests/kube-applier/example/)
 
-There is also a base for creating Service Accounts in your managed namespaces:
+There is also a base for creating the appropriate roles and service accounts in your managed namespaces:
 ```
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/managed-namespace/base?ref=2.2.7
+- github.com/utilitywarehouse/kube-applier//manifests/auth/base?ref=2.2.7
 ```
 
-and an example patch: [manifests/managed-namespace/example/](manifests/managed-namespace/example/)
+and an example patch: [manifests/auth/example/](manifests/auth/example/)
 
 ## Monitoring
 ### Status UI
