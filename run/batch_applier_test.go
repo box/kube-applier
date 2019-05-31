@@ -282,11 +282,11 @@ func TestBatchApplierApply(t *testing.T) {
 }
 
 func expectApplyAndReturnSuccess(file, namespace, serviceAccount string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, nil)
+	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false).Times(1).Return("cmd "+file, "output "+file, nil)
 }
 
 func expectApplyAndReturnFailure(file, namespace, serviceAccount string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
+	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
 func expectGetNamespaceStatusAndReturn(ret kube.AutomaticDeploymentOption, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {

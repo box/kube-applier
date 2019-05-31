@@ -67,7 +67,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.ServiceAccount, a.DryRun || disabled, a.Prune, a.StrictApply, kustomize)
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.ServiceAccount, a.DryRun || disabled, a.Prune, kustomize)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

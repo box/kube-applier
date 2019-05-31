@@ -30,7 +30,6 @@ var (
 	fullRunInterval    = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
 	dryRun             = os.Getenv("DRY_RUN")
 	prune              = os.Getenv("KUBE_PRUNE")
-	strictApply        = os.Getenv("STRICT_APPLY")
 	label              = os.Getenv("LABEL")
 	logLevel           = os.Getenv("LOG_LEVEL")
 	serviceAccountName = os.Getenv("SERVICE_ACCOUNT_NAME")
@@ -106,17 +105,6 @@ func validate() {
 		}
 	}
 
-	// use kube-applier service-accounts for every namespace
-	if strictApply == "" {
-		strictApply = "false"
-	} else {
-		_, err := strconv.ParseBool(strictApply)
-		if err != nil {
-			fmt.Println("STRICT_APPLY must be a boolean")
-			os.Exit(1)
-		}
-	}
-
 	if serviceAccountName == "" {
 		serviceAccountName = "kube-applier"
 	}
@@ -158,13 +146,11 @@ func main() {
 
 	dr, _ := strconv.ParseBool(dryRun)
 	pr, _ := strconv.ParseBool(prune)
-	sa, _ := strconv.ParseBool(strictApply)
 	batchApplier := &run.BatchApplier{
 		KubeClient:     kubeClient,
 		DryRun:         dr,
 		Prune:          pr,
 		ServiceAccount: serviceAccountName,
-		StrictApply:    sa,
 		Metrics:        metrics,
 	}
 
