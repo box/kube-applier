@@ -1,0 +1,24 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kube-applier-assumed
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier-sa-get
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "secrets"]
+    verbs: ["get"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: assume-kube-applier
+subjects: []
+roleRef:
+  kind: Role
+  name: kube-applier-sa-get
+  apiGroup: rbac.authorization.k8s.io

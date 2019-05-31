@@ -1,0 +1,22 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kube-applier-assumed
+  namespace: managed-namespace-name
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier-sa-get
+  namespace: managed-namespace-name
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: assume-kube-applier
+  namespace: managed-namespace-name
+subjects:
+  - kind: ServiceAccount
+    name: kube-applier
+    namespace: kube-applier-namespace-name
