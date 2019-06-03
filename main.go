@@ -23,16 +23,17 @@ const (
 )
 
 var (
-	repoPath           = os.Getenv("REPO_PATH")
-	repoPathFilters    = os.Getenv("REPO_PATH_FILTERS")
-	listenPort         = os.Getenv("LISTEN_PORT")
-	pollInterval       = os.Getenv("POLL_INTERVAL_SECONDS")
-	fullRunInterval    = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
-	dryRun             = os.Getenv("DRY_RUN")
-	prune              = os.Getenv("KUBE_PRUNE")
-	label              = os.Getenv("LABEL")
-	logLevel           = os.Getenv("LOG_LEVEL")
-	serviceAccountName = os.Getenv("ASSUMED_SERVICE_ACCOUNT_NAME")
+	repoPath            = os.Getenv("REPO_PATH")
+	repoPathFilters     = os.Getenv("REPO_PATH_FILTERS")
+	listenPort          = os.Getenv("LISTEN_PORT")
+	pollInterval        = os.Getenv("POLL_INTERVAL_SECONDS")
+	fullRunInterval     = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
+	dryRun              = os.Getenv("DRY_RUN")
+	prune               = os.Getenv("KUBE_PRUNE")
+	label               = os.Getenv("LABEL")
+	logLevel            = os.Getenv("LOG_LEVEL")
+	delegateAccounts    = os.Getenv("DELEGATE_SERVICE_ACCOUNTS")
+	delegateAccountName = os.Getenv("DELEGATE_SERVICE_ACCOUNT_NAME")
 
 	// kube server. Mainly for local testing.
 	server = os.Getenv("SERVER")
@@ -105,8 +106,19 @@ func validate() {
 		}
 	}
 
-	if serviceAccountName == "" {
-		serviceAccountName = "kube-applier"
+	// use delegate service-accounts for every namespace
+	if delegateAccounts == "" {
+		delegateAccounts = "false"
+	} else {
+		_, err := strconv.ParseBool(delegateAccounts)
+		if err != nil {
+			fmt.Println("DELEGATE_SERVICE_ACCOUNTS must be a boolean")
+			os.Exit(1)
+		}
+	}
+
+	if delegateAccountName == "" {
+		delegateAccountName = "kube-applier"
 	}
 
 	if label == "" {
@@ -146,12 +158,14 @@ func main() {
 
 	dr, _ := strconv.ParseBool(dryRun)
 	pr, _ := strconv.ParseBool(prune)
+	da, _ := strconv.ParseBool(delegateAccounts)
 	batchApplier := &run.BatchApplier{
-		KubeClient:     kubeClient,
-		DryRun:         dr,
-		Prune:          pr,
-		ServiceAccount: serviceAccountName,
-		Metrics:        metrics,
+		KubeClient:          kubeClient,
+		DryRun:              dr,
+		Prune:               pr,
+		DelegateAccountName: delegateAccountName,
+		DelegateAccounts:    da,
+		Metrics:             metrics,
 	}
 
 	gitUtil := &git.Util{
