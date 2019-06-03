@@ -31,9 +31,9 @@ func TestBatchApplierApply(t *testing.T) {
 	// Empty apply list
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DelegateAccountName: "kube-applier",
 		},
 		[]string{},
 		[]ApplyAttempt{},
@@ -61,9 +61,9 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -91,9 +91,9 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		[]ApplyAttempt{},
@@ -127,9 +127,9 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -157,10 +157,10 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			DryRun:         true,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DryRun:              true,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -188,10 +188,10 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			DryRun:         false,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DryRun:              false,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -219,10 +219,10 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			DryRun:         true,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DryRun:              true,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -244,10 +244,10 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			DryRun:         false,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DryRun:              false,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -269,10 +269,10 @@ func TestBatchApplierApply(t *testing.T) {
 	}
 	tc = batchTestCase{
 		BatchApplier{
-			KubeClient:     kubeClient,
-			Metrics:        metrics,
-			DryRun:         false,
-			ServiceAccount: "kube-applier",
+			KubeClient:          kubeClient,
+			Metrics:             metrics,
+			DryRun:              false,
+			DelegateAccountName: "kube-applier",
 		},
 		applyList,
 		successes,
@@ -282,11 +282,11 @@ func TestBatchApplierApply(t *testing.T) {
 }
 
 func expectApplyAndReturnSuccess(file, namespace, serviceAccount string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false).Times(1).Return("cmd "+file, "output "+file, nil)
+	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, nil)
 }
 
 func expectApplyAndReturnFailure(file, namespace, serviceAccount string, dryRun, prune bool, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
+	return kubeClient.EXPECT().Apply(file, namespace, serviceAccount, dryRun, prune, false, false).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
 func expectGetNamespaceStatusAndReturn(ret kube.AutomaticDeploymentOption, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {

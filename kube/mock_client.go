@@ -33,9 +33,9 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryRun, prune, kustomize bool) (string, string, error) {
+func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", path, namespace, serviceAccount, dryRun, prune, kustomize)
+	ret := m.ctrl.Call(m, "Apply", path, namespace, serviceAccount, dryRun, prune, delegate, kustomize)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -43,9 +43,9 @@ func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryR
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, serviceAccount, dryRun, prune, kustomize interface{}) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, serviceAccount, dryRun, prune, delegate, kustomize interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, serviceAccount, dryRun, prune, kustomize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, serviceAccount, dryRun, prune, delegate, kustomize)
 }
 
 // GetNamespaceStatus mocks base method

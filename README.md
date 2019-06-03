@@ -10,8 +10,6 @@ kube-applier runs as a Pod in your cluster and watches the [Git repo](#mounting-
 
 Whenever a new commit to the repo occurs, or at a [specified interval](#run-interval), kube-applier performs a "run", issuing [kubectl apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands with pruning at namespace level. The convention is that level 1 subdirs of REPO_PATH represent k8s namespaces: the name of the dir is the same as the namespace and the dir contains manifests for the given namespace.
 
-kube-applier will try to fetch a Service Account under each namespace (as defined by the environment variable `ASSUMED_SERVICE_ACCOUNT_NAME`) and will use it to run kubectl commands. It will error for all namespaces that do not contain a matching SA.
-
 kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics) for monitoring.
 
 ## Requirements
@@ -33,7 +31,8 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --server-dry-run flag. This means live configuration of the cluster is not changed.
-* `ASSUMED_SERVICE_ACCOUNT_NAME` - (string) The name of the service account used when applying. Defaults to `kube-applier`.
+* `DELEGATE_SERVICE_ACCOUNTS` - (bool) If true kube-applier will try to fetch a SA under each namespace and use it to run kubectl commands. It will error for all namespaces that do not contain a SA matching the value of `DELEGATE_SERVICE_ACCOUNT_NAME`. Defaults to `false`.
+* `DELEGATE_SERVICE_ACCOUNT_NAME` - (string) The name of the service account used when `DELEGATE_SERVICE_ACCOUNTS` is `true`. Defaults to `kube-applier`.
 * `LABEL` - (string) (on|dry-run|off)  K8s label which enables/disables automatic deployment. Label can either be specified at namespace level or on individual resources. Add label with value 'on' or 'dry-run' on a namespace to enable the namespace. By default namespaces are disabled. Add label with value 'off' on individual resources to disable the resource. Resources are enabled by default if their namespace is enabled. Only enabled resources are managed by the kube-applier. Applies to following resources:
 
 	"apps/v1/DaemonSet",
@@ -77,7 +76,8 @@ bases:
 
 and patch as per example: [manifests/kube-applier/example/](manifests/kube-applier/example/)
 
-There is also a base for creating the appropriate roles and service accounts in your managed namespaces:
+There is also a base for creating the appropriate roles and service accounts in your managed namespaces (required when
+`$DELEGATE_SERVICE_ACCOUNTS` is `true`):
 ```
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

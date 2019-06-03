@@ -60,7 +60,7 @@ const (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace, serviceAccount string, dryRun, prune, kustomize bool) (string, string, error)
+	Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error)
 	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
@@ -114,15 +114,15 @@ func (c *Client) Configure() error {
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
 //
-// strict - attempt to "kubectl apply" the files located at path using a
-//          `kube-applier` service account under the given namespace.
-//          `kube-applier` service account must exist for the given namespace and
+// delegate - attempt to "kubectl apply" the files located at path using a
+//          delegate service account under the given namespace.
+//          The service account must exist for the given namespace and
 //          must contain a secret that include token and ca.cert.  It returns the
 //          full apply command and its output.
 //
 // kustomize - Do a `kubectl apply -k` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
-func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, kustomize bool) (string, string, error) {
+func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
@@ -138,11 +138,15 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, ku
 		}
 	}
 
-	token, err := c.SAToken(namespace, serviceAccount)
-	if err != nil {
-		return "", "", fmt.Errorf("error getting token for kube-applier serviceaccount: %v", err)
+	if delegate {
+		token, err := c.SAToken(namespace, serviceAccount)
+		if err != nil {
+			return "", "", fmt.Errorf("error getting token for serviceaccount: %v", err)
+		}
+		args = append(args, fmt.Sprintf("--token=%s", token))
+	} else if c.Server != "" {
+		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
-	args = append(args, fmt.Sprintf("--token=%s", token))
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
