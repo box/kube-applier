@@ -3,4 +3,4 @@ kind: Kustomization
 bases:
 - ../base/
 patchesStrategicMerge:
-- auth-kube-applier-patch.yaml
+- rbac-kube-applier-patch.yaml
