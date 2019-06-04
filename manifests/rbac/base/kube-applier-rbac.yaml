@@ -27,7 +27,7 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: delegate-kube-applier
+  name: kube-applier-delegate
 subjects: []
 roleRef:
   kind: Role
