@@ -89,8 +89,10 @@ spec:
           value: "false"
         - name: LABEL
           value: automaticDeployment
-        - name: STRICT_APPLY
+        - name: DELEGATE_SERVICE_ACCOUNTS
           value: "true"
+        - name: DELEGATE_SERVICE_ACCOUNT_NAME
+          value: kube-applier-delegate
         - name: LOG_LEVEL
           value: warn
         volumeMounts:
