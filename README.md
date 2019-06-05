@@ -18,34 +18,34 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 
 ## Usage
 
-### Environment Variables
+### Environment variables
 
 **Required:**
 * `REPO_PATH` - (string) Absolute path to the directory containing configuration files to be applied. It must be a Git repository or a path within one. Level 1 subdirs of this directory represent kubernetes namespaces.
-* `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
+* `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
+* `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec. Default is 8080.
 * `REPO_PATH_FILTERS` - (string) A comma separated list of sub directories to be applied. Supports [shell file name patterns](https://golang.org/pkg/path/filepath/#Match).
 * `SERVER` - (string) Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5).
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable.
-* `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --server-dry-run flag. This means live configuration of the cluster is not changed.
 * `DELEGATE_SERVICE_ACCOUNTS` - (bool) If true kube-applier will try to fetch a SA under each namespace and use it to run kubectl commands. It will error for all namespaces that do not contain a SA matching the value of `DELEGATE_SERVICE_ACCOUNT_NAME`. Defaults to `false`.
-* `DELEGATE_SERVICE_ACCOUNT_NAME` - (string) The name of the service account used when `DELEGATE_SERVICE_ACCOUNTS` is `true`. Defaults to `kube-applier`.
-* `LABEL` - (string) (on|dry-run|off)  K8s label which enables/disables automatic deployment. Label can either be specified at namespace level or on individual resources. Add label with value 'on' or 'dry-run' on a namespace to enable the namespace. By default namespaces are disabled. Add label with value 'off' on individual resources to disable the resource. Resources are enabled by default if their namespace is enabled. Only enabled resources are managed by the kube-applier. Applies to following resources:
+* `DELEGATE_SERVICE_ACCOUNT_NAME` - (string) The name of the service account used when `DELEGATE_SERVICE_ACCOUNTS` is `true`. Defaults to `kube-applier-delegate`.
 
-	"apps/v1/DaemonSet",
-	"apps/v1/Deployment",
-	"apps/v1/StatefulSet",
-	"autoscaling/v1/HorizontalPodAutoscaler",
-	"batch/v1/Job",
-	"core/v1/ConfigMap",
-	"core/v1/Pod",
-	"core/v1/Service",
-	"core/v1/ServiceAccount",
-	"extensions/v1beta1/Ingress",
-	"networking.k8s.io/v1/NetworkPolicy",
+### Annotations
+
+```
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: team
+  annotations:
+    kube-applier.io/enabled: true
+    kube-applier.io/dry-run: false
+    kube-applier.io/prune: true
+```
 
 ### Mounting the Git Repository
 

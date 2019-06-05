@@ -29,8 +29,6 @@ var (
 	pollInterval        = os.Getenv("POLL_INTERVAL_SECONDS")
 	fullRunInterval     = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
 	dryRun              = os.Getenv("DRY_RUN")
-	prune               = os.Getenv("KUBE_PRUNE")
-	label               = os.Getenv("LABEL")
 	logLevel            = os.Getenv("LOG_LEVEL")
 	delegateAccounts    = os.Getenv("DELEGATE_SERVICE_ACCOUNTS")
 	delegateAccountName = os.Getenv("DELEGATE_SERVICE_ACCOUNT_NAME")
@@ -58,9 +56,7 @@ func validate() {
 		}
 	}
 
-	if diffURLFormat == "" {
-		diffURLFormat = "https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
-	} else if !strings.Contains(diffURLFormat, "%s") {
+	if diffURLFormat != "" && !strings.Contains(diffURLFormat, "%s") {
 		fmt.Printf("Invalid DIFF_URL_FORMAT, must contain %q: %v\n", "%s", diffURLFormat)
 		os.Exit(1)
 	}
@@ -95,34 +91,19 @@ func validate() {
 		}
 	}
 
-	// kubectl --prune flag used when applying manifests. Default true
-	if prune == "" {
-		prune = "true"
-	} else {
-		_, err := strconv.ParseBool(prune)
-		if err != nil {
-			fmt.Println("KUBE_PRUNE must be a boolean")
-			os.Exit(1)
-		}
-	}
-
 	// use delegate service-accounts for every namespace
 	if delegateAccounts == "" {
 		delegateAccounts = "false"
 	} else {
 		_, err := strconv.ParseBool(delegateAccounts)
 		if err != nil {
-			fmt.Println("DELEGATE_SERVICE_ACCOUNTS must be a boolean")
+			fmt.Printf("DELEGATE_SERVICE_ACCOUNTS must be a boolean true|false, got %s", delegateAccounts)
 			os.Exit(1)
 		}
 	}
 
 	if delegateAccountName == "" {
-		delegateAccountName = "kube-applier"
-	}
-
-	if label == "" {
-		label = "automaticDeployment"
+		delegateAccountName = "kube-applier-delegate"
 	}
 
 	// log level [trace|debug|info|warn|error] case insensitive
@@ -148,7 +129,6 @@ func main() {
 
 	kubeClient := &kube.Client{
 		Server:  server,
-		Label:   label,
 		Metrics: metrics,
 	}
 
@@ -157,14 +137,12 @@ func main() {
 	}
 
 	dr, _ := strconv.ParseBool(dryRun)
-	pr, _ := strconv.ParseBool(prune)
 	da, _ := strconv.ParseBool(delegateAccounts)
 	batchApplier := &run.BatchApplier{
 		KubeClient:          kubeClient,
 		DryRun:              dr,
-		Prune:               pr,
-		DelegateAccountName: delegateAccountName,
 		DelegateAccounts:    da,
+		DelegateAccountName: delegateAccountName,
 		Metrics:             metrics,
 	}
 

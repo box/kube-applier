@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -28,7 +29,6 @@ type BatchApplier struct {
 	KubeClient          kube.ClientInterface
 	Metrics             metrics.PrometheusInterface
 	DryRun              bool
-	Prune               bool
 	DelegateAccounts    bool
 	DelegateAccountName string
 }
@@ -41,20 +41,24 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	for _, path := range applyList {
 		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 		ns := filepath.Base(path)
-		s, err := a.KubeClient.GetNamespaceStatus(ns)
+		kaa, err := a.KubeClient.NamespaceAnnotations(ns)
 		if err != nil {
-			log.Logger.Error("Error while getting namespace status, defaulting to off", "error", err)
+			log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
 		}
-		var disabled bool
-		switch s {
-		case kube.On:
-			disabled = false
-		case kube.Off:
+
+		enabled, err := strconv.ParseBool(kaa.Enabled)
+		if err != nil || !enabled {
 			continue
-		case kube.DryRun:
-			disabled = true
-		default:
-			continue
+		}
+
+		dryRun, err := strconv.ParseBool(kaa.DryRun)
+		if err != nil {
+			dryRun = false
+		}
+
+		prune, err := strconv.ParseBool(kaa.Prune)
+		if err != nil {
+			prune = true
 		}
 
 		var kustomize bool
@@ -67,7 +71,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.DelegateAccountName, a.DryRun || disabled, a.Prune, a.DelegateAccounts, kustomize)
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.DelegateAccountName, a.DryRun || dryRun, prune, a.DelegateAccounts, kustomize)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

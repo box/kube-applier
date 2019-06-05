@@ -28,6 +28,10 @@ const (
 
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath = "/etc/kubeconfig"
+
+	enabledAnnotation = "kube-applier.io/enabled"
+	dryRunAnnotation  = "kube-applier.io/dry-run"
+	pruneAnnotation   = "kube-applier.io/prune"
 )
 
 // To make testing possible
@@ -48,20 +52,16 @@ var pruneWhitelist = []string{
 	"networking.k8s.io/v1/NetworkPolicy",
 }
 
-// AutomaticDeploymentOption type used for labels
-type AutomaticDeploymentOption string
-
-// Automatic Deployment labels
-const (
-	DryRun AutomaticDeploymentOption = "dry-run"
-	On     AutomaticDeploymentOption = "on"
-	Off    AutomaticDeploymentOption = "off"
-)
+type KAAnnotations struct {
+	Enabled string
+	DryRun  string
+	Prune   string
+}
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error)
-	GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error)
+	NamespaceAnnotations(namespace string) (KAAnnotations, error)
 	GetNamespaceUserSecretName(namespace, username string) (string, error)
 	GetUserDataFromSecret(namespace, secret string) (string, string, error)
 	SAToken(namespace, serviceAccount string) (string, error)
@@ -126,9 +126,9 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, de
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-k", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-k", path, "-n", namespace}
 	} else {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, fmt.Sprintf("-l %s!=%s", c.Label, Off), "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, "-n", namespace}
 	}
 
 	if prune {
@@ -164,9 +164,10 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, de
 	return cmdStr, string(out), err
 }
 
-// GetNamespaceStatus returns the AutmaticDeployment label for the given namespace
-func (c *Client) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption, error) {
-	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json", "-n", namespace}
+// NamespaceAnnotation returns string values of kube-applier annotaions
+func (c *Client) NamespaceAnnotations(namespace string) (kaa KAAnnotations, err error) {
+	kaa = KAAnnotations{}
+	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json"}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
@@ -175,20 +176,24 @@ func (c *Client) GetNamespaceStatus(namespace string) (AutomaticDeploymentOption
 		if e, ok := err.(*exec.ExitError); ok {
 			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
 		}
-		return Off, err
+		return
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
 
 	var nr struct {
 		Metadata struct {
-			Labels map[string]string
+			Annotations map[string]string
 		}
 	}
 	if err := json.Unmarshal(stdout, &nr); err != nil {
-		return Off, err
+		return kaa, err
 	}
 
-	return AutomaticDeploymentOption(nr.Metadata.Labels[c.Label]), nil
+	kaa.Enabled = nr.Metadata.Annotations[enabledAnnotation]
+	kaa.DryRun = nr.Metadata.Annotations[dryRunAnnotation]
+	kaa.Prune = nr.Metadata.Annotations[pruneAnnotation]
+
+	return
 }
 
 // GetNamespaceUserSecretName returns the first secret name found for the given user
