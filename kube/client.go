@@ -167,8 +167,8 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, de
 }
 
 // NamespaceAnnotations returns string values of kube-applier annotaions
-func (c *Client) NamespaceAnnotations(namespace string) (kaa KAAnnotations, err error) {
-	kaa = KAAnnotations{}
+func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
+	kaa := KAAnnotations{}
 	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json"}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
@@ -178,7 +178,7 @@ func (c *Client) NamespaceAnnotations(namespace string) (kaa KAAnnotations, err 
 		if e, ok := err.(*exec.ExitError); ok {
 			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
 		}
-		return
+		return kaa, err
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
 
@@ -195,7 +195,7 @@ func (c *Client) NamespaceAnnotations(namespace string) (kaa KAAnnotations, err 
 	kaa.DryRun = nr.Metadata.Annotations[dryRunAnnotation]
 	kaa.Prune = nr.Metadata.Annotations[pruneAnnotation]
 
-	return
+	return kaa, nil
 }
 
 // GetNamespaceUserSecretName returns the first secret name found for the given user
