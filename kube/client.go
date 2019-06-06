@@ -52,6 +52,8 @@ var pruneWhitelist = []string{
 	"networking.k8s.io/v1/NetworkPolicy",
 }
 
+// KAAnnotations contains the standard set of annotations on the Namespace
+// resource defining behaviour for that Namespace
 type KAAnnotations struct {
 	Enabled string
 	DryRun  string
@@ -164,7 +166,7 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, de
 	return cmdStr, string(out), err
 }
 
-// NamespaceAnnotation returns string values of kube-applier annotaions
+// NamespaceAnnotations returns string values of kube-applier annotaions
 func (c *Client) NamespaceAnnotations(namespace string) (kaa KAAnnotations, err error) {
 	kaa = KAAnnotations{}
 	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json"}
@@ -264,7 +266,7 @@ func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string
 	return token, cert, nil
 }
 
-// SAToken: Returns the base64 decoded token string for the given ns/sa
+// SAToken returns the base64 decoded token string for the given ns/sa
 func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
 
 	secretName, err := c.GetNamespaceUserSecretName(namespace, serviceAccount)
