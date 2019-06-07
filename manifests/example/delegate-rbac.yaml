@@ -1,0 +1,50 @@
+# Create a delegate SA, kube-appliser will use this SA to apply resources in
+# the current namespace
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kube-applier-delegate
+  namespace: managed-namespace
+---
+# Bind the delegate SA to be an admin of the maanged namespace
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier-delegate
+  namespace: managed-namespace
+subjects:
+  - kind: ServiceAccount
+    name: kube-applier-delegate
+roleRef:
+  kind: ClusterRole
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# A role allowing access to the Secrets in the managed namespace
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier
+  namespace: managed-namespace
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts", "secrets"]
+  verbs: ["get"]
+---
+# Bind the SA that kube-applier runs with to the Role, to be able to get
+# Secrets. kube-appiler will use this to get a `token` for the
+# kube-applier-delegate (default) ServiceAccount. kube-applier will apply
+# resources in the current namespace using that token
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier
+  namespace: managed-namespace
+roleRef:
+  kind: Role
+  name: kube-applier
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: kube-applier
+  namespace: kube-applier-hosted-namespace

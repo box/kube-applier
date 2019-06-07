@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- ../base/
+resources:
+# Include one depending on setup
+- rbac.yaml
+- delegate-rbac.yaml
+patchesStrategicMerge:
+- kube-applier-patch.yaml
+secretGenerator:
+- name: github-secret-ssh
+  type: Opaque
+  files:
+  - ssh=secrets/ssh
+  - known_hosts=secrets/known_hosts
+- name: strongbox-secret-keys
+  files:
+  - .strongbox_keyring=secrets/strongbox_keyring

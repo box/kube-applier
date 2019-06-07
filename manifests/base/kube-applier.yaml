@@ -4,12 +4,9 @@ metadata:
   name: kube-applier
   labels:
     app: kube-applier
-    kubernetes.io/ingress.class: private-example-base
-  annotations:
-    external-dns.alpha.kubernetes.io/target: example-base.com
 spec:
   rules:
-  - host: example-base.com
+  - host: example.com
     http:
       paths:
       - path: /
@@ -81,18 +78,10 @@ spec:
         env:
         - name: REPO_PATH
           value: "/src/manifests/base/"
-        - name: LISTEN_PORT
-          value: "8080"
         - name: DIFF_URL_FORMAT
           value: "https://github.com/org/repo/commit/%s"
-        - name: DRY_RUN
-          value: "false"
-        - name: LABEL
-          value: automaticDeployment
         - name: DELEGATE_SERVICE_ACCOUNTS
           value: "true"
-        - name: DELEGATE_SERVICE_ACCOUNT_NAME
-          value: kube-applier-delegate
         - name: LOG_LEVEL
           value: warn
         volumeMounts:
