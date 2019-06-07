@@ -128,23 +128,11 @@ namespace:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/kube-applier/base?ref=2.2.7
+- github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.2.7
 ```
 
 and patch as per example:
-[manifests/kube-applier/example/](manifests/kube-applier/example/)
-
-There is also a base for creating the appropriate roles and service accounts in
-your managed namespaces (required when `$DELEGATE_SERVICE_ACCOUNTS` is `true`):
-
-```
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-bases:
-- github.com/utilitywarehouse/kube-applier//manifests/rbac/base?ref=2.2.7
-```
-
-and an example patch: [manifests/rbac/example/](manifests/auth/example/)
+[manifests/example/](manifests/example/)
 
 ## Monitoring
 ### Status UI
