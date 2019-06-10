@@ -44,7 +44,7 @@ var pruneWhitelist = []string{
 	"core/v1/Pod",
 	"core/v1/Service",
 	"core/v1/ServiceAccount",
-	"extensions/v1beta1/Ingress",
+	"networking.k8s.io/v1beta1/Ingress",
 	"networking.k8s.io/v1/NetworkPolicy",
 }
 
