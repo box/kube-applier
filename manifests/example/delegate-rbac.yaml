@@ -4,14 +4,12 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kube-applier-delegate
-  namespace: managed-namespace
 ---
 # Bind the delegate SA to be an admin of the maanged namespace
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kube-applier-delegate
-  namespace: managed-namespace
 subjects:
   - kind: ServiceAccount
     name: kube-applier-delegate
@@ -25,7 +23,6 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kube-applier
-  namespace: managed-namespace
 rules:
 - apiGroups: [""]
   resources: ["serviceaccounts", "secrets"]
@@ -39,7 +36,6 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kube-applier
-  namespace: managed-namespace
 roleRef:
   kind: Role
   name: kube-applier
