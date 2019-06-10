@@ -1,9 +1,0 @@
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kube-applier-delegate
-  namespace: managed-namespace-name
-subjects:
-  - kind: ServiceAccount
-    name: kube-applier
-    namespace: kube-applier-namespace-name
