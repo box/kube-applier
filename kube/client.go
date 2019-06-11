@@ -1,17 +1,14 @@
 package kube
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
@@ -62,11 +59,8 @@ type KAAnnotations struct {
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error)
+	Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error)
 	NamespaceAnnotations(namespace string) (KAAnnotations, error)
-	GetNamespaceUserSecretName(namespace, username string) (string, error)
-	GetUserDataFromSecret(namespace, secret string) (string, string, error)
-	SAToken(namespace, serviceAccount string) (string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -116,15 +110,9 @@ func (c *Client) Configure() error {
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
 //
-// delegate - attempt to "kubectl apply" the files located at path using a
-//          delegate service account under the given namespace.
-//          The service account must exist for the given namespace and
-//          must contain a secret that include token and ca.cert.  It returns the
-//          full apply command and its output.
-//
 // kustomize - Do a `kubectl apply -k` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
-func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error) {
+func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
@@ -140,19 +128,13 @@ func (c *Client) Apply(path, namespace, serviceAccount string, dryRun, prune, de
 		}
 	}
 
-	if delegate {
-		token, err := c.SAToken(namespace, serviceAccount)
-		if err != nil {
-			return "", "", fmt.Errorf("error getting token for serviceaccount: %v", err)
-		}
-		args = append(args, fmt.Sprintf("--token=%s", token))
-	} else if c.Server != "" {
+	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
 	}
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
-	cmdStr := sanitiseCmdStr(strings.Join(args, " "))
+	cmdStr := strings.Join(args, " ")
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
@@ -196,99 +178,4 @@ func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
 	kaa.Prune = nr.Metadata.Annotations[pruneAnnotation]
 
 	return kaa, nil
-}
-
-// GetNamespaceUserSecretName returns the first secret name found for the given user
-func (c *Client) GetNamespaceUserSecretName(namespace, username string) (string, error) {
-	args := []string{"kubectl", "get", "serviceaccount", username, "-o", "json", "-n", namespace}
-	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
-	}
-	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
-		}
-		return "", errors.Errorf("error while getting SA %s:%s %v", namespace, username, err)
-	}
-
-	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
-
-	type secret struct {
-		Name string
-	}
-	var nr struct {
-		Secrets []secret
-	}
-	if err := json.Unmarshal(stdout, &nr); err != nil {
-		return "", err
-	}
-
-	if len(nr.Secrets) > 1 {
-		log.Logger.Info("Found many secrets for kube-applier using the first on the list", "namespace", namespace)
-	}
-	if len(nr.Secrets) == 0 {
-		return "", errors.Errorf("no secrets found for %s user", username)
-	}
-	return nr.Secrets[0].Name, nil
-}
-
-// GetUserDataFromSecret returns the token and the ca.crt path
-func (c *Client) GetUserDataFromSecret(namespace, secret string) (string, string, error) {
-	args := []string{"kubectl", "get", "secret", secret, "-o", "json", "-n", namespace}
-	if c.Server != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", kubeconfigFilePath))
-	}
-	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
-		}
-		return "", "", err
-	}
-	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
-
-	var nr struct {
-		Data map[string]string
-	}
-	if err := json.Unmarshal(stdout, &nr); err != nil {
-		return "", "", err
-	}
-
-	token, ok := nr.Data["token"]
-	if !ok {
-		return "", "", errors.Errorf("secret %s missing token", secret)
-	}
-	cert, ok := nr.Data["ca.crt"]
-	if !ok {
-		return "", "", errors.Errorf("secret %s missing ca.crt", secret)
-	}
-	return token, cert, nil
-}
-
-// SAToken returns the base64 decoded token string for the given ns/sa
-func (c *Client) SAToken(namespace, serviceAccount string) (string, error) {
-
-	secretName, err := c.GetNamespaceUserSecretName(namespace, serviceAccount)
-	if err != nil {
-		return "", errors.Errorf("error getting secret name for %s : %v", serviceAccount, err)
-	}
-	encToken, _, err := c.GetUserDataFromSecret(namespace, secretName)
-	if err != nil {
-		return "", errors.Errorf("error getting data for secret %s : %v", secretName, err)
-	}
-
-	// Get token and write the temp kubeconfig
-	token, err := base64.StdEncoding.DecodeString(encToken)
-	if err != nil {
-		return "", errors.Errorf("Error while decoding token for %s : %v", serviceAccount, err)
-	}
-
-	return string(token), nil
-}
-
-func sanitiseCmdStr(cmdStr string) string {
-	// Omit token string if included in the ccd output
-	r := regexp.MustCompile(`--token=[\S]+`)
-	return r.ReplaceAllString(cmdStr, "--token=<omitted>")
 }

@@ -3,7 +3,6 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kube-applier-admin
-  name: managed-namespace
 roleRef:
   kind: ClusterRole
   name: admin

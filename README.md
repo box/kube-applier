@@ -64,15 +64,6 @@ kube-applier serves a [status page](#status-ui) and provides
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --server-dry-run
   flag. This means live configuration of the cluster is not changed.
 
-* `DELEGATE_SERVICE_ACCOUNTS` - (bool) If true kube-applier will try to fetch a
-  SA under each namespace and use it to run kubectl commands. It will error for
-  all namespaces that do not contain a SA matching the value of
-  `DELEGATE_SERVICE_ACCOUNT_NAME`. Defaults to `false`.
-
-* `DELEGATE_SERVICE_ACCOUNT_NAME` - (string) The name of the service account
-  used when `DELEGATE_SERVICE_ACCOUNTS` is `true`. Defaults to
-  `kube-applier-delegate`.
-
 ### Annotations
 
 kube-applier behaviour is controlled through annotations on the Namespace

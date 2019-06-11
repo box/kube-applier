@@ -3,11 +3,9 @@ kind: Kustomization
 bases:
 - ../base/
 resources:
-# Include one depending if you are using delegate service accounts or not. Also
 # **important** these rbac resources need to exist in each namespace managed by
 # kube-applier
 - rbac.yaml
-- delegate-rbac.yaml
 patchesStrategicMerge:
 - kube-applier-patch.yaml
 secretGenerator:
