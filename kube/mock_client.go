@@ -33,8 +33,8 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryRun, prune, delegate, kustomize bool) (string, string, error) {
-	ret := m.ctrl.Call(m, "Apply", path, namespace, serviceAccount, dryRun, prune, delegate, kustomize)
+func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
+	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRun, prune, kustomize)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -42,8 +42,8 @@ func (m *MockClientInterface) Apply(path, namespace, serviceAccount string, dryR
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, serviceAccount, dryRun, prune, delegate, kustomize interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, serviceAccount, dryRun, prune, delegate, kustomize)
+func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, prune, kustomize interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, prune, kustomize)
 }
 
 // NamespaceAnnotations mocks base method
@@ -57,44 +57,4 @@ func (m *MockClientInterface) NamespaceAnnotations(namespace string) (KAAnnotati
 // NamespaceAnnotations indicates an expected call of NamespaceAnnotations
 func (mr *MockClientInterfaceMockRecorder) NamespaceAnnotations(namespace interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceAnnotations", reflect.TypeOf((*MockClientInterface)(nil).NamespaceAnnotations), namespace)
-}
-
-// GetNamespaceUserSecretName mocks base method
-func (m *MockClientInterface) GetNamespaceUserSecretName(namespace, username string) (string, error) {
-	ret := m.ctrl.Call(m, "GetNamespaceUserSecretName", namespace, username)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetNamespaceUserSecretName indicates an expected call of GetNamespaceUserSecretName
-func (mr *MockClientInterfaceMockRecorder) GetNamespaceUserSecretName(namespace, username interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespaceUserSecretName", reflect.TypeOf((*MockClientInterface)(nil).GetNamespaceUserSecretName), namespace, username)
-}
-
-// GetUserDataFromSecret mocks base method
-func (m *MockClientInterface) GetUserDataFromSecret(namespace, secret string) (string, string, error) {
-	ret := m.ctrl.Call(m, "GetUserDataFromSecret", namespace, secret)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetUserDataFromSecret indicates an expected call of GetUserDataFromSecret
-func (mr *MockClientInterfaceMockRecorder) GetUserDataFromSecret(namespace, secret interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDataFromSecret", reflect.TypeOf((*MockClientInterface)(nil).GetUserDataFromSecret), namespace, secret)
-}
-
-// SAToken mocks base method
-func (m *MockClientInterface) SAToken(namespace, serviceAccount string) (string, error) {
-	ret := m.ctrl.Call(m, "SAToken", namespace, serviceAccount)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SAToken indicates an expected call of SAToken
-func (mr *MockClientInterfaceMockRecorder) SAToken(namespace, serviceAccount interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SAToken", reflect.TypeOf((*MockClientInterface)(nil).SAToken), namespace, serviceAccount)
 }

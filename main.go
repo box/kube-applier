@@ -23,15 +23,13 @@ const (
 )
 
 var (
-	repoPath            = os.Getenv("REPO_PATH")
-	repoPathFilters     = os.Getenv("REPO_PATH_FILTERS")
-	listenPort          = os.Getenv("LISTEN_PORT")
-	pollInterval        = os.Getenv("POLL_INTERVAL_SECONDS")
-	fullRunInterval     = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
-	dryRun              = os.Getenv("DRY_RUN")
-	logLevel            = os.Getenv("LOG_LEVEL")
-	delegateAccounts    = os.Getenv("DELEGATE_SERVICE_ACCOUNTS")
-	delegateAccountName = os.Getenv("DELEGATE_SERVICE_ACCOUNT_NAME")
+	repoPath        = os.Getenv("REPO_PATH")
+	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
+	listenPort      = os.Getenv("LISTEN_PORT")
+	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
+	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
+	dryRun          = os.Getenv("DRY_RUN")
+	logLevel        = os.Getenv("LOG_LEVEL")
 
 	// kube server. Mainly for local testing.
 	server = os.Getenv("SERVER")
@@ -91,21 +89,6 @@ func validate() {
 		}
 	}
 
-	// use delegate service-accounts for every namespace
-	if delegateAccounts == "" {
-		delegateAccounts = "false"
-	} else {
-		_, err := strconv.ParseBool(delegateAccounts)
-		if err != nil {
-			fmt.Printf("DELEGATE_SERVICE_ACCOUNTS must be a boolean true|false, got %s", delegateAccounts)
-			os.Exit(1)
-		}
-	}
-
-	if delegateAccountName == "" {
-		delegateAccountName = "kube-applier-delegate"
-	}
-
 	// log level [trace|debug|info|warn|error] case insensitive
 	if logLevel == "" {
 		logLevel = "warn"
@@ -137,13 +120,10 @@ func main() {
 	}
 
 	dr, _ := strconv.ParseBool(dryRun)
-	da, _ := strconv.ParseBool(delegateAccounts)
 	batchApplier := &run.BatchApplier{
-		KubeClient:          kubeClient,
-		DryRun:              dr,
-		DelegateAccounts:    da,
-		DelegateAccountName: delegateAccountName,
-		Metrics:             metrics,
+		KubeClient: kubeClient,
+		DryRun:     dr,
+		Metrics:    metrics,
 	}
 
 	gitUtil := &git.Util{
