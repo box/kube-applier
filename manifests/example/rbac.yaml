@@ -2,12 +2,12 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kube-applier-admin
+  name: kube-applier
 roleRef:
   kind: ClusterRole
   name: admin
   apiGroup: rbac.authorization.k8s.io
 subjects:
-  - kind: ServiceAccount
-    name: kube-applier
-    namespace: kube-applier-host-namespace
+- kind: ServiceAccount
+  name: kube-applier
+  namespace: kube-applier-host-namespace
