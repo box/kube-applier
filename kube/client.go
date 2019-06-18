@@ -122,7 +122,8 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (s
 	}
 
 	if prune {
-		args = append(args, "--prune --all")
+		args = append(args, "--prune")
+		args = append(args, "--all")
 		for _, w := range pruneWhitelist {
 			args = append(args, "--prune-whitelist="+w)
 		}
