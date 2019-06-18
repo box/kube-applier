@@ -64,6 +64,8 @@ kube-applier serves a [status page](#status-ui) and provides
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --server-dry-run
   flag. This means live configuration of the cluster is not changed.
 
+* `LOG_LEVEL` - (string) trace|debug|info|warn|error case insensitive
+
 ### Annotations
 
 kube-applier behaviour is controlled through annotations on the Namespace
@@ -75,9 +77,9 @@ apiVersion: v1
 metadata:
   name: team
   annotations:
-    kube-applier.io/enabled: true
-    kube-applier.io/dry-run: false
-    kube-applier.io/prune: true
+    kube-applier.io/enabled: 'true'
+    kube-applier.io/dry-run: 'false'
+    kube-applier.io/prune: 'true'
 ```
 
 ### Mounting the Git Repository

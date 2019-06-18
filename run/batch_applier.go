@@ -42,20 +42,27 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		kaa, err := a.KubeClient.NamespaceAnnotations(ns)
 		if err != nil {
 			log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
+			continue
 		}
 
 		enabled, err := strconv.ParseBool(kaa.Enabled)
-		if err != nil || !enabled {
+		if err != nil {
+			log.Logger.Info("Could not get value for kube-applier.io/enabled", "error", err)
+			continue
+		} else if !enabled {
+			log.Logger.Info("Skipping namespace", "kube-applier.io/enabled", enabled)
 			continue
 		}
 
 		dryRun, err := strconv.ParseBool(kaa.DryRun)
 		if err != nil {
+			log.Logger.Info("Could not get value for kube-applier.io/dry-run", "error", err)
 			dryRun = false
 		}
 
 		prune, err := strconv.ParseBool(kaa.Prune)
 		if err != nil {
+			log.Logger.Info("Could not get value for kube-applier.io/prune", "error", err)
 			prune = true
 		}
 
