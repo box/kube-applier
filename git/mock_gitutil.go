@@ -32,28 +32,36 @@ func (m *MockUtilInterface) EXPECT() *MockUtilInterfaceMockRecorder {
 	return m.recorder
 }
 
-// HeadHash mocks base method
-func (m *MockUtilInterface) HeadHash() (string, error) {
-	ret := m.ctrl.Call(m, "HeadHash")
+// HeadCommitLogForPaths mocks base method
+func (m *MockUtilInterface) HeadCommitLogForPaths(args ...string) (string, error) {
+	varargs := []interface{}{}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "HeadCommitLogForPaths", varargs...)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// HeadHash indicates an expected call of HeadHash
-func (mr *MockUtilInterfaceMockRecorder) HeadHash() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadHash", reflect.TypeOf((*MockUtilInterface)(nil).HeadHash))
+// HeadCommitLogForPaths indicates an expected call of HeadCommitLogForPaths
+func (mr *MockUtilInterfaceMockRecorder) HeadCommitLogForPaths(args ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadCommitLogForPaths", reflect.TypeOf((*MockUtilInterface)(nil).HeadCommitLogForPaths), args...)
 }
 
-// HeadCommitLog mocks base method
-func (m *MockUtilInterface) HeadCommitLog() (string, error) {
-	ret := m.ctrl.Call(m, "HeadCommitLog")
+// HeadHashForPaths mocks base method
+func (m *MockUtilInterface) HeadHashForPaths(args ...string) (string, error) {
+	varargs := []interface{}{}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "HeadHashForPaths", varargs...)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// HeadCommitLog indicates an expected call of HeadCommitLog
-func (mr *MockUtilInterfaceMockRecorder) HeadCommitLog() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadCommitLog", reflect.TypeOf((*MockUtilInterface)(nil).HeadCommitLog))
+// HeadHashForPaths indicates an expected call of HeadHashForPaths
+func (mr *MockUtilInterfaceMockRecorder) HeadHashForPaths(args ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadHashForPaths", reflect.TypeOf((*MockUtilInterface)(nil).HeadHashForPaths), args...)
 }

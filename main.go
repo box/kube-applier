@@ -166,6 +166,7 @@ func main() {
 		GitUtil:         gitUtil,
 		PollInterval:    time.Duration(pi) * time.Second,
 		FullRunInterval: time.Duration(fi) * time.Second,
+		RepoPathFilters: repoPathFiltersSlice,
 		RunQueue:        runQueue,
 		Errors:          errors,
 	}

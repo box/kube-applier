@@ -20,9 +20,6 @@ const (
 	// Location of the kubeconfig template file within the container - see ADD command in Dockerfile
 	kubeconfigTemplatePath = "/templates/kubeconfig"
 
-	// Location of the kubeconfig template for temporary templates - see ADD command in Dockerfile
-	tempkubeConfigTemplatePath = "/templates/tempKubeConfig"
-
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath = "/etc/kubeconfig"
 
