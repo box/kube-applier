@@ -2,6 +2,24 @@
 
 [![Docker Repository on Quay](https://quay.io/repository/utilitywarehouse/kube-applier/status "Docker Repository on Quay")](https://quay.io/repository/utilitywarehouse/kube-applier)
 
+Table of Contents
+=================
+
+   * [kube-applier](#kube-applier)
+   * [Table of Contents](#table-of-contents)
+      * [Usage](#usage)
+         * [Environment variables](#environment-variables)
+         * [Annotations](#annotations)
+         * [Mounting the Git Repository](#mounting-the-git-repository)
+      * [Deploying](#deploying)
+      * [Monitoring](#monitoring)
+         * [Status UI](#status-ui)
+         * [Metrics](#metrics)
+      * [Running locally](#running-locally)
+      * [Copyright and License](#copyright-and-license)
+
+Created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
+
 Forked from: https://github.com/box/kube-applier
 
 kube-applier is Kubernetes deployment tool strongly following
@@ -174,6 +192,36 @@ The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see
 the [Go
 library](https://github.com/prometheus/client_golang/tree/master/api/prometheus))
 can be used for querying the metrics server.
+
+## Running locally
+
+```
+# manifests git repository
+export LOCAL_REPO_PATH="${HOME}/dev/work/kubernetes-manifests"
+
+# directory within the manifests repository that contains namespace directories
+export CLUSTER_DIR="exp-1-aws"
+
+export DIFF_URL_FORMAT="https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
+export REPO_PATH_FILTERS="sys-*,kube-system,labs"
+export LOG_LEVEL="info"
+export DRY_RUN="true"
+export SERVER="https://api.server"
+```
+
+The ca.crt and token to use against the remote server. This can be the
+ServiceAccount that KA runs with, or any SA that contains enough privileges
+
+```
+sa=$(kubectl --context=exp-1-aws -n sys-kube-applier get secret | grep kube-applier | awk '{print $1}')
+kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."ca.crt"' | base64 -d > /tmp/ka-ca.crt
+kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."token"' | base64 -d > /tmp/ka-token
+```
+
+```
+make build
+make run
+```
 
 ## Copyright and License
 

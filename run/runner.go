@@ -50,11 +50,11 @@ func (r *Runner) run() (*Result, error) {
 
 	dirs = r.pruneDirs(dirs)
 
-	hash, err := r.GitUtil.HeadHash()
+	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
 	}
-	commitLog, err := r.GitUtil.HeadCommitLog()
+	commitLog, err := r.GitUtil.HeadCommitLogForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
 	}

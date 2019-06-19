@@ -80,8 +80,6 @@ spec:
           value: "/src/manifests/base/"
         - name: DIFF_URL_FORMAT
           value: "https://github.com/org/repo/commit/%s"
-        - name: DELEGATE_SERVICE_ACCOUNTS
-          value: "true"
         - name: LOG_LEVEL
           value: warn
         volumeMounts:

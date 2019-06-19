@@ -6,26 +6,34 @@ import (
 	"strings"
 )
 
-// UtilInterface allows for mocking out the functionality of GitUtil when testing the full process of an apply run.
+// UtilInterface allows for mocking out the functionality of GitUtil when
+// testing the full process of an apply run.
 type UtilInterface interface {
-	HeadHash() (string, error)
-	HeadCommitLog() (string, error)
+	HeadCommitLogForPaths(args ...string) (string, error)
+	HeadHashForPaths(args ...string) (string, error)
 }
 
-// Util allows for fetching information about a Git repository using Git CLI commands.
+// Util allows for fetching information about a Git repository using Git CLI
+// commands.
 type Util struct {
 	RepoPath string
 }
 
-// HeadHash returns the hash of the current HEAD commit.
-func (g *Util) HeadHash() (string, error) {
-	hash, err := runGitCmd(g.RepoPath, "rev-parse", "HEAD")
-	return strings.TrimSuffix(hash, "\n"), err
+// HeadHashForPaths returns the hash of the current HEAD commit for the
+// filtered directories
+func (g *Util) HeadHashForPaths(args ...string) (string, error) {
+	cmd := []string{"log", "--pretty=format:'%h'", "-n", "1", "--"}
+	cmd = append(cmd, args...)
+	hash, err := runGitCmd(g.RepoPath, cmd...)
+	return strings.Trim(hash, "'\n"), err
 }
 
-// HeadCommitLog returns the log of the current HEAD commit, including a list of the files that were modified.
-func (g *Util) HeadCommitLog() (string, error) {
-	log, err := runGitCmd(g.RepoPath, "log", "-1", "--name-status")
+// HeadCommitLog returns the log of the current HEAD commit, including a list
+// of the files that were modified for the filtered directories
+func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
+	cmd := []string{"log", "-1", "--name-status", "--"}
+	cmd = append(cmd, args...)
+	log, err := runGitCmd(g.RepoPath, cmd...)
 	return log, err
 }
 
