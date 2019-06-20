@@ -77,7 +77,7 @@ kube-applier serves a [status page](#status-ui) and provides
   for new commits to the repo (default is 5).
 
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of
-  seconds between automatic full runs (default is 300). Set to 0 to disable.
+  seconds between automatic full runs (default is 3600). Set to 0 to disable.
 
 * `DRY_RUN` - (bool) If true, kubectl command will be run with --server-dry-run
   flag. This means live configuration of the cluster is not changed.

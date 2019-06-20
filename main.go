@@ -70,7 +70,7 @@ func validate() {
 	}
 
 	if fullRunInterval == "" {
-		fullRunInterval = "60"
+		fullRunInterval = "3600"
 	} else {
 		_, err := strconv.Atoi(fullRunInterval)
 		if err != nil {
