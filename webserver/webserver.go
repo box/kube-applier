@@ -109,7 +109,7 @@ func (ws *WebServer) Start() {
 	forceRunHandler := &ForceRunHandler{
 		ws.RunQueue,
 	}
-	m.PathPrefix("/api/1.0/forceRun").Handler(forceRunHandler)
+	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
 	m.PathPrefix("/").Handler(statusPageHandler)
 
 	go func() {
