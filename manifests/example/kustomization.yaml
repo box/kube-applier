@@ -5,15 +5,16 @@ bases:
 resources:
 # **important** these rbac resources need to exist in each namespace managed by
 # kube-applier
+- kube-applier-ingress.yaml
 - rbac.yaml
 patchesStrategicMerge:
 - kube-applier-patch.yaml
 secretGenerator:
-- name: github-secret-ssh
+- name: ssh
   type: Opaque
   files:
   - ssh=secrets/ssh
   - known_hosts=secrets/known_hosts
-- name: strongbox-secret-keys
+- name: strongbox
   files:
   - .strongbox_keyring=secrets/strongbox_keyring
