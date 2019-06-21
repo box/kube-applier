@@ -1,4 +1,4 @@
-FROM golang:alpine AS build
+FROM golang:1.12-alpine AS build
 WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 COPY . /go/src/github.com/utilitywarehouse/kube-applier
 RUN apk --no-cache add git gcc musl-dev && \
@@ -6,7 +6,7 @@ RUN apk --no-cache add git gcc musl-dev && \
  go test ./... && \
  CGO_ENABLED=0 go build -o /kube-applier .
 
-FROM alpine
+FROM alpine:3.10
 ENV KUBECTL_VERSION v1.14.2
 COPY templates/* /templates/
 COPY static/ /static/

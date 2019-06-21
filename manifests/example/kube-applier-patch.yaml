@@ -1,22 +1,3 @@
-apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-  name: kube-applier
-  namespace: kube-system
-  labels:
-    kubernetes.io/ingress.class: private-example
-  annotations:
-    external-dns.alpha.kubernetes.io/target: example.com
-spec:
-  rules:
-  - host: example.com
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: kube-applier
-          servicePort: 80
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
