@@ -80,7 +80,7 @@ spec:
         - name: git-sync
           image: k8s.gcr.io/git-sync:v3.1.1
           securityContext:
-            runAsUser: 65533 # git-sync user
+            runAsUser: 0
           env:
             - name: GIT_SYNC_REPO
               value: 'git@github.com:org/repo.git'
