@@ -15,10 +15,10 @@ metadata:
     app: kube-applier
 spec:
   ports:
-    - name: web
-      protocol: TCP
-      port: 80
-      targetPort: 8080
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8080
   selector:
     app: kube-applier
 ---
@@ -37,92 +37,94 @@ spec:
         app: kube-applier
     spec:
       serviceAccountName: kube-applier
+      securityContext:
+        fsGroup: 65533 # to make SSH key readable
       initContainers:
-        - name: setup-strongbox
-          image: alpine
-          command:
-            - /bin/sh
-            - -c
-            - |
-              apk add --no-cache curl git openssl ca-certificates &&\
-              curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/v0.1.0/strongbox_0.1.0_linux_amd64 &&\
-              chmod +x strongbox &&\
-              mv strongbox /usr/local/bin/ &&\
-              strongbox -git-config
-          volumeMounts:
-            - name: gs-sb-bin
-              mountPath: /usr/local/bin/
-            - name: gs-gitconfig
-              mountPath: /root/
-      containers:
-        - name: kube-applier
-          image: quay.io/utilitywarehouse/kube-applier:v2.3.0
-          env:
-            - name: REPO_PATH
-              value: '/src/manifests/base/'
-            - name: DIFF_URL_FORMAT
-              value: 'https://github.com/org/repo/commit/%s'
-            - name: LOG_LEVEL
-              value: warn
-          volumeMounts:
-            - name: git-repo
-              mountPath: /src
-              readOnly: true
-          resources:
-            requests:
-              cpu: 10m
-              memory: 25Mi
-            limits:
-              cpu: 500m
-              memory: 200Mi
-          ports:
-            - containerPort: 8080
-        - name: git-sync
-          image: k8s.gcr.io/git-sync:v3.1.1
-          securityContext:
-            runAsUser: 0
-          env:
-            - name: GIT_SYNC_REPO
-              value: 'git@github.com:org/repo.git'
-            - name: GIT_SYNC_DEST
-              value: 'manifests'
-            - name: GIT_SYNC_SSH
-              value: 'true'
-            - name: GIT_SYNC_MAX_SYNC_FAILURES
-              value: '5'
-          volumeMounts:
-            - name: git-repo
-              mountPath: /tmp/git
-            - name: git-secret
-              mountPath: /etc/git-secret
-            - name: strongbox-secret
-              mountPath: /tmp/.strongbox_keyring
-              subPath: .strongbox_keyring
-            - name: gs-sb-bin
-              mountPath: /usr/local/bin/strongbox
-              subPath: strongbox
-            - name: gs-gitconfig
-              mountPath: /tmp/.gitconfig
-              subPath: .gitconfig
-          resources:
-            requests:
-              cpu: 40m
-              memory: 48Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-      volumes:
+      - name: setup-strongbox
+        image: alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache curl git openssl ca-certificates &&\
+          curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/v0.1.0/strongbox_0.1.0_linux_amd64 &&\
+          chmod +x strongbox &&\
+          mv strongbox /usr/local/bin/ &&\
+          strongbox -git-config
+        volumeMounts:
         - name: gs-sb-bin
-          emptyDir: {}
+          mountPath: /usr/local/bin/
         - name: gs-gitconfig
-          emptyDir: {}
+          mountPath: /root/
+      containers:
+      - name: kube-applier
+        image: quay.io/utilitywarehouse/kube-applier:v2.3.0
+        env:
+        - name: REPO_PATH
+          value: "/src/manifests/base/"
+        - name: DIFF_URL_FORMAT
+          value: "https://github.com/org/repo/commit/%s"
+        - name: LOG_LEVEL
+          value: warn
+        volumeMounts:
         - name: git-repo
-          emptyDir: {}
+          mountPath: /src
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 25Mi
+          limits:
+            cpu: 500m
+            memory: 200Mi
+        ports:
+        - containerPort: 8080
+      - name: git-sync
+        image: k8s.gcr.io/git-sync:v3.1.1
+        securityContext:
+          runAsUser: 65533 # git-sync user
+        env:
+        - name: GIT_SYNC_REPO
+          value: "git@github.com:org/repo.git"
+        - name: GIT_SYNC_DEST
+          value: "manifests"
+        - name: GIT_SYNC_SSH
+          value: "true"
+        - name: GIT_SYNC_MAX_SYNC_FAILURES
+          value: "5"
+        volumeMounts:
+        - name: git-repo
+          mountPath: /tmp/git
         - name: git-secret
-          secret:
-            secretName: ssh
-            defaultMode: 256
+          mountPath: /etc/git-secret
         - name: strongbox-secret
-          secret:
-            secretName: strongbox
-            defaultMode: 0400
+          mountPath: /tmp/.strongbox_keyring
+          subPath: .strongbox_keyring
+        - name: gs-sb-bin
+          mountPath: /usr/local/bin/strongbox
+          subPath: strongbox
+        - name: gs-gitconfig
+          mountPath: /tmp/.gitconfig
+          subPath: .gitconfig
+        resources:
+          requests:
+            cpu: 40m
+            memory: 48Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: gs-sb-bin
+        emptyDir: {}
+      - name: gs-gitconfig
+        emptyDir: {}
+      - name: git-repo
+        emptyDir: {}
+      - name: git-secret
+        secret:
+          secretName: ssh
+          defaultMode: 256 # = mode 0440
+      - name: strongbox-secret
+        secret:
+          secretName: strongbox
+          defaultMode: 0400
