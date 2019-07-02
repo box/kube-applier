@@ -16,4 +16,10 @@ RUN apk --no-cache add git openssh-client &&\
   wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl &&\
   chmod +x /usr/local/bin/kubectl
 COPY --from=build /kube-applier /kube-applier
+
+RUN echo "kube-applier:x:65533:65533::/tmp:/sbin/nologin" >> /etc/passwd
+
+WORKDIR /tmp
+USER kube-applier:nogroup
+
 CMD [ "/kube-applier" ]
