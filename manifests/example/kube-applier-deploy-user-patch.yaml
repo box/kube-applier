@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-applier
+spec:
+  template:
+    spec:
+      containers:
+      - name: kube-applier
+        volumeMounts:
+        - name: ssh-deploy-user
+          mountPath: /root/.ssh/
+      volumes:
+      - name: deploy-user-ssh
+        secret:
+          secretName: ssh-deploy-user
+          defaultMode: 0400

@@ -1,0 +1,7 @@
+Host github-my-repo-1
+  HostName github.com
+  IdentityFile /root/.ssh/ssh-deploy-key-1
+
+Host github-my-repo-2
+  HostName github.com
+  IdentityFile /root/.ssh/ssh-deploy-key-2

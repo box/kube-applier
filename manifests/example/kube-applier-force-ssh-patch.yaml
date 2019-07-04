@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-applier
+spec:
+  template:
+    spec:
+      containers:
+      - name: kube-applier
+        command:
+        - /bin/sh
+        - -c
+        - |
+          git config --global url.ssh://git@github.com/.insteadOf https://github.com/ &&\
+          /kube-applier

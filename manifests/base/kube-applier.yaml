@@ -37,8 +37,6 @@ spec:
         app: kube-applier
     spec:
       serviceAccountName: kube-applier
-      securityContext:
-        fsGroup: 65533 # to make SSH key readable
       initContainers:
       - name: setup-strongbox
         image: alpine
@@ -83,6 +81,7 @@ spec:
         image: k8s.gcr.io/git-sync:v3.1.1
         securityContext:
           runAsUser: 65533 # git-sync user
+          runAsGroup: 0    # root group to read mounted Secrets
         env:
         - name: GIT_SYNC_REPO
           value: "git@github.com:org/repo.git"
@@ -123,8 +122,8 @@ spec:
       - name: git-secret
         secret:
           secretName: ssh
-          defaultMode: 288 # = mode 0440
+          defaultMode: 0440
       - name: strongbox-secret
         secret:
           secretName: strongbox
-          defaultMode: 0400
+          defaultMode: 0440
