@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-applier
-  namespace: kube-system
 spec:
   template:
     spec:
@@ -11,6 +10,8 @@ spec:
         env:
         - name: REPO_PATH
           value: "/src/manifests/example-env/"
+        - name: REPO_PATH_FILTERS
+          value: "my-namespace-1,my-namespace-2,team-namespace-*"
         - name: DIFF_URL_FORMAT
           value: "https://github.com/org/repo/commit/%s"
       - name: git-sync
