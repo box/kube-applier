@@ -8,10 +8,10 @@ spec:
       containers:
       - name: kube-applier
         volumeMounts:
-        - name: ssh-deploy-user
-          mountPath: /root/.ssh/
+        - name: ssh-config
+          mountPath: /root/.ssh/config
+          subPath: config
       volumes:
-      - name: deploy-user-ssh
-        secret:
-          secretName: ssh-deploy-user
-          defaultMode: 0400
+      - name: ssh-config
+        configMap:
+          name: ssh-config

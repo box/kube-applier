@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
   - ../base/
-#  - github.com/utilitywarehouse/kube-applier//manifests/base?ref=v2.3.2
+#  - github.com/utilitywarehouse/kube-applier//manifests/base?ref=v2.3.1
 
 resources:
   - kube-applier-ingress.yaml
@@ -15,17 +15,21 @@ patchesStrategicMerge:
 # generic patch to specify environment/namespaces
   - kube-applier-patch.yaml
 
-# please enable 0 or exactly 1 of the following two patches (deploy user or
-# deploy keys)
-
 ## enable this patch if you want to use ssh to clone remote bases via Kustomize,
 ## for example if the bases are private and you are using a deploy user (with a
 ## single key)
-#  - kube-applier-deploy-user-patch.yaml
+#  - kube-applier-kustomize-ssh-patch.yaml
 
 ## enable this patch to be able to clone remote bases via Kustomize, but you are
-## using multiple deploy keys for each repository
-#  - kube-applier-deploy-keys-patch.yaml
+## using multiple deploy keys
+## You will also need to use custom host names in `bases` in kustomization.yaml
+## matching those you setup in ssh-config ConfigMap:
+##     ...
+##     bases: 
+##       - github-my-repo-1/org/repo
+##       - github-my-repo-2/org/repo
+##     ...
+#  - kube-applier-kustomize-ssh-config-patch.yaml
 
 ## force kube-applier + Kustomize to use ssh to clone remote bases
 ## alternatively you can force ssh in kustomization.yaml with:
@@ -48,24 +52,18 @@ secretGenerator:
     files:
       - .strongbox_keyring=secrets/strongbox_keyring
 
-## ssh key used by kube-applier + Kustomize to clone remote bases,
-## only specify if using kube-applier-deploy-user-patch.yaml
-#  - name: ssh-deploy-user
-#    type: Opaque
-#    files:
-#      - ssh=secrets/ssh-deploy-user
-#      - known_hosts=resources/known_hosts
-
 ## ssh keys used by kube-applier + Kustomize to clone remote bases,
-## only specify if using kube-applier-deploy-keys-patch.yaml
+## specify a single key if using kube-applier-kustomize-ssh-patch.yaml
+## specify multiple keys if also using kube-applier-kustomize-ssh-config-patch.yaml
 #  - name: ssh-deploy-keys
 #    type: Opaque
 #    files:
 #      - secrets/ssh-deploy-key-1
 #      - secrets/ssh-deploy-key-2
+#      - known_hosts=resources/known_hosts
 
-## ssh config used by kube-appliser + Kustomize to clone remote bases,
-## only specify if using kube-applier-deploy-keys-patch.yaml
+## ssh config used by kube-applier + Kustomize to clone remote bases,
+## only specify if using kube-applier-kustomize-ssh-config-patch.yaml
 #configMapGenerator:
 #  - name: ssh-config
 #    files:

@@ -10,14 +10,8 @@ spec:
         volumeMounts:
         - name: ssh-deploy-keys
           mountPath: /root/.ssh/
-        - name: ssh-config
-          mountPath: /root/.ssh/config
-          subPath: config
       volumes:
       - name: ssh-deploy-keys
         secret:
           secretName: ssh-deploy-keys
           defaultMode: 0400
-      - name: ssh-config
-        configMap:
-          name: ssh-config
