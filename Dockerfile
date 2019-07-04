@@ -11,8 +11,10 @@ FROM alpine:3.10
 ENV KUBECTL_VERSION v1.14.2
 COPY templates/ /templates/
 COPY static/ /static/
-RUN apk --no-cache add git openssh-client &&\
+RUN apk --no-cache add git openssh-client tini &&\
   wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl &&\
   chmod +x /usr/local/bin/kubectl
 COPY --from=build /kube-applier /kube-applier
+
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD [ "/kube-applier" ]
