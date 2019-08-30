@@ -78,7 +78,7 @@ spec:
         ports:
         - containerPort: 8080
       - name: git-sync
-        image: k8s.gcr.io/git-sync:v3.1.1
+        image: k8s.gcr.io/git-sync:v3.1.2
         securityContext:
           runAsUser: 65533 # git-sync user
           runAsGroup: 0    # root group to read mounted Secrets
