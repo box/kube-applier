@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
   - ../base/
-#  - github.com/utilitywarehouse/kube-applier//manifests/base?ref=v2.3.1
+#  - github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.3.3
 
 resources:
   - kube-applier-ingress.yaml
