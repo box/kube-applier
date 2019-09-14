@@ -2,13 +2,14 @@ package kube
 
 import (
 	"fmt"
-	"github.com/box/kube-applier/sysutil"
 	"io/ioutil"
 	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/box/kube-applier/sysutil"
 )
 
 const (
@@ -31,6 +32,8 @@ type Client struct {
 	Server string
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath string
+	// if <0, no verbosity level is specified in the commands run
+	LogLevel int
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -42,7 +45,7 @@ func (c *Client) Configure() error {
 
 	f, err := ioutil.TempFile("", "kubeConfig")
 	c.kubeconfigFilePath = f.Name()
-	log.Printf("Using kubeConfig file:", c.kubeconfigFilePath)
+	log.Printf("Using kubeConfig file: %s", c.kubeconfigFilePath)
 
 	if err != nil {
 		return fmt.Errorf("Error creating kubeconfig file: %v", err)
@@ -75,6 +78,9 @@ func (c *Client) Configure() error {
 // CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
 func (c *Client) CheckVersion() error {
 	args := []string{"kubectl", "version"}
+	if c.LogLevel > -1 {
+		args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+	}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
@@ -126,6 +132,9 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (cmd, output string, err error) {
 	args := []string{"kubectl", "apply", "-f", path}
+	if c.LogLevel > -1 {
+		args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+	}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"log"
+	"strings"
+	"time"
+
 	"github.com/box/kube-applier/applylist"
 	"github.com/box/kube-applier/git"
 	"github.com/box/kube-applier/kube"
@@ -8,9 +12,6 @@ import (
 	"github.com/box/kube-applier/run"
 	"github.com/box/kube-applier/sysutil"
 	"github.com/box/kube-applier/webserver"
-	"log"
-	"strings"
-	"time"
 )
 
 const (
@@ -30,6 +31,7 @@ func main() {
 	listenPort := sysutil.GetRequiredEnvInt("LISTEN_PORT")
 	server := sysutil.GetEnvStringOrDefault("SERVER", "")
 	blacklistPath := sysutil.GetEnvStringOrDefault("BLACKLIST_PATH", "")
+	logLevel := sysutil.GetEnvIntOrDefault("LOG_LEVEL", -1)
 
 	// A file that contains a list of files to consider for application.
 	// If the env var is not defined or if the file is empty act like a no-op and
@@ -49,7 +51,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	kubeClient := &kube.Client{Server: server}
+	kubeClient := &kube.Client{
+		Server:   server,
+		LogLevel: logLevel,
+	}
 	kubeClient.Configure()
 
 	gitUtil := &git.GitUtil{repoPath}
