@@ -8,7 +8,7 @@ RUN apk --no-cache add git &&\
   go build -o /kube-applier .
 
 FROM alpine:3.10
-ENV KUBECTL_VERSION v1.14.2
+ENV KUBECTL_VERSION v1.15.3
 COPY templates/ /templates/
 COPY static/ /static/
 RUN apk --no-cache add git openssh-client tini &&\
