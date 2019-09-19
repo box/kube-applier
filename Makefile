@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 .PHONY: generate-mocks build run
 
 generate-mocks:
@@ -25,3 +27,13 @@ run:
 	-v /tmp/ka-ca.crt:/var/run/secrets/kubernetes.io/serviceaccount/ca.crt:ro \
 	-p 8080:8080 \
 	-ti kube-applier
+
+# Hack to take arguments from command line
+# Usage: `make release 5.5.5`
+# https://stackoverflow.com/questions/6273608/how-to-pass-argument-to-makefile-from-command-line
+release:
+	sed -i 's#utilitywarehouse/kube-applier:.*#utilitywarehouse/kube-applier:$(filter-out $@,$(MAKECMDGOALS))#g' manifests/base/kube-applier.yaml
+	sed -i 's#kube-applier//manifests/base?ref=.*#kube-applier//manifests/base?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
+
+%:		# matches any task name
+	@:	# empty recipe = do nothing
