@@ -145,6 +145,8 @@ bases:
 and patch as per example:
 [manifests/example/](manifests/example/)
 
+Please note that if you enable kustomize for your namespace and you've enabled pruning in kube-applier, _all_ your resources need to be listed in your `kustomization.yaml` under `resources`. If you don't do this kube-applier will assume they have been removed and start pruning. 
+
 ## Monitoring
 ### Status UI
 ![screenshot](https://github.com/box/kube-applier/raw/master/static/img/status_page_screenshot.png "Status Page Screenshot")
