@@ -81,6 +81,7 @@ A single line gets ignored if the first non-blank character is # in that line.
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
+* `LOG_LEVEL` - (int) Sets the `-v` flag on all `kubectl` commands run. Use this option to configure more verbose logging. If not specified, the `-v` flag is not set on `kubectl` commands defaulting to standard log verbosity.
 
 ### Mounting the Git Repository
 
