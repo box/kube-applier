@@ -131,14 +131,15 @@ func parseKubectlOutput(output string) []Result {
 	var results []Result
 	for _, line := range lines {
 		o := strings.Split(line, " ")
-		if len(o) < 3 {
+		if len(o) < 2 {
 			continue
 		}
 
+		os := strings.Split(o[0], "/")
 		results = append(results, Result{
-			Type:   o[0],
-			Name:   strings.Trim(o[1], "\""),
-			Action: o[2],
+			Type:   os[0],
+			Name:   os[1],
+			Action: o[1],
 		})
 	}
 
