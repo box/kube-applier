@@ -1,7 +1,7 @@
 all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
-TAG = v0.2.0
+TAG = v1.16.2
 GODEP_BIN = $$GOPATH/bin/godep
 
 deps:
