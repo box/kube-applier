@@ -28,6 +28,8 @@ const (
 
 func main() {
 	repoPath := sysutil.GetRequiredEnvString("REPO_PATH")
+	autoDelete := sysutil.GetRequiredEnvString("AUTO_DELETE_DEPLOYMENTS", true)
+	resourceType := sysutil.GetRequiredEnvString("DELETE_RESOURCE_TYPE", "service.serving.knative.dev")
 	listenPort := sysutil.GetRequiredEnvInt("LISTEN_PORT")
 	server := sysutil.GetEnvStringOrDefault("SERVER", "")
 	blacklistPath := sysutil.GetEnvStringOrDefault("BLACKLIST_PATH", "")
@@ -103,6 +105,9 @@ func main() {
 		clock,
 		diffURLFormat,
 		"",
+        repoPath,
+        resourceType,
+        autoDelete,
 		quickRunQueue,
 		fullRunQueue,
 		runResults,

@@ -1,13 +1,15 @@
 package webserver
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/box/kube-applier/run"
-	"github.com/box/kube-applier/sysutil"
-	"html/template"
-	"log"
-	"net/http"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "strings"
+    "github.com/box/kube-applier/run"
+    "github.com/box/kube-applier/sysutil"
+    "html/template"
+    "log"
+    "net/http"
 )
 
 const serverTemplatePath = "/templates/status.html"
@@ -30,6 +32,10 @@ type StatusPageHandler struct {
 
 // ServeHTTP populates the status page template with data and serves it when there is a request.
 func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    fullPath := r.URL.Path
+    path := fullPath[1:]
+    log.Println(fullPath)
+    data, err := ioutil.ReadFile(string(path))
 	log.Printf("Applier status request at %s", s.Clock.Now().String())
 	if s.Template == nil {
 		handleTemplateError(w, fmt.Errorf("No template found"), s.Clock)
@@ -40,6 +46,26 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("Request completed successfully at %s", s.Clock.Now().String())
+    if err == nil {
+        var contentType string
+
+        if strings.HasSuffix(fullPath, ".css") {
+            contentType = "text/css"
+        } else if strings.HasSuffix(fullPath, ".html") {
+            contentType = "text/html"
+        } else if strings.HasSuffix(fullPath, ".js") {
+            contentType = "application/javascript"
+        } else if strings.HasSuffix(fullPath, ".png") {
+            contentType = "image/png"
+        } else if strings.HasSuffix(fullPath, ".svg") {
+            contentType = "image/svg+xml"
+        } else {
+            contentType = "text/plain"
+        }
+
+        w.Header().Add("Content-Type", contentType)
+        w.Write(data)
+    }
 }
 
 func handleTemplateError(w http.ResponseWriter, err error, clock sysutil.ClockInterface) {
@@ -101,7 +127,7 @@ func (ws *WebServer) Start() {
 	statusPageHandler := &StatusPageHandler{template, lastRun, ws.Clock}
 	http.Handle("/", statusPageHandler)
 	http.Handle("/metrics", ws.MetricsHandler)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.Handle("static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{ws.FullRunQueue}
 	http.Handle("/api/v1/forceRun", forceRunHandler)
 

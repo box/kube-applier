@@ -21,8 +21,16 @@ const (
 )
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
+//type ClientInterface interface {
+//	Apply(string) (cmd, output string, err error)
+//	CheckVersion() error
+//}
+
+// ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(string) (cmd, output string, err error)
+	List(string) (cmd, output string, err error)
+	Remove(string, string) (cmd, output string, err error)
 	CheckVersion() error
 }
 
@@ -144,4 +152,39 @@ func (c *Client) Apply(path string) (cmd, output string, err error) {
 		err = fmt.Errorf("Error: %v", err)
 	}
 	return cmd, string(stdout), err
+}
+
+// List attempts to "kubectl get" the specified resouceType and return a list of resource names.
+func (c *Client) List(resourceType string) (cmd, output string, err error) {
+    args := []string{"kubectl", "get", "--no-headers", "-o=custom-columns=NAME:.metadata.name", resourceType}
+    if c.LogLevel > -1 {
+        args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+    }
+    if c.Server != "" {
+        args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
+    }
+    cmd = strings.Join(args, " ")
+    stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+    if err != nil {
+        err = fmt.Errorf("Error: %v", err)
+    }
+    return cmd, string(stdout), err
+}
+
+// Remove attempts to "kubectl delete" a specified resource
+// It returns the full delete command and its output.
+func (c *Client) Remove(resourceType string, resourceName string) (cmd, output string, err error) {
+    args := []string{"kubectl", "delete", resourceType, resourceName}
+    if c.LogLevel > -1 {
+        args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+    }
+    if c.Server != "" {
+        args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
+    }
+    cmd = strings.Join(args, " ")
+    stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+    if err != nil {
+        err = fmt.Errorf("Error: %v", err)
+    }
+    return cmd, string(stdout), err
 }
