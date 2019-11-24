@@ -77,9 +77,9 @@ func unique(slice []string) []string {
     return diff
 }
 
-// RemoveAttempt stores the data from an attempt at applying a single file.
+// RemoveAttempt stores the data from an attempt at removing a single resource
 type RemoveAttempt struct {
-    FilePath     string
+    Resource     string
     Command      string
     Output       string
     ErrorMessage string
@@ -121,8 +121,12 @@ func (a *BatchRemover) Remove(id int, resourceType string, repoPath string, rawL
     successes = []RemoveAttempt{}
     failures = []RemoveAttempt{}
 
-    //var runningDeployments []string
-    cmd, runningDeployments, err := a.KubeClient.List(resourceType)
+    cmd, runningDeploys, err := a.KubeClient.List(resourceType)
+    log.Printf("Ran command: %v.", cmd)
+    if err != nil {
+        log.Fatal(err)
+    }
+    runningDeployments := strings.Fields(runningDeploys)
     if len(runningDeployments) > 0 {
         removeList := unique(append(runningDeployments, existingDeployments...))
         for _, item := range removeList {

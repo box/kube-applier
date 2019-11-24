@@ -21,12 +21,6 @@ const (
 )
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
-//type ClientInterface interface {
-//	Apply(string) (cmd, output string, err error)
-//	CheckVersion() error
-//}
-
-// ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(string) (cmd, output string, err error)
 	List(string) (cmd, output string, err error)
