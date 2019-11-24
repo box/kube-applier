@@ -133,14 +133,14 @@ func (a *BatchRemover) Remove(id int, resourceType string, repoPath string, rawL
             log.Printf("RUN %v: Removing resource %v", id, item)
             cmd, output, err := a.KubeClient.Remove(resourceType, item)
             success := (err == nil)
-            appliedFile := RemoveAttempt{item, cmd, output, ""}
+            removedResource := RemoveAttempt{item, cmd, output, ""}
             if success {
-                successes = append(successes, appliedFile)
+                successes = append(successes, removedResource)
                 log.Printf("RUN %v: %v\n%v", id, cmd, output)
             } else {
-                appliedFile.ErrorMessage = err.Error()
-                failures = append(failures, appliedFile)
-                log.Printf("RUN %v: %v\n%v\n%v", id, cmd, output, appliedFile.ErrorMessage)
+                removedResource.ErrorMessage = err.Error()
+                failures = append(failures, removedResource)
+                log.Printf("RUN %v: %v\n%v\n%v", id, cmd, output, removedResource.ErrorMessage)
             }
         }
     }

@@ -18,7 +18,7 @@ type Runner struct {
     LastHash      string
     RepoPath      string
     ResourceType  string
-    AutoDelete    bool
+    AutoDelete    string
     QuickRunQueue <-chan string
     FullRunQueue  <-chan bool
     RunResults    chan<- Result
@@ -128,12 +128,13 @@ func (r *Runner) run(id int, runType RunType, rawList []string, hash string) (*R
 
     successes, failures := r.BatchApplier.Apply(id, applyList)
 
-    if r.AutoDelete {
-        successes, failures := r.BatchRemover.Remove(id, r.ResourceType, r.RepoPath, rawList)
+    var dSuccesses, dFailures []RemoveAttempt
+    if r.AutoDelete != "disabled" {
+        dSuccesses, dFailures = r.BatchRemover.Remove(id, r.ResourceType, r.RepoPath, rawList)
     }
 
     finish := r.Clock.Now()
 
-    newRun := &Result{id, runType, start, finish, hash, commitLog, blacklist, whitelist, successes, failures, r.DiffURLFormat}
+    newRun := &Result{id, runType, start, finish, hash, commitLog, blacklist, whitelist, successes, failures, dSuccesses, dFailures, r.DiffURLFormat}
     return newRun, err
 }

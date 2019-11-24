@@ -26,6 +26,8 @@ type Result struct {
 	Whitelist     []string
 	Successes     []ApplyAttempt
 	Failures      []ApplyAttempt
+	dSuccesses    []RemoveAttempt
+	dFailures     []RemoveAttempt
 	DiffURLFormat string
 }
 

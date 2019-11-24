@@ -28,8 +28,8 @@ const (
 
 func main() {
 	repoPath := sysutil.GetRequiredEnvString("REPO_PATH")
-	autoDelete := sysutil.GetRequiredEnvString("AUTO_DELETE_DEPLOYMENTS", true)
-	resourceType := sysutil.GetRequiredEnvString("DELETE_RESOURCE_TYPE", "service.serving.knative.dev")
+	autoDelete := sysutil.GetEnvStringOrDefault("AUTO_DELETE_DEPLOYMENTS", "disabled")
+	resourceType := sysutil.GetEnvStringOrDefault("DELETE_RESOURCE_TYPE", "service.serving.knative.dev")
 	listenPort := sysutil.GetRequiredEnvInt("LISTEN_PORT")
 	server := sysutil.GetEnvStringOrDefault("SERVER", "")
 	blacklistPath := sysutil.GetEnvStringOrDefault("BLACKLIST_PATH", "")
@@ -94,12 +94,14 @@ func main() {
 	metrics := &metrics.Prometheus{RunMetrics: runMetrics}
 	metrics.Configure()
 	batchApplier := &run.BatchApplier{kubeClient}
+	batchRemover := &run.BatchRemover{kubeClient}
 
 	pollTicker := time.Tick(pollInterval)
 	fullRunTicker := time.Tick(fullRunInterval)
 
 	runner := &run.Runner{
 		batchApplier,
+        batchRemover,
 		listFactory,
 		gitUtil,
 		clock,
