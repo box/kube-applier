@@ -128,10 +128,7 @@ func (r *Runner) run(id int, runType RunType, rawList []string, hash string) (*R
 
     successes, failures := r.BatchApplier.Apply(id, applyList)
 
-    var dSuccesses, dFailures []RemoveAttempt
-    if r.AutoDelete != "disabled" {
-        dSuccesses, dFailures = r.BatchRemover.Remove(id, r.ResourceType, r.RepoPath, rawList)
-    }
+    dSuccesses, dFailures := r.BatchRemover.Remove(id, r.ResourceType, r.RepoPath, r.AutoDelete, rawList)
 
     finish := r.Clock.Now()
 

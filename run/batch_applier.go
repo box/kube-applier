@@ -87,7 +87,7 @@ type RemoveAttempt struct {
 
 // BatchRemoverInterface allows for mocking out the functionality of BatchRemover when testing the full process of an delete run.
 type BatchRemoverInterface interface {
-    Remove(int, string, string, []string) (successes []RemoveAttempt, failures []RemoveAttempt)
+    Remove(int, string, string, string, []string) (successes []RemoveAttempt, failures []RemoveAttempt)
 }
 
 // BatchRemover makes delete calls for a list of resources.
@@ -98,7 +98,7 @@ type BatchRemover struct {
 // Remove takes a resource type and the rawList from git
 // gets a list of deployments that should be running and a list that are currently running
 // to ensure only deployments found in git are kept running
-func (a *BatchRemover) Remove(id int, resourceType string, repoPath string, rawList []string) (successes []RemoveAttempt, failures []RemoveAttempt) {
+func (a *BatchRemover) Remove(id int, resourceType string, repoPath string, autoDelete string, rawList []string) (successes []RemoveAttempt, failures []RemoveAttempt) {
     if err := a.KubeClient.CheckVersion(); err != nil {
         log.Fatal(err)
     }
@@ -116,18 +116,19 @@ func (a *BatchRemover) Remove(id int, resourceType string, repoPath string, rawL
         }
     }
 
-    log.Printf("Found deployments in git repo: %v.", existingDeployments)
+    log.Printf("Found deployments in git repo: %v", existingDeployments)
 
     successes = []RemoveAttempt{}
     failures = []RemoveAttempt{}
 
     cmd, runningDeploys, err := a.KubeClient.List(resourceType)
-    log.Printf("Ran command: %v.", cmd)
+    log.Printf("Ran list command: %v", cmd)
     if err != nil {
         log.Fatal(err)
     }
     runningDeployments := strings.Fields(runningDeploys)
-    if len(runningDeployments) > 0 {
+    log.Printf("Found running deployments: %v", runningDeployments)
+    if len(runningDeployments) > 0 && autoDelete != "disabled" {
         removeList := unique(append(runningDeployments, existingDeployments...))
         for _, item := range removeList {
             log.Printf("RUN %v: Removing resource %v", id, item)
