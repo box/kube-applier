@@ -107,13 +107,13 @@ func (c *Client) Configure() error {
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
 //
-// kustomize - Do a `kubectl apply -k` on the path, set to if there is a
+// kustomize - Do a `kustomize build | kubectl apply -f -` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
 func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-k", path, "-n", namespace}
+		args = []string{"kustomize", "build", path, "|", "kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-f", "-", "-n", namespace}
 	} else {
 		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, "-n", namespace}
 	}
