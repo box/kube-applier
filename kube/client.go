@@ -107,13 +107,13 @@ func (c *Client) Configure() error {
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
 //
-// kustomize - Do a `kubectl apply -k` on the path, set to if there is a
+// kustomize - Do a `kustomize build | kubectl apply -f -` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
 func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-k", path, "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-f", "-", "-n", namespace}
 	} else {
 		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, "-n", namespace}
 	}
@@ -132,7 +132,24 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (s
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
-	cmdStr := strings.Join(args, " ")
+	var cmdStr string
+	if kustomize {
+		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
+		kustomizeCmd := exec.Command("kustomize", "build", path)
+		pipe, err := kustomizeCmd.StdoutPipe()
+		if err != nil {
+			return cmdStr, "", err
+		}
+		kubectlCmd.Stdin = pipe
+
+		err = kustomizeCmd.Start()
+		if err != nil {
+			fmt.Printf("%s", err)
+			return cmdStr, "", err
+		}
+	} else {
+		cmdStr = strings.Join(args, " ")
+	}
 
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
