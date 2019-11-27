@@ -23,6 +23,7 @@ RUN apk --no-cache add git openssh-client tini curl &&\
     sort | tail -n 1 |\
     xargs curl -O -L &&\
   tar xzf ./kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -C /usr/local/bin &&\
+  rm -f ./kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz &&\
   chmod +x /usr/local/bin/kustomize
 COPY --from=build /kube-applier /kube-applier
 
