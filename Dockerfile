@@ -16,8 +16,7 @@ RUN apk --no-cache add git openssh-client tini &&\
   wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl &&\
   chmod +x /usr/local/bin/kubectl &&\
   wget -O - https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz |\
-   tar xz -C /usr/local/bin/ && \
-  chmod +x /usr/local/bin/kustomize
+   tar xz -C /usr/local/bin/
 COPY --from=build /kube-applier /kube-applier
 
 ENTRYPOINT ["/sbin/tini", "--"]
