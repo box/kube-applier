@@ -1,10 +1,17 @@
 package metrics
 
 import (
+	"os"
 	"testing"
 
 	"github.com/go-test/deep"
+	"github.com/utilitywarehouse/kube-applier/log"
 )
+
+func TestMain(m *testing.M) {
+	log.InitLogger("info")
+	os.Exit(m.Run())
+}
 
 func TestParseKubectlOutput(t *testing.T) {
 	output := `namespace/namespaceName configured
@@ -14,7 +21,8 @@ rolebinding.rbac.authorization.k8s.io/rolebinding unchanged
 serviceaccount/account unchanged
 networkpolicy.networking.k8s.io/default unchanged
 service/serviceName unchanged
-deployment.apps/deploymentName unchanged`
+deployment.apps/deploymentName unchanged
+`
 
 	want := []Result{
 		{"namespace", "namespaceName", "configured"},
@@ -34,7 +42,7 @@ deployment.apps/deploymentName unchanged`
 	}
 }
 
-func TestParseKubectlServerDryRunOutput(t *testing.T) {
+func TestParseKubectlOutputServerDryRun(t *testing.T) {
 	output := `namespace/namespaceName configured (server dry run)
 limitrange/limit-range configured (server dry run)
 role.rbac.authorization.k8s.io/auth configured (server dry run)
@@ -42,7 +50,8 @@ rolebinding.rbac.authorization.k8s.io/rolebinding configured (server dry run)
 serviceaccount/account configured (server dry run)
 networkpolicy.networking.k8s.io/default configured (server dry run)
 service/serviceName configured (server dry run)
-deployment.apps/deploymentName configured (server dry run)`
+deployment.apps/deploymentName configured (server dry run)
+`
 
 	want := []Result{
 		{"namespace", "namespaceName", "configured"},
@@ -53,6 +62,28 @@ deployment.apps/deploymentName configured (server dry run)`
 		{"networkpolicy.networking.k8s.io", "default", "configured"},
 		{"service", "serviceName", "configured"},
 		{"deployment.apps", "deploymentName", "configured"},
+	}
+
+	got := parseKubectlOutput(output)
+
+	if diff := deep.Equal(got, want); diff != nil {
+		t.Error(diff)
+	}
+}
+
+func TestParseKubectlOutputWarningLine(t *testing.T) {
+	output := `namespace/sys-auth configured (server dry run)
+rolebinding.rbac.authorization.k8s.io/vault-configmap-applier unchanged (server dry run)
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+configmap/vault-tls configured (server dry run)
+secret/k8s-auth-conf unchanged (server dry run)
+`
+
+	want := []Result{
+		{"namespace", "sys-auth", "configured"},
+		{"rolebinding.rbac.authorization.k8s.io", "vault-configmap-applier", "unchanged"},
+		{"configmap", "vault-tls", "configured"},
+		{"secret", "k8s-auth-conf", "unchanged"},
 	}
 
 	got := parseKubectlOutput(output)
