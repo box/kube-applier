@@ -2,11 +2,15 @@ package metrics
 
 import (
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/utilitywarehouse/kube-applier/log"
 )
+
+var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-]+) (\w+).*`)
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {
@@ -126,22 +130,21 @@ type Result struct {
 }
 
 func parseKubectlOutput(output string) []Result {
+	output = strings.TrimSpace(output)
 	lines := strings.Split(output, "\n")
-
 	var results []Result
 	for _, line := range lines {
-		o := strings.Split(line, " ")
-		if len(o) < 2 {
+		m := kubectlOutputPattern.FindAllStringSubmatch(line, -1)
+		// Should be only 1 match, and should contain 4 elements (0: whole match, 1: resource-type, 2: name, 3: action
+		if len(m) != 1 || len(m[0]) != 4 {
+			log.Logger.Warn("Expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
 			continue
 		}
-
-		os := strings.Split(o[0], "/")
 		results = append(results, Result{
-			Type:   os[0],
-			Name:   os[1],
-			Action: o[1],
+			Type:   m[0][1],
+			Name:   m[0][2],
+			Action: m[0][3],
 		})
 	}
-
 	return results
 }
