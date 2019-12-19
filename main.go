@@ -20,6 +20,7 @@ const (
 	// Number of seconds to wait in between attempts to locate the repo at the specified path.
 	// Git-sync atomically places the repo at the specified path once it is finished pulling, so it will not be present immediately.
 	waitForRepoInterval = 1 * time.Second
+	waitForRepoTimeout  = 120 * time.Second
 )
 
 var (
@@ -105,7 +106,7 @@ func main() {
 
 	clock := &sysutil.Clock{}
 
-	if err := sysutil.WaitForDir(repoPath, clock, waitForRepoInterval); err != nil {
+	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, waitForRepoTimeout); err != nil {
 		log.Logger.Error("error", err)
 		os.Exit(1)
 	}
