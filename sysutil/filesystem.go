@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/utilitywarehouse/kube-applier/log"
 )
 
 // ListDirs walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
@@ -25,19 +27,40 @@ func ListDirs(rootPath string) ([]string, error) {
 }
 
 // WaitForDir returns when the specified directory is located in the filesystem, or if there is an error opening the directory once it is found.
-func WaitForDir(path string, clock ClockInterface, interval time.Duration) error {
+func WaitForDir(path string, interval, timeout time.Duration) error {
+
+	to := time.After(timeout)
+
+	tick := time.Tick(interval)
+
 	for {
-		f, err := os.Stat(path)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return fmt.Errorf("Error opening the directory at %v: %v", path, err)
+		select {
+
+		case <-to:
+			return fmt.Errorf(
+				"Error: timeout waiting for dir: %v",
+				path,
+			)
+
+		case <-tick:
+			f, err := os.Stat(path)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return fmt.Errorf(
+						"Error opening the directory at %v: %v",
+						path,
+						err,
+					)
+				}
+				log.Logger.Warn("Failed to get dir info", err)
+			} else if !f.IsDir() {
+				return fmt.Errorf(
+					"Error: %v is not a directory",
+					path,
+				)
+			} else {
+				return nil
 			}
-		} else if !f.IsDir() {
-			return fmt.Errorf("Error: %v is not a directory", path)
-		} else {
-			break
 		}
-		clock.Sleep(interval)
 	}
-	return nil
 }
