@@ -1,4 +1,4 @@
-FROM golang:1.12.6 as builder
+FROM golang:1.13 as builder
 WORKDIR $GOPATH/src/github.com/box/kube-applier
 COPY . $GOPATH/src/github.com/box/kube-applier
 RUN make build
