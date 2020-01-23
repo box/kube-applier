@@ -97,18 +97,8 @@ metadata:
   annotations:
     kube-applier.io/enabled: "true"
     kube-applier.io/dry-run: "false"
-    kube-applier.io/prune-whitelist: |
-      - apps/v1/DaemonSet
-      - apps/v1/Deployment
-      - apps/v1/StatefulSet
-      - autoscaling/v1/HorizontalPodAutoscaler
-      - batch/v1/Job
-      - core/v1/ConfigMap
-      - core/v1/Pod
-      - core/v1/Service
-      - core/v1/ServiceAccount
-      - networking.k8s.io/v1beta1/Ingress
-      - networking.k8s.io/v1/NetworkPolicy
+    kube-applier.io/prune: "true"
+    kube-applier.io/prune-whitelist: "[]"
 ```
 
 ### Mounting the Git Repository
@@ -135,28 +125,24 @@ run). However, changes that are not associated with a new Git commit will not
 trigger a run.
 
 **If I remove a configuration file, will kube-applier remove the associated Kubernetes object?**
-Only if the object's `<group/version/kind>` is listed
-in the namespace annotation `kube-applier.io/prune-whitelist`.
 
-For instance:
+This is dependent on the value of `kube-applier.io/prune` (default `true`). If `true`,
+then a [default whitelist](https://github.com/utilitywarehouse/kube-applier/blob/master/kube/client.go#L35-L47) will be passed to the apply command.
+
+You can overwrite the whitelist with the annotation
+`kube-applier.io/prune-whitelist`. For instance:
 
 ```yaml
 ---
 kube-applier.io/prune-whitelist: |
-  - apps/v1/DaemonSet
   - apps/v1/Deployment
-  - apps/v1/StatefulSet
-  - autoscaling/v1/HorizontalPodAutoscaler
   - batch/v1/Job
   - core/v1/ConfigMap
   - core/v1/Pod
-  - core/v1/Service
-  - core/v1/ServiceAccount
-  - networking.k8s.io/v1beta1/Ingress
   - networking.k8s.io/v1/NetworkPolicy
 ```
 
-The expected content of the annotation is a yaml list.
+The expected format of the annotation is a yaml list.
 
 ## Deploying
 

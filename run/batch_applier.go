@@ -61,14 +61,16 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 			dryRun = false
 		}
 
+		prune, err := strconv.ParseBool(kaa.Prune)
+		if err != nil {
+			log.Logger.Info("Could not get value for kube-applier.io/prune", "error", err)
+			prune = true
+		}
+
 		var pruneWhitelist []string
-		if len(kaa.PruneWhitelist) > 0 {
-			err := yaml.Unmarshal([]byte(kaa.PruneWhitelist), &pruneWhitelist)
-			if err != nil {
-				log.Logger.Error("Could not unmarhal yaml value from kube-applier.io/prune-whitelist", "error", err)
-			}
-		} else {
-			log.Logger.Info("Could not get value for kube-applier.io/prune-whitelist")
+		err = yaml.Unmarshal([]byte(kaa.PruneWhitelist), &pruneWhitelist)
+		if err != nil {
+			log.Logger.Info("Error unmarshalling yaml from kube-applier.io/prune-whitelist", "error", err)
 		}
 
 		var kustomize bool
@@ -81,7 +83,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, kustomize, pruneWhitelist)
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, prune, kustomize, pruneWhitelist)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
