@@ -9,6 +9,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
+	"gopkg.in/yaml.v2"
 )
 
 // ApplyAttempt stores the data from an attempt at applying a single file.
@@ -66,6 +67,12 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 			prune = true
 		}
 
+		var pruneWhitelist []string
+		err = yaml.Unmarshal([]byte(kaa.PruneWhitelist), &pruneWhitelist)
+		if err != nil {
+			log.Logger.Info("Error unmarshalling yaml from kube-applier.io/prune-whitelist", "error", err)
+		}
+
 		var kustomize bool
 		if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
 			kustomize = true
@@ -76,7 +83,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, prune, kustomize)
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, prune, kustomize, pruneWhitelist)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

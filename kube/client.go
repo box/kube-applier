@@ -23,16 +23,16 @@ const (
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath = "/etc/kubeconfig"
 
-	enabledAnnotation = "kube-applier.io/enabled"
-	dryRunAnnotation  = "kube-applier.io/dry-run"
-	pruneAnnotation   = "kube-applier.io/prune"
+	enabledAnnotation        = "kube-applier.io/enabled"
+	dryRunAnnotation         = "kube-applier.io/dry-run"
+	pruneAnnotation          = "kube-applier.io/prune"
+	pruneWhitelistAnnotation = "kube-applier.io/prune-whitelist"
 )
 
 // To make testing possible
 var execCommand = exec.Command
 
-//todo(catalin-ilea) Add core/v1/Secret when we plug in strongbox
-var pruneWhitelist = []string{
+var defaultPruneWhitelist = []string{
 	"apps/v1/DaemonSet",
 	"apps/v1/Deployment",
 	"apps/v1/StatefulSet",
@@ -49,14 +49,15 @@ var pruneWhitelist = []string{
 // KAAnnotations contains the standard set of annotations on the Namespace
 // resource defining behaviour for that Namespace
 type KAAnnotations struct {
-	Enabled string
-	DryRun  string
-	Prune   string
+	Enabled        string
+	DryRun         string
+	Prune          string
+	PruneWhitelist string
 }
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error)
+	Apply(path, namespace string, dryRun, prune, kustomize bool, pruneWhitelist []string) (string, string, error)
 	NamespaceAnnotations(namespace string) (KAAnnotations, error)
 }
 
@@ -109,7 +110,7 @@ func (c *Client) Configure() error {
 //
 // kustomize - Do a `kustomize build | kubectl apply -f -` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
-func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
+func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pruneWhitelist []string) (string, string, error) {
 	var args []string
 
 	if kustomize {
@@ -121,6 +122,11 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool) (s
 	if prune {
 		args = append(args, "--prune")
 		args = append(args, "--all")
+
+		if len(pruneWhitelist) == 0 {
+			pruneWhitelist = defaultPruneWhitelist
+		}
+
 		for _, w := range pruneWhitelist {
 			args = append(args, "--prune-whitelist="+w)
 		}
@@ -191,6 +197,7 @@ func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
 	kaa.Enabled = nr.Metadata.Annotations[enabledAnnotation]
 	kaa.DryRun = nr.Metadata.Annotations[dryRunAnnotation]
 	kaa.Prune = nr.Metadata.Annotations[pruneAnnotation]
+	kaa.PruneWhitelist = nr.Metadata.Annotations[pruneWhitelistAnnotation]
 
 	return kaa, nil
 }

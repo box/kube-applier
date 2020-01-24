@@ -33,8 +33,9 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, kustomize bool) (string, string, error) {
-	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRun, prune, kustomize)
+func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, kustomize bool, pruneWhitelist []string) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRun, prune, kustomize, pruneWhitelist)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -42,12 +43,14 @@ func (m *MockClientInterface) Apply(path, namespace string, dryRun, prune, kusto
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, prune, kustomize interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, prune, kustomize)
+func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, prune, kustomize, pruneWhitelist interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, prune, kustomize, pruneWhitelist)
 }
 
 // NamespaceAnnotations mocks base method
 func (m *MockClientInterface) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NamespaceAnnotations", namespace)
 	ret0, _ := ret[0].(KAAnnotations)
 	ret1, _ := ret[1].(error)
@@ -56,5 +59,6 @@ func (m *MockClientInterface) NamespaceAnnotations(namespace string) (KAAnnotati
 
 // NamespaceAnnotations indicates an expected call of NamespaceAnnotations
 func (mr *MockClientInterfaceMockRecorder) NamespaceAnnotations(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceAnnotations", reflect.TypeOf((*MockClientInterface)(nil).NamespaceAnnotations), namespace)
 }
