@@ -20,6 +20,7 @@ role.rbac.authorization.k8s.io/auth unchanged
 rolebinding.rbac.authorization.k8s.io/rolebinding unchanged
 serviceaccount/account unchanged
 networkpolicy.networking.k8s.io/default unchanged
+clusterrole.rbac.authorization.k8s.io/system:metrics-server unchanged
 service/serviceName unchanged
 deployment.apps/deploymentName unchanged
 `
@@ -31,6 +32,7 @@ deployment.apps/deploymentName unchanged
 		{"rolebinding.rbac.authorization.k8s.io", "rolebinding", "unchanged"},
 		{"serviceaccount", "account", "unchanged"},
 		{"networkpolicy.networking.k8s.io", "default", "unchanged"},
+		{"clusterrole.rbac.authorization.k8s.io", "system:metrics-server", "unchanged"},
 		{"service", "serviceName", "unchanged"},
 		{"deployment.apps", "deploymentName", "unchanged"},
 	}
@@ -49,6 +51,7 @@ role.rbac.authorization.k8s.io/auth configured (server dry run)
 rolebinding.rbac.authorization.k8s.io/rolebinding configured (server dry run)
 serviceaccount/account configured (server dry run)
 networkpolicy.networking.k8s.io/default configured (server dry run)
+clusterrole.rbac.authorization.k8s.io/system:metrics-server unchanged (server dry run)
 service/serviceName configured (server dry run)
 deployment.apps/deploymentName configured (server dry run)
 `
@@ -60,6 +63,7 @@ deployment.apps/deploymentName configured (server dry run)
 		{"rolebinding.rbac.authorization.k8s.io", "rolebinding", "configured"},
 		{"serviceaccount", "account", "configured"},
 		{"networkpolicy.networking.k8s.io", "default", "configured"},
+		{"clusterrole.rbac.authorization.k8s.io", "system:metrics-server", "unchanged"},
 		{"service", "serviceName", "configured"},
 		{"deployment.apps", "deploymentName", "configured"},
 	}
@@ -76,6 +80,7 @@ func TestParseKubectlOutputWarningLine(t *testing.T) {
 rolebinding.rbac.authorization.k8s.io/vault-configmap-applier unchanged (server dry run)
 Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
 configmap/vault-tls configured (server dry run)
+clusterrole.rbac.authorization.k8s.io/system:metrics-server unchanged (server dry run)
 secret/k8s-auth-conf unchanged (server dry run)
 `
 
@@ -83,6 +88,7 @@ secret/k8s-auth-conf unchanged (server dry run)
 		{"namespace", "sys-auth", "configured"},
 		{"rolebinding.rbac.authorization.k8s.io", "vault-configmap-applier", "unchanged"},
 		{"configmap", "vault-tls", "configured"},
+		{"clusterrole.rbac.authorization.k8s.io", "system:metrics-server", "unchanged"},
 		{"secret", "k8s-auth-conf", "unchanged"},
 	}
 
