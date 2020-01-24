@@ -153,6 +153,12 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 			fmt.Printf("%s", err)
 			return cmdStr, "", err
 		}
+		defer func() {
+			err = kustomizeCmd.Wait()
+			if err != nil {
+				fmt.Printf("%s", err)
+			}
+		}()
 	} else {
 		cmdStr = strings.Join(args, " ")
 	}
