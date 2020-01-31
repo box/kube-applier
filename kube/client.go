@@ -3,6 +3,7 @@ package kube
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -142,11 +143,11 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 	if kustomize {
 		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
 		kustomizeCmd := exec.Command("kustomize", "build", path)
-		pipe, err := kustomizeCmd.StdoutPipe()
+		kustomizeStdout, err := kustomizeCmd.StdoutPipe()
 		if err != nil {
 			return cmdStr, "", err
 		}
-		kubectlCmd.Stdin = pipe
+		kubectlCmd.Stdin = kustomizeStdout
 
 		err = kustomizeCmd.Start()
 		if err != nil {
@@ -154,6 +155,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 			return cmdStr, "", err
 		}
 		defer func() {
+			io.Copy(ioutil.Discard, kustomizeStdout)
 			err = kustomizeCmd.Wait()
 			if err != nil {
 				fmt.Printf("%s", err)
