@@ -39,7 +39,7 @@ func WaitForDir(path string, interval, timeout time.Duration) error {
 
 		case <-to:
 			return fmt.Errorf(
-				"Error: timeout waiting for dir: %v",
+				"timeout waiting for dir: %v",
 				path,
 			)
 
@@ -56,7 +56,7 @@ func WaitForDir(path string, interval, timeout time.Duration) error {
 				log.Logger.Debug("Failed to get dir info", "path", path, "error", err)
 			} else if !f.IsDir() {
 				return fmt.Errorf(
-					"Error: %v is not a directory",
+					"%v is not a directory",
 					path,
 				)
 			} else {

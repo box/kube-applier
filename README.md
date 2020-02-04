@@ -64,6 +64,9 @@ kube-applier serves a [status page](#status-ui) and provides
   be applied. Supports [shell file name
   patterns](https://golang.org/pkg/path/filepath/#Match).
 
+- `REPO_TIMEOUT_SECONDS` - (int) Number of seconds to wait for the directory
+  indicated by `REPO_PATH` to exist (default is 120).
+
 - `SERVER` - (string) Address of the Kubernetes API server. By default,
   kube-applier uses in-cluster configuration targetting local internal endpoint.
   Address must be specified with this environment variable (which is then written
