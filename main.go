@@ -20,12 +20,12 @@ const (
 	// Number of seconds to wait in between attempts to locate the repo at the specified path.
 	// Git-sync atomically places the repo at the specified path once it is finished pulling, so it will not be present immediately.
 	waitForRepoInterval = 1 * time.Second
-	waitForRepoTimeout  = 120 * time.Second
 )
 
 var (
 	repoPath        = os.Getenv("REPO_PATH")
 	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
+	repoTimeout     = os.Getenv("REPO_TIMEOUT_SECONDS")
 	listenPort      = os.Getenv("LISTEN_PORT")
 	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
 	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
@@ -43,6 +43,16 @@ func validate() {
 	if repoPath == "" {
 		fmt.Println("Need to export REPO_PATH")
 		os.Exit(1)
+	}
+
+	if repoTimeout == "" {
+		repoTimeout = "120"
+	} else {
+		_, err := strconv.Atoi(repoTimeout)
+		if err != nil {
+			fmt.Println("REPO_TIMEOUT_SECONDS must be an int")
+			os.Exit(1)
+		}
 	}
 
 	if listenPort == "" {
@@ -106,7 +116,8 @@ func main() {
 
 	clock := &sysutil.Clock{}
 
-	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, waitForRepoTimeout); err != nil {
+	rt, _ := strconv.Atoi(repoTimeout)
+	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, time.Duration(rt)*time.Second); err != nil {
 		log.Logger.Error("problem waiting for repo", "path", repoPath, "error", err)
 		os.Exit(1)
 	}
