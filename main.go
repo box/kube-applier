@@ -107,7 +107,7 @@ func main() {
 	clock := &sysutil.Clock{}
 
 	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, waitForRepoTimeout); err != nil {
-		log.Logger.Error("error", err)
+		log.Logger.Error("problem waiting for repo", "path", repoPath, "error", err)
 		os.Exit(1)
 	}
 
