@@ -239,7 +239,7 @@ The ca.crt and token to use against the remote server. This can be the
 ServiceAccount that KA runs with, or any SA that contains enough privileges
 
 ```
-sa=$(kubectl --context=exp-1-aws -n sys-kube-applier get secret | grep kube-applier | awk '{print $1}')
+sa=$(kubectl --context=exp-1-aws -n sys-kube-applier get secret | grep kube-applier-token | awk '{print $1}')
 kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."ca.crt"' | base64 -d > /tmp/ka-ca.crt
 kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."token"' | base64 -d > /tmp/ka-token
 ```
@@ -253,7 +253,7 @@ make run
 
 Copyright 2016 Box, Inc. All rights reserved.
 
-Copyright (c) 2017-2019 Utility Warehouse Ltd.
+Copyright (c) 2017-2020 Utility Warehouse Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
