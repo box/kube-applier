@@ -140,6 +140,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 	kubectlCmd := exec.Command(args[0], args[1:]...)
 
 	var cmdStr string
+	var kustomizeStderr io.ReadCloser
 	if kustomize {
 		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
 		kustomizeCmd := exec.Command("kustomize", "build", path)
@@ -148,6 +149,10 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 			return cmdStr, "", err
 		}
 		kubectlCmd.Stdin = kustomizeStdout
+		kustomizeStderr, err = kustomizeCmd.StderrPipe()
+		if err != nil {
+			return cmdStr, "", err
+		}
 
 		err = kustomizeCmd.Start()
 		if err != nil {
@@ -156,6 +161,7 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 		}
 		defer func() {
 			io.Copy(ioutil.Discard, kustomizeStdout)
+			io.Copy(ioutil.Discard, kustomizeStderr)
 			err = kustomizeCmd.Wait()
 			if err != nil {
 				fmt.Printf("%s", err)
@@ -170,7 +176,13 @@ func (c *Client) Apply(path, namespace string, dryRun, prune, kustomize bool, pr
 		if e, ok := err.(*exec.ExitError); ok {
 			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
 		}
-		return cmdStr, string(out), err
+		var str strings.Builder
+		if kustomizeStderr != nil {
+			kustomizeErr, _ := ioutil.ReadAll(kustomizeStderr)
+			str.WriteString(string(kustomizeErr))
+		}
+		str.WriteString(string(out))
+		return cmdStr, str.String(), err
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
