@@ -9,7 +9,7 @@ import (
 )
 
 const appName = "kube-applier"
-const appDescription = "enables continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster"
+const appDescription = "Continuous deployment of Kubernetes objects by applying declarative configuration files from a Git repository to a Kubernetes cluster"
 
 func addStatusEndpoints(m *mux.Router) *mux.Router {
 	m.PathPrefix("/__/").Handler(op.NewHandler(op.NewStatus(appName, appDescription).
@@ -20,6 +20,13 @@ func addStatusEndpoints(m *mux.Router) *mux.Router {
 	m.PathPrefix("/debug/pprof/profile").HandlerFunc(pprof.Profile)
 	m.PathPrefix("/debug/pprof/symbol").HandlerFunc(pprof.Symbol)
 	m.PathPrefix("/debug/pprof/trace").HandlerFunc(pprof.Trace)
+	// Index covers the following:
+	//  - goroutine
+	//  - threadcreate
+	//  - heap
+	//  - allocs
+	//  - block
+	//  - mutex
 	m.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 	return m
 }
