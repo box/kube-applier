@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const serverTemplatePath = "/templates/status.html"
+const serverTemplatePath = "templates/status.html"
 
 // WebServer struct
 type WebServer struct {
