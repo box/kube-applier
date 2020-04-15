@@ -7,6 +7,7 @@ generate-mocks:
 	mockgen -package=sysutil -source sysutil/clock.go -destination=sysutil/mock_clock.go 
 	mockgen -package=metrics -source metrics/prometheus.go -destination=metrics/mock_prometheus.go
 	mockgen -package=kube -source kube/client.go -destination=kube/mock_client.go
+	mockgen -package=kubeapi -source kubeapi/client.go -destination=kubeapi/mock_client.go
 
 build:
 	docker build -t kube-applier .
@@ -17,14 +18,12 @@ run:
 	-e REPO_PATH_FILTERS=$${REPO_PATH_FILTERS} \
 	-e DIFF_URL_FORMAT=$${DIFF_URL_FORMAT} \
 	-e LISTEN_PORT=$${LISTEN_PORT} \
-	-e SERVER=$${SERVER} \
 	-e POLL_INTERVAL_SECONDS=$${POLL_INTERVAL_SECONDS} \
 	-e FULL_RUN_INTERVAL_SECONDS=$${FULL_RUN_INTERVAL_SECONDS} \
 	-e DRY_RUN=$${DRY_RUN} \
 	-e LOG_LEVEL=$${LOG_LEVEL} \
+	-v $${HOME}/.kube:/root/.kube \
 	-v $${LOCAL_REPO_PATH}:/src/manifests:ro \
-	-v /tmp/ka-token:/var/run/secrets/kubernetes.io/serviceaccount/token:ro \
-	-v /tmp/ka-ca.crt:/var/run/secrets/kubernetes.io/serviceaccount/ca.crt:ro \
 	-p 8080:8080 \
 	-ti kube-applier
 

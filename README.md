@@ -67,15 +67,6 @@ kube-applier serves a [status page](#status-ui) and provides
 - `REPO_TIMEOUT_SECONDS` - (int) Number of seconds to wait for the directory
   indicated by `REPO_PATH` to exist (default is 120).
 
-- `SERVER` - (string) Address of the Kubernetes API server. By default,
-  kube-applier uses in-cluster configuration targetting local internal endpoint.
-  Address must be specified with this environment variable (which is then written
-  into a [kubeconfig
-  file](http://kubernetes.io/docs/user-guide/kubeconfig-file/)). Authentication
-  to the API server is handled by service account tokens. See [Accessing the
-  Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod)
-  for more info.
-
 - `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check
   for new commits to the repo (default is 5).
 
@@ -86,6 +77,13 @@ kube-applier serves a [status page](#status-ui) and provides
   flag. This means live configuration of the cluster is not changed.
 
 - `LOG_LEVEL` - (string) trace|debug|info|warn|error case insensitive
+
+- `PRUNE_BLACKLIST` - (string) A comma separated list of resources in the format
+  `<group>/<version>/<kind>` that will be exempted from pruning.
+
+Additionally `KUBECONFIG` can be set as [described
+here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
+to configure cluster access.
 
 ### Annotations
 
@@ -101,7 +99,7 @@ metadata:
     kube-applier.io/enabled: "true"
     kube-applier.io/dry-run: "false"
     kube-applier.io/prune: "true"
-    kube-applier.io/prune-whitelist: "[]"
+    kube-applier.io/prune-cluster-resources: "false"
 ```
 
 ### Mounting the Git Repository
@@ -130,22 +128,20 @@ trigger a run.
 **If I remove a configuration file, will kube-applier remove the associated Kubernetes object?**
 
 This is dependent on the value of `kube-applier.io/prune` (default `true`). If `true`,
-then a [default whitelist](https://github.com/utilitywarehouse/kube-applier/blob/master/kube/client.go#L35-L47) will be passed to the apply command.
+then kube applier will prune all namespaced resources.
 
-You can overwrite the whitelist with the annotation
-`kube-applier.io/prune-whitelist`. For instance:
+If you want kube applier to prune cluster resources, you can set
+`kube-applier.io/prune-cluster-resources` to `true`. Take care when using this
+feature as it will remove all cluster resources that have been created by
+kubectl and don't exist in the current namespace directory. Therefore, only use this feature if all
+of your cluster resources are defined under one namespace.
 
-```yaml
----
-kube-applier.io/prune-whitelist: |
-  - apps/v1/Deployment
-  - batch/v1/Job
-  - core/v1/ConfigMap
-  - core/v1/Pod
-  - networking.k8s.io/v1/NetworkPolicy
+Specific resource types can be exempted from pruning by adding them to the
+`PRUNE_BLACKLIST` environment variable:
+
 ```
-
-The expected format of the annotation is a yaml list.
+export PRUNE_BLACKLIST="apps/v1/ControllerRevision,core/v1/Namespace"
+```
 
 ## Deploying
 
@@ -232,22 +228,15 @@ export DIFF_URL_FORMAT="https://github.com/utilitywarehouse/kubernetes-manifests
 export REPO_PATH_FILTERS="sys-*,kube-system,labs"
 export LOG_LEVEL="info"
 export DRY_RUN="true"
-export SERVER="https://api.server"
-```
-
-The ca.crt and token to use against the remote server. This can be the
-ServiceAccount that KA runs with, or any SA that contains enough privileges
-
-```
-sa=$(kubectl --context=exp-1-aws -n sys-kube-applier get secret | grep kube-applier-token | awk '{print $1}')
-kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."ca.crt"' | base64 -d > /tmp/ka-ca.crt
-kubectl --context=exp-1-aws -n sys-kube-applier get secret ${sa} -o json | jq -r '."data"."token"' | base64 -d > /tmp/ka-token
 ```
 
 ```
 make build
 make run
 ```
+
+Note that `make run` will mount and use `${HOME}/.kube` for configuration, so
+ensure that your config files are using your intended context.
 
 ## Copyright and License
 

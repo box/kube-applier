@@ -5,11 +5,26 @@ import (
 	"testing"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/kubeapi"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	testClusterResources = []string{
+		"core/v1/Namespace",
+		"core/v1/PersistentVolume",
+		"storage.k8s.io/v1/StorageClass",
+	}
+	testNamespacedResources = []string{
+		"core/v1/Pod",
+		"apps/v1/Deployment",
+		"autoscaling/v1/HorizontalPodAutoscaler",
+	}
+	testAllResources = append(testNamespacedResources, testClusterResources...)
 )
 
 type batchTestCase struct {
@@ -25,14 +40,20 @@ func TestBatchApplierApply(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
+
+	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
+	)
 
 	// Empty apply list
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
 		},
 		[]string{},
 		[]ApplyAttempt{},
@@ -47,19 +68,21 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -69,8 +92,9 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
 		},
 		applyList,
 		successes,
@@ -85,19 +109,21 @@ func TestBatchApplierApplyFail(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files fail
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnFailure("file1", "file1", false, true, nil, kubeClient),
+		expectApplyAndReturnFailure("file1", "file1", false, testNamespacedResources, kubeClient),
 		expectFailureMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnFailure("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectFailureMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnFailure("file3", "file3", false, true, nil, kubeClient),
+		expectApplyAndReturnFailure("file3", "file3", false, testNamespacedResources, kubeClient),
 		expectFailureMetric("file3", metrics),
 	)
 	failures := []ApplyAttempt{
@@ -107,8 +133,9 @@ func TestBatchApplierApplyFail(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
 		},
 		applyList,
 		[]ApplyAttempt{},
@@ -122,23 +149,25 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Some successes, some failures
 	applyList := []string{"file1", "file2", "file3", "file4"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnFailure("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectFailureMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file3", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file4", kubeClient),
-		expectApplyAndReturnFailure("file4", "file4", false, true, nil, kubeClient),
+		expectApplyAndReturnFailure("file4", "file4", false, testNamespacedResources, kubeClient),
 		expectFailureMetric("file4", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -151,8 +180,9 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
 		},
 		applyList,
 		successes,
@@ -166,6 +196,7 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
@@ -173,14 +204,15 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -190,9 +222,10 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     true,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        true,
 		},
 		applyList,
 		successes,
@@ -206,20 +239,22 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run namespaces
 	applyList := []string{"repo/file1", "file2", "repo/file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("repo/file1", "file1", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("repo/file1", "file1", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("repo/file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("repo/file3", "file3", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("repo/file3", "file3", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("repo/file3", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -229,9 +264,10 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
 		},
 		applyList,
 		successes,
@@ -245,20 +281,22 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run and dry-run namespaces
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", true, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file3", "file3", true, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -268,9 +306,10 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     true,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        true,
 		},
 		applyList,
 		successes,
@@ -284,15 +323,17 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	//Disabled namespaces
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file1", kubeClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file3", kubeClient),
 	)
@@ -301,9 +342,10 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
 		},
 		applyList,
 		successes,
@@ -317,15 +359,17 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	//Unsupported automatic deployment option on namespace
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file1", kubeClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file3", kubeClient),
 	)
@@ -334,9 +378,10 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
 		},
 		applyList,
 		successes,
@@ -350,16 +395,18 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -368,9 +415,43 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
+		},
+		applyList,
+		successes,
+		[]ApplyAttempt{},
+	}
+	applyAndAssert(t, tc)
+}
+
+func TestBatchApplierApplySuccessPruneClusterResources(t *testing.T) {
+	log.InitLogger("info")
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
+	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
+
+	applyList := []string{"file1"}
+	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
+		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneClusterResources: "true"}, "file1", kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, testAllResources, kubeClient),
+		expectSuccessMetric("file1", metrics),
+	)
+	successes := []ApplyAttempt{
+		{"file1", "cmd file1", "output file1", ""},
+	}
+	tc := batchTestCase{
+		BatchApplier{
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
 		},
 		applyList,
 		successes,
@@ -384,16 +465,18 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
+		expectPrunableResourcesAndReturn(kubeAPIClient),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "false"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, false, nil, kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, nil, kubeClient),
 		expectSuccessMetric("file1", metrics),
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, testNamespacedResources, kubeClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -402,9 +485,10 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient: kubeAPIClient,
+			KubeClient:    kubeClient,
+			Metrics:       metrics,
+			DryRun:        false,
 		},
 		applyList,
 		successes,
@@ -413,27 +497,31 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 	applyAndAssert(t, tc)
 }
 
-func TestBatchApplierApplySuccessPruneWhitelist(t *testing.T) {
+func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 	log.InitLogger("info")
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	kubeAPIClient := kubeapi.NewMockClientInterface(mockCtrl)
 	kubeClient := kube.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Valid yaml list
-	pruneWhitelist := `
-- core/v1/ConfigMap
-- core/v1/Pod
-- networking.k8s.io/v1/NetworkPolicy`
+	pruneBlacklist := []string{
+		"apps/v1/Deployment",
+		"core/v1/Pod",
+		"core/v1/PersistentVolume",
+		"storage.k8s.io/v1/StorageClass",
+	}
 
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneWhitelist: pruneWhitelist}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, []string{"core/v1/ConfigMap", "core/v1/Pod", "networking.k8s.io/v1/NetworkPolicy"}, kubeClient),
+		expectPrunableResourcesAndReturn(kubeAPIClient),
+		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
+		expectApplyAndReturnSuccess("file1", "file1", false, []string{"autoscaling/v1/HorizontalPodAutoscaler"}, kubeClient),
 		expectSuccessMetric("file1", metrics),
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
+		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneClusterResources: "true"}, "file2", kubeClient),
+		expectApplyAndReturnSuccess("file2", "file2", false, []string{"autoscaling/v1/HorizontalPodAutoscaler", "core/v1/Namespace"}, kubeClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
@@ -442,9 +530,11 @@ func TestBatchApplierApplySuccessPruneWhitelist(t *testing.T) {
 	}
 	tc := batchTestCase{
 		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
+			KubeAPIClient:  kubeAPIClient,
+			KubeClient:     kubeClient,
+			Metrics:        metrics,
+			DryRun:         false,
+			PruneBlacklist: pruneBlacklist,
 		},
 		applyList,
 		successes,
@@ -453,100 +543,20 @@ func TestBatchApplierApplySuccessPruneWhitelist(t *testing.T) {
 	applyAndAssert(t, tc)
 }
 
-func TestBatchApplierApplySuccessPruneWhitelistInvalidItem(t *testing.T) {
-	log.InitLogger("info")
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
-	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
-
-	// The invalid list item (not a string) should be ignored by the yaml Unmarshaller
-	pruneWhitelist := `
-- core/v1/ConfigMap
-- core/v1/Pod
-- name: something
-- networking.k8s.io/v1/NetworkPolicy`
-
-	applyList := []string{"file1", "file2"}
-	gomock.InOrder(
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneWhitelist: pruneWhitelist}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, []string{"core/v1/ConfigMap", "core/v1/Pod", "networking.k8s.io/v1/NetworkPolicy"}, kubeClient),
-		expectSuccessMetric("file1", metrics),
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
-		expectSuccessMetric("file2", metrics),
-	)
-	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", ""},
-		{"file2", "cmd file2", "output file2", ""},
-	}
-	tc := batchTestCase{
-		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
-		},
-		applyList,
-		successes,
-		[]ApplyAttempt{},
-	}
-	applyAndAssert(t, tc)
+func expectApplyAndReturnSuccess(file, namespace string, dryRun bool, pruneWhitelist []string, kubeClient *kube.MockClientInterface) *gomock.Call {
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, false, pruneWhitelist).Times(1).Return("cmd "+file, "output "+file, nil)
 }
 
-func TestBatchApplierApplySuccessPruneWhitelistInvalidDocument(t *testing.T) {
-	log.InitLogger("info")
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
-	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
-
-	// The entire document should be ignored because it isn't a top level list
-	// of strings
-	pruneWhitelist := `
-kube-applier.io/prune-whitelist:
-- core/v1/ConfigMap
-- core/v1/Pod
-- name: something
-- networking.k8s.io/v1/NetworkPolicy`
-
-	applyList := []string{"file1", "file2"}
-	gomock.InOrder(
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneWhitelist: pruneWhitelist}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", false, true, nil, kubeClient),
-		expectSuccessMetric("file1", metrics),
-		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", false, true, nil, kubeClient),
-		expectSuccessMetric("file2", metrics),
-	)
-	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", ""},
-		{"file2", "cmd file2", "output file2", ""},
-	}
-	tc := batchTestCase{
-		BatchApplier{
-			KubeClient: kubeClient,
-			Metrics:    metrics,
-			DryRun:     false,
-		},
-		applyList,
-		successes,
-		[]ApplyAttempt{},
-	}
-	applyAndAssert(t, tc)
-}
-
-func expectApplyAndReturnSuccess(file, namespace string, dryRun, prune bool, pruneWhitelist []string, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune, false, pruneWhitelist).Times(1).Return("cmd "+file, "output "+file, nil)
-}
-
-func expectApplyAndReturnFailure(file, namespace string, dryRun, prune bool, pruneWhitelist []string, kubeClient *kube.MockClientInterface) *gomock.Call {
-	return kubeClient.EXPECT().Apply(file, namespace, dryRun, prune, false, pruneWhitelist).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
+func expectApplyAndReturnFailure(file, namespace string, dryRun bool, pruneWhitelist []string, kubeClient *kube.MockClientInterface) *gomock.Call {
+	return kubeClient.EXPECT().Apply(file, namespace, dryRun, false, pruneWhitelist).Times(1).Return("cmd "+file, "output "+file, fmt.Errorf("error "+file))
 }
 
 func expectNamespaceAnnotationsAndReturn(ret kube.KAAnnotations, namespace string, kubeClient *kube.MockClientInterface) *gomock.Call {
 	return kubeClient.EXPECT().NamespaceAnnotations(namespace).Times(1).Return(ret, nil)
+}
+
+func expectPrunableResourcesAndReturn(kubeAPIClient *kubeapi.MockClientInterface) *gomock.Call {
+	return kubeAPIClient.EXPECT().PrunableResources().Times(1).Return(testClusterResources, testNamespacedResources, nil)
 }
 
 func expectSuccessMetric(file string, metrics *metrics.MockPrometheusInterface) *gomock.Call {

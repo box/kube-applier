@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/kubeapi"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
-	"gopkg.in/yaml.v2"
 )
 
 // ApplyAttempt stores the data from an attempt at applying a single file.
@@ -27,9 +27,11 @@ type BatchApplierInterface interface {
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubeClient kube.ClientInterface
-	Metrics    metrics.PrometheusInterface
-	DryRun     bool
+	KubeAPIClient  kubeapi.ClientInterface
+	KubeClient     kube.ClientInterface
+	Metrics        metrics.PrometheusInterface
+	DryRun         bool
+	PruneBlacklist []string
 }
 
 // Apply takes a list of files and attempts an apply command on each.
@@ -37,6 +39,12 @@ type BatchApplier struct {
 func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt) {
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
+
+	clusterResources, namespacedResources, err := a.KubeAPIClient.PrunableResources()
+	if err != nil {
+		log.Logger.Error("Error while retrieving prunable resources from the API server", "error", err)
+	}
+
 	for _, path := range applyList {
 		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 		ns := filepath.Base(path)
@@ -68,9 +76,26 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var pruneWhitelist []string
-		err = yaml.Unmarshal([]byte(kaa.PruneWhitelist), &pruneWhitelist)
-		if err != nil {
-			log.Logger.Info("Error unmarshalling yaml from kube-applier.io/prune-whitelist", "error", err)
+		if prune {
+			pruneWhitelist = append(pruneWhitelist, namespacedResources...)
+
+			pruneClusterResources, err := strconv.ParseBool(kaa.PruneClusterResources)
+			if err != nil {
+				log.Logger.Info("Could not get value for kube-applier.io/prune-cluster-resources", "error", err)
+				pruneClusterResources = false
+			}
+			if pruneClusterResources {
+				pruneWhitelist = append(pruneWhitelist, clusterResources...)
+			}
+
+			// Trim blacklisted items out of the whitelist
+			for _, b := range a.PruneBlacklist {
+				for i, w := range pruneWhitelist {
+					if b == w {
+						pruneWhitelist = append(pruneWhitelist[:i], pruneWhitelist[i+1:]...)
+					}
+				}
+			}
 		}
 
 		var kustomize bool
@@ -83,7 +108,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, prune, kustomize, pruneWhitelist)
+		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, kustomize, pruneWhitelist)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
