@@ -32,6 +32,21 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 	return m.recorder
 }
 
+// NamespaceAnnotations mocks base method
+func (m *MockClientInterface) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceAnnotations", namespace)
+	ret0, _ := ret[0].(KAAnnotations)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NamespaceAnnotations indicates an expected call of NamespaceAnnotations
+func (mr *MockClientInterfaceMockRecorder) NamespaceAnnotations(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceAnnotations", reflect.TypeOf((*MockClientInterface)(nil).NamespaceAnnotations), namespace)
+}
+
 // PrunableResourceGVKs mocks base method
 func (m *MockClientInterface) PrunableResourceGVKs() ([]string, []string, error) {
 	m.ctrl.T.Helper()

@@ -1,7 +1,6 @@
 package kubectl
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,29 +10,12 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
-const (
-	enabledAnnotation               = "kube-applier.io/enabled"
-	dryRunAnnotation                = "kube-applier.io/dry-run"
-	pruneAnnotation                 = "kube-applier.io/prune"
-	pruneClusterResourcesAnnotation = "kube-applier.io/prune-cluster-resources"
-)
-
 // To make testing possible
 var execCommand = exec.Command
-
-// KAAnnotations contains the standard set of annotations on the Namespace
-// resource defining behaviour for that Namespace
-type KAAnnotations struct {
-	Enabled               string
-	DryRun                string
-	Prune                 string
-	PruneClusterResources string
-}
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
 	Apply(path, namespace string, dryRun, kustomize bool, pruneWhitelist []string) (string, string, error)
-	NamespaceAnnotations(namespace string) (KAAnnotations, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -115,35 +97,4 @@ func (c *Client) Apply(path, namespace string, dryRun, kustomize bool, pruneWhit
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
 	return cmdStr, string(out), err
-}
-
-// NamespaceAnnotations returns string values of kube-applier annotaions
-func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
-	kaa := KAAnnotations{}
-	args := []string{"kubectl", "get", "namespace", namespace, "-o", "json"}
-
-	stdout, err := execCommand(args[0], args[1:]...).CombinedOutput()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
-		}
-		return kaa, err
-	}
-	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
-
-	var nr struct {
-		Metadata struct {
-			Annotations map[string]string
-		}
-	}
-	if err := json.Unmarshal(stdout, &nr); err != nil {
-		return kaa, err
-	}
-
-	kaa.Enabled = nr.Metadata.Annotations[enabledAnnotation]
-	kaa.DryRun = nr.Metadata.Annotations[dryRunAnnotation]
-	kaa.Prune = nr.Metadata.Annotations[pruneAnnotation]
-	kaa.PruneClusterResources = nr.Metadata.Annotations[pruneClusterResourcesAnnotation]
-
-	return kaa, nil
 }

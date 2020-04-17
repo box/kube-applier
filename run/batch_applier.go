@@ -49,7 +49,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	for _, path := range applyList {
 		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 		ns := filepath.Base(path)
-		kaa, err := a.KubectlClient.NamespaceAnnotations(ns)
+		kaa, err := a.KubeClient.NamespaceAnnotations(ns)
 		if err != nil {
 			log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
 			continue
