@@ -1,4 +1,4 @@
-package kubeapi
+package kube
 
 import (
 	"reflect"

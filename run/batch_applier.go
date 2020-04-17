@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
-	"github.com/utilitywarehouse/kube-applier/kubeapi"
+	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
@@ -27,8 +27,8 @@ type BatchApplierInterface interface {
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubeAPIClient  kubeapi.ClientInterface
 	KubeClient     kube.ClientInterface
+	KubectlClient  kubectl.ClientInterface
 	Metrics        metrics.PrometheusInterface
 	DryRun         bool
 	PruneBlacklist []string
@@ -40,7 +40,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 
-	clusterResources, namespacedResources, err := a.KubeAPIClient.PrunableResourceGVKs()
+	clusterResources, namespacedResources, err := a.KubeClient.PrunableResourceGVKs()
 	if err != nil {
 		log.Logger.Error("Error while retrieving prunable resources from the API server. Skipping apply runs.", "error", err)
 		return successes, failures
@@ -49,7 +49,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	for _, path := range applyList {
 		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 		ns := filepath.Base(path)
-		kaa, err := a.KubeClient.NamespaceAnnotations(ns)
+		kaa, err := a.KubectlClient.NamespaceAnnotations(ns)
 		if err != nil {
 			log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
 			continue
@@ -109,7 +109,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 		}
 
 		var cmd, output string
-		cmd, output, err = a.KubeClient.Apply(path, ns, a.DryRun || dryRun, kustomize, pruneWhitelist)
+		cmd, output, err = a.KubectlClient.Apply(path, ns, a.DryRun || dryRun, kustomize, pruneWhitelist)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {

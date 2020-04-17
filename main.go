@@ -9,7 +9,7 @@ import (
 
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
-	"github.com/utilitywarehouse/kube-applier/kubeapi"
+	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/run"
@@ -121,13 +121,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeAPIClient, err := kubeapi.New()
+	kubeClient, err := kube.New()
 	if err != nil {
 		log.Logger.Error("error creating kubernetes API client", "error", err)
 		os.Exit(1)
 	}
 
-	kubeClient := &kube.Client{
+	kubectlClient := &kubectl.Client{
 		Metrics: metrics,
 	}
 
@@ -138,8 +138,8 @@ func main() {
 	dr, _ := strconv.ParseBool(dryRun)
 	batchApplier := &run.BatchApplier{
 		PruneBlacklist: pruneBlacklistSlice,
-		KubeAPIClient:  kubeAPIClient,
 		KubeClient:     kubeClient,
+		KubectlClient:  kubectlClient,
 		DryRun:         dr,
 		Metrics:        metrics,
 	}
