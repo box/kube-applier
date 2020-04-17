@@ -131,9 +131,15 @@ func main() {
 		Metrics: metrics,
 	}
 
-	var pruneBlacklistSlice []string
+	// Kubernetes copies annotations from StatefulSets, Deployments and
+	// Daemonsets to the corresponding ControllerRevision, including
+	// 'kubectl.kubernetes.io/last-applied-configuration', which will result
+	// in kube-applier pruning ControllerRevisions that it shouldn't be
+	// managing at all. This makes it unsuitable for pruning and a
+	// reasonable default for blacklisting.
+	pruneBlacklistSlice := []string{"apps/v1/ControllerRevision"}
 	if pruneBlacklist != "" {
-		pruneBlacklistSlice = strings.Split(pruneBlacklist, ",")
+		pruneBlacklistSlice = append(pruneBlacklistSlice, strings.Split(pruneBlacklist, ",")...)
 	}
 	dr, _ := strconv.ParseBool(dryRun)
 	batchApplier := &run.BatchApplier{

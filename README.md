@@ -79,7 +79,7 @@ kube-applier serves a [status page](#status-ui) and provides
 - `LOG_LEVEL` - (string) trace|debug|info|warn|error case insensitive
 
 - `PRUNE_BLACKLIST` - (string) A comma separated list of resources in the format
-  `<group>/<version>/<kind>` that will be exempted from pruning.
+  `<group>/<version>/<kind>` that will be exempted from pruning
 
 Additionally `KUBECONFIG` can be set as [described
 here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
@@ -140,8 +140,15 @@ Specific resource types can be exempted from pruning by adding them to the
 `PRUNE_BLACKLIST` environment variable:
 
 ```
-export PRUNE_BLACKLIST="apps/v1/ControllerRevision,core/v1/Namespace"
+export PRUNE_BLACKLIST="core/v1/ConfigMap,core/v1/Namespace"
 ```
+
+The resource `apps/v1/ControllerRevision` is always exempted from pruning, regardless of the
+blacklist. This is because Kubernetes copies the
+`kubectl.kubernetes.io/last-applied-configuration` annotation to controller
+revisions from the corresponding StatefulSet, Deployment or Daemonset. This would
+result in kube-applier pruning revisions that it shouldn't be managing if it
+wasn't blacklisted.
 
 ## Deploying
 
