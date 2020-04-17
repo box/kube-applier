@@ -4,9 +4,83 @@ import (
 	"reflect"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+func TestNamespaceAnnotations(t *testing.T) {
+	fake := fake.NewSimpleClientset(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+			Annotations: map[string]string{
+				enabledAnnotation:               "true",
+				dryRunAnnotation:                "false",
+				pruneAnnotation:                 "true",
+				pruneClusterResourcesAnnotation: "false",
+			},
+		},
+	})
+
+	client := &Client{
+		clientset: fake,
+	}
+
+	annotations, err := client.NamespaceAnnotations("foo")
+	if err != nil {
+		t.Fatalf("Unexpected error returned by NamespaceAnnotations(foo): %s", err)
+	}
+
+	wantAnnotations := KAAnnotations{
+		Enabled:               "true",
+		DryRun:                "false",
+		Prune:                 "true",
+		PruneClusterResources: "false",
+	}
+	if !reflect.DeepEqual(annotations, wantAnnotations) {
+		t.Errorf("Unexpected annotations; got %v want %v", annotations, wantAnnotations)
+	}
+}
+
+func TestNamespaceAnnotationsMissingKeys(t *testing.T) {
+	fake := fake.NewSimpleClientset(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+			Annotations: map[string]string{
+				enabledAnnotation: "false",
+			},
+		},
+	})
+
+	client := &Client{
+		clientset: fake,
+	}
+
+	annotations, err := client.NamespaceAnnotations("foo")
+	if err != nil {
+		t.Fatalf("Unexpected error returned by NamespaceAnnotations(foo): %s", err)
+	}
+
+	wantAnnotations := KAAnnotations{
+		Enabled: "false",
+	}
+	if !reflect.DeepEqual(annotations, wantAnnotations) {
+		t.Errorf("Unexpected annotations; got %v want %v", annotations, wantAnnotations)
+	}
+}
+
+func TestNamespaceAnnotationsNoNamespace(t *testing.T) {
+	fake := fake.NewSimpleClientset()
+
+	client := &Client{
+		clientset: fake,
+	}
+
+	annotations, err := client.NamespaceAnnotations("foo")
+	if err == nil {
+		t.Fatalf("Expected error to be returned by NamespaceAnnotations(foo); annotations: %v", annotations)
+	}
+}
 
 func TestPrunableResourceGVKs(t *testing.T) {
 	fake := fake.NewSimpleClientset()
