@@ -32,33 +32,18 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 	return m.recorder
 }
 
-// Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace string, dryRun, kustomize bool, pruneWhitelist []string) (string, string, error) {
+// PrunableResourceGVKs mocks base method
+func (m *MockClientInterface) PrunableResourceGVKs() ([]string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRun, kustomize, pruneWhitelist)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
+	ret := m.ctrl.Call(m, "PrunableResourceGVKs")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRun, kustomize, pruneWhitelist interface{}) *gomock.Call {
+// PrunableResourceGVKs indicates an expected call of PrunableResourceGVKs
+func (mr *MockClientInterfaceMockRecorder) PrunableResourceGVKs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRun, kustomize, pruneWhitelist)
-}
-
-// NamespaceAnnotations mocks base method
-func (m *MockClientInterface) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NamespaceAnnotations", namespace)
-	ret0, _ := ret[0].(KAAnnotations)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NamespaceAnnotations indicates an expected call of NamespaceAnnotations
-func (mr *MockClientInterfaceMockRecorder) NamespaceAnnotations(namespace interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceAnnotations", reflect.TypeOf((*MockClientInterface)(nil).NamespaceAnnotations), namespace)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrunableResourceGVKs", reflect.TypeOf((*MockClientInterface)(nil).PrunableResourceGVKs))
 }
