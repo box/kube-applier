@@ -134,7 +134,7 @@ If you want kube applier to prune cluster resources, you can set
 `kube-applier.io/prune-cluster-resources` to `true`. Take care when using this
 feature as it will remove all cluster resources that have been created by
 kubectl and don't exist in the current namespace directory. Therefore, only use this feature if all
-of your cluster resources are defined under one namespace.
+of your cluster resources are defined under one directory.
 
 Specific resource types can be exempted from pruning by adding them to the
 `PRUNE_BLACKLIST` environment variable:
