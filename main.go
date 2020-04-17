@@ -9,6 +9,7 @@ import (
 
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/kubeapi"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/run"
@@ -31,9 +32,7 @@ var (
 	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
 	dryRun          = os.Getenv("DRY_RUN")
 	logLevel        = os.Getenv("LOG_LEVEL")
-
-	// kube server. Mainly for local testing.
-	server = os.Getenv("SERVER")
+	pruneBlacklist  = os.Getenv("PRUNE_BLACKLIST")
 
 	// Github commit diff url
 	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
@@ -122,20 +121,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	kubeAPIClient, err := kubeapi.New()
+	if err != nil {
+		log.Logger.Error("error creating kubernetes API client", "error", err)
+		os.Exit(1)
+	}
+
 	kubeClient := &kube.Client{
-		Server:  server,
 		Metrics: metrics,
 	}
 
-	if err := kubeClient.Configure(); err != nil {
-		log.Logger.Error("kubectl configuration failed", "error", err)
+	var pruneBlacklistSlice []string
+	if pruneBlacklist != "" {
+		pruneBlacklistSlice = strings.Split(pruneBlacklist, ",")
 	}
-
 	dr, _ := strconv.ParseBool(dryRun)
 	batchApplier := &run.BatchApplier{
-		KubeClient: kubeClient,
-		DryRun:     dr,
-		Metrics:    metrics,
+		PruneBlacklist: pruneBlacklistSlice,
+		KubeAPIClient:  kubeAPIClient,
+		KubeClient:     kubeClient,
+		DryRun:         dr,
+		Metrics:        metrics,
 	}
 
 	gitUtil := &git.Util{
@@ -196,7 +202,7 @@ func main() {
 	go runner.Start()
 	go webserver.Start()
 
-	err := <-errors
+	err = <-errors
 	log.Logger.Error("Fatal error, exiting", "error", err)
 	os.Exit(1)
 }

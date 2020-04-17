@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const serverTemplatePath = "/templates/status.html"
+const serverTemplatePath = "templates/status.html"
 
 // WebServer struct
 type WebServer struct {
@@ -105,7 +105,7 @@ func (ws *WebServer) Start() {
 		ws.Clock,
 	}
 	http.Handle("/", statusPageHandler)
-	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
+	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{
 		ws.RunQueue,
 	}
