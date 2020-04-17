@@ -40,7 +40,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 
-	clusterResources, namespacedResources, err := a.KubeAPIClient.PrunableResources()
+	clusterResources, namespacedResources, err := a.KubeAPIClient.PrunableResourceGVKs()
 	if err != nil {
 		log.Logger.Error("Error while retrieving prunable resources from the API server", "error", err)
 	}

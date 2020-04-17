@@ -32,18 +32,18 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 	return m.recorder
 }
 
-// PrunableResources mocks base method
-func (m *MockClientInterface) PrunableResources() ([]string, []string, error) {
+// PrunableResourceGVKs mocks base method
+func (m *MockClientInterface) PrunableResourceGVKs() ([]string, []string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrunableResources")
+	ret := m.ctrl.Call(m, "PrunableResourceGVKs")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// PrunableResources indicates an expected call of PrunableResources
-func (mr *MockClientInterfaceMockRecorder) PrunableResources() *gomock.Call {
+// PrunableResourceGVKs indicates an expected call of PrunableResourceGVKs
+func (mr *MockClientInterfaceMockRecorder) PrunableResourceGVKs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrunableResources", reflect.TypeOf((*MockClientInterface)(nil).PrunableResources))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrunableResourceGVKs", reflect.TypeOf((*MockClientInterface)(nil).PrunableResourceGVKs))
 }

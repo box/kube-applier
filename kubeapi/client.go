@@ -13,7 +13,7 @@ import (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	PrunableResources() ([]string, []string, error)
+	PrunableResourceGVKs() ([]string, []string, error)
 }
 
 // Client interacts with the kubernetes API via client-go
@@ -43,10 +43,10 @@ func New() (*Client, error) {
 	}, nil
 }
 
-// PrunableResources returns cluster and namespaced resources as two lists of
+// PrunableResourceGVKs returns cluster and namespaced resources as two slices of
 // strings of the format <group>/<version>/<kind>. It only returns resources
 // that support pruning.
-func (c *Client) PrunableResources() ([]string, []string, error) {
+func (c *Client) PrunableResourceGVKs() ([]string, []string, error) {
 	var cluster, namespaced []string
 
 	_, resourceList, err := c.clientset.Discovery().ServerGroupsAndResources()

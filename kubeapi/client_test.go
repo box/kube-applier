@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestPrunableResources(t *testing.T) {
+func TestPrunableResourceGVKs(t *testing.T) {
 	fake := fake.NewSimpleClientset()
 
 	fake.Resources = []*metav1.APIResourceList{
@@ -144,9 +144,9 @@ func TestPrunableResources(t *testing.T) {
 		clientset: fake,
 	}
 
-	cluster, namespaced, err := client.PrunableResources()
+	cluster, namespaced, err := client.PrunableResourceGVKs()
 	if err != nil {
-		t.Fatalf("Unexpected error returned by PrunableResources: %s", err)
+		t.Fatalf("Unexpected error returned by PrunableResourceGVKs: %s", err)
 	}
 
 	clusterWant := []string{
