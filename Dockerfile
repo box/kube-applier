@@ -8,7 +8,7 @@ RUN apk --no-cache add git &&\
   go build -o /kube-applier .
 
 FROM alpine:3.11
-ENV KUBECTL_VERSION v1.16.2
+ENV KUBECTL_VERSION v1.17.3
 ENV KUSTOMIZE_VERSION v3.4.0
 COPY templates/ /templates/
 COPY static/ /static/
