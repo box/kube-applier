@@ -178,6 +178,7 @@ func main() {
 		GitUtil:         gitUtil,
 		Clock:           clock,
 		Metrics:         metrics,
+		KubeClient:      kubeClient,
 		DiffURLFormat:   diffURLFormat,
 		RunQueue:        runQueue,
 		RunResults:      runResults,

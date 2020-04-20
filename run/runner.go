@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -19,6 +20,7 @@ type Runner struct {
 	GitUtil         git.UtilInterface
 	Clock           sysutil.ClockInterface
 	Metrics         metrics.PrometheusInterface
+	KubeClient      kube.ClientInterface
 	DiffURLFormat   string
 	RunQueue        <-chan bool
 	RunResults      chan<- Result
@@ -59,8 +61,17 @@ func (r *Runner) run() (*Result, error) {
 		return nil, err
 	}
 
+	clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
+	if err != nil {
+		return nil, err
+	}
+	applyOptions := &ApplyOptions{
+		ClusterResources:    clusterResources,
+		NamespacedResources: namespacedResources,
+	}
+
 	log.Logger.Debug(fmt.Sprintf("applying dirs: %v", dirs))
-	successes, failures := r.BatchApplier.Apply(dirs)
+	successes, failures := r.BatchApplier.Apply(dirs, applyOptions)
 
 	finish := r.Clock.Now()
 

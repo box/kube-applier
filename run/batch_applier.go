@@ -22,7 +22,7 @@ type ApplyAttempt struct {
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
 type BatchApplierInterface interface {
-	Apply([]string) ([]ApplyAttempt, []ApplyAttempt)
+	Apply([]string, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
 }
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
@@ -34,17 +34,17 @@ type BatchApplier struct {
 	PruneBlacklist []string
 }
 
+// ApplyOptions contains global configuration for Apply
+type ApplyOptions struct {
+	ClusterResources    []string
+	NamespacedResources []string
+}
+
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
-func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt) {
+func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
-
-	clusterResources, namespacedResources, err := a.KubeClient.PrunableResourceGVKs()
-	if err != nil {
-		log.Logger.Error("Error while retrieving prunable resources from the API server. Skipping apply runs.", "error", err)
-		return successes, failures
-	}
 
 	for _, path := range applyList {
 		log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
@@ -78,7 +78,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 
 		var pruneWhitelist []string
 		if prune {
-			pruneWhitelist = append(pruneWhitelist, namespacedResources...)
+			pruneWhitelist = append(pruneWhitelist, options.NamespacedResources...)
 
 			pruneClusterResources, err := strconv.ParseBool(kaa.PruneClusterResources)
 			if err != nil {
@@ -86,7 +86,7 @@ func (a *BatchApplier) Apply(applyList []string) ([]ApplyAttempt, []ApplyAttempt
 				pruneClusterResources = false
 			}
 			if pruneClusterResources {
-				pruneWhitelist = append(pruneWhitelist, clusterResources...)
+				pruneWhitelist = append(pruneWhitelist, options.ClusterResources...)
 			}
 
 			// Trim blacklisted items out of the whitelist
