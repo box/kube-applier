@@ -217,6 +217,11 @@ custom metrics are included:
   for each exit code returned by executions of `kubectl`, labelled with the
   namespace and exit code.
 
+- **last_run_timestamp_seconds** - A
+  [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
+  that reports the last time a run finished, expressed in seconds
+  since the Unix Epoch.
+
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see
 the [Go
 library](https://github.com/prometheus/client_golang/tree/master/api/prometheus))

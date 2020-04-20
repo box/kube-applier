@@ -7,6 +7,7 @@ package metrics
 import (
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+	time "time"
 )
 
 // MockPrometheusInterface is a mock of PrometheusInterface interface
@@ -34,40 +35,60 @@ func (m *MockPrometheusInterface) EXPECT() *MockPrometheusInterfaceMockRecorder 
 
 // UpdateKubectlExitCodeCount mocks base method
 func (m *MockPrometheusInterface) UpdateKubectlExitCodeCount(arg0 string, arg1 int) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateKubectlExitCodeCount", arg0, arg1)
 }
 
 // UpdateKubectlExitCodeCount indicates an expected call of UpdateKubectlExitCodeCount
 func (mr *MockPrometheusInterfaceMockRecorder) UpdateKubectlExitCodeCount(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKubectlExitCodeCount", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateKubectlExitCodeCount), arg0, arg1)
 }
 
 // UpdateNamespaceSuccess mocks base method
 func (m *MockPrometheusInterface) UpdateNamespaceSuccess(arg0 string, arg1 bool) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateNamespaceSuccess", arg0, arg1)
 }
 
 // UpdateNamespaceSuccess indicates an expected call of UpdateNamespaceSuccess
 func (mr *MockPrometheusInterfaceMockRecorder) UpdateNamespaceSuccess(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNamespaceSuccess", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateNamespaceSuccess), arg0, arg1)
 }
 
 // UpdateRunLatency mocks base method
 func (m *MockPrometheusInterface) UpdateRunLatency(arg0 float64, arg1 bool) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateRunLatency", arg0, arg1)
 }
 
 // UpdateRunLatency indicates an expected call of UpdateRunLatency
 func (mr *MockPrometheusInterfaceMockRecorder) UpdateRunLatency(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRunLatency", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateRunLatency), arg0, arg1)
 }
 
 // UpdateResultSummary mocks base method
 func (m *MockPrometheusInterface) UpdateResultSummary(arg0 map[string]string) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateResultSummary", arg0)
 }
 
 // UpdateResultSummary indicates an expected call of UpdateResultSummary
 func (mr *MockPrometheusInterfaceMockRecorder) UpdateResultSummary(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateResultSummary", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateResultSummary), arg0)
+}
+
+// UpdateLastRunTimestamp mocks base method
+func (m *MockPrometheusInterface) UpdateLastRunTimestamp(arg0 time.Time) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdateLastRunTimestamp", arg0)
+}
+
+// UpdateLastRunTimestamp indicates an expected call of UpdateLastRunTimestamp
+func (mr *MockPrometheusInterfaceMockRecorder) UpdateLastRunTimestamp(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastRunTimestamp", reflect.TypeOf((*MockPrometheusInterface)(nil).UpdateLastRunTimestamp), arg0)
 }

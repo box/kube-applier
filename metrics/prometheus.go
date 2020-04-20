@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -18,6 +19,7 @@ type PrometheusInterface interface {
 	UpdateNamespaceSuccess(string, bool)
 	UpdateRunLatency(float64, bool)
 	UpdateResultSummary(map[string]string)
+	UpdateLastRunTimestamp(time.Time)
 }
 
 // Prometheus implements instrumentation of metrics for kube-applier.
@@ -29,6 +31,7 @@ type Prometheus struct {
 	namespaceApplyCount  *prometheus.CounterVec
 	runLatency           *prometheus.HistogramVec
 	resultSummary        *prometheus.GaugeVec
+	lastRunTimestamp     prometheus.Gauge
 }
 
 // Init creates and registers the custom metrics for kube-applier.
@@ -79,10 +82,16 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
+	p.lastRunTimestamp = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "last_run_timestamp_seconds",
+		Help: "Timestamp of the last completed apply run",
+	})
+
 	prometheus.MustRegister(p.kubectlExitCodeCount)
 	prometheus.MustRegister(p.resultSummary)
 	prometheus.MustRegister(p.namespaceApplyCount)
 	prometheus.MustRegister(p.runLatency)
+	prometheus.MustRegister(p.lastRunTimestamp)
 }
 
 // UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
@@ -122,6 +131,11 @@ func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
 			}).Set(1)
 		}
 	}
+}
+
+// UpdateLastRunTimestamp records the last time a run finished
+func (p *Prometheus) UpdateLastRunTimestamp(t time.Time) {
+	p.lastRunTimestamp.Set(float64(t.UnixNano()) / 1e9)
 }
 
 // Result struct containing Type, Name and Action

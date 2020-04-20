@@ -75,6 +75,7 @@ func (r *Runner) run() (*Result, error) {
 	r.Metrics.UpdateResultSummary(results)
 
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
+	r.Metrics.UpdateLastRunTimestamp(finish)
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
 	return &newRun, nil
