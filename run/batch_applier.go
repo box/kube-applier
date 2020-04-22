@@ -116,9 +116,10 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 			successes = append(successes, appliedFile)
 			log.Logger.Info(fmt.Sprintf("%v\n%v", cmd, output))
 		} else {
+			appliedFile.Output = "Apply output omitted on error in case of sensitive data\n"
 			appliedFile.ErrorMessage = err.Error()
 			failures = append(failures, appliedFile)
-			log.Logger.Warn(fmt.Sprintf("%v\n%v\n%v", cmd, output, appliedFile.ErrorMessage))
+			log.Logger.Warn(fmt.Sprintf("%v\n%v", cmd, appliedFile.ErrorMessage))
 		}
 
 		a.Metrics.UpdateNamespaceSuccess(path, success)
