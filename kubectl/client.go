@@ -1,11 +1,9 @@
 package kubectl
 
 import (
+	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os/exec"
-	"strings"
 
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
@@ -48,37 +46,22 @@ func (c *Client) Apply(path, namespace string, dryRun, kustomize bool, pruneWhit
 	}
 
 	kubectlCmd := exec.Command(args[0], args[1:]...)
+	cmdStr := kubectlCmd.String()
 
-	var cmdStr string
-	var kustomizeStderr io.ReadCloser
 	if kustomize {
-		cmdStr = "kustomize build " + path + " | " + strings.Join(args, " ")
+		var kustomizeStdout, kustomizeStderr bytes.Buffer
+
 		kustomizeCmd := exec.Command("kustomize", "build", path)
-		kustomizeStdout, err := kustomizeCmd.StdoutPipe()
+		kustomizeCmd.Stdout = &kustomizeStdout
+		kustomizeCmd.Stderr = &kustomizeStderr
+
+		err := kustomizeCmd.Run()
 		if err != nil {
-			return cmdStr, "", err
-		}
-		kubectlCmd.Stdin = kustomizeStdout
-		kustomizeStderr, err = kustomizeCmd.StderrPipe()
-		if err != nil {
-			return cmdStr, "", err
+			return kustomizeCmd.String(), kustomizeStderr.String(), err
 		}
 
-		err = kustomizeCmd.Start()
-		if err != nil {
-			fmt.Printf("%s", err)
-			return cmdStr, "", err
-		}
-		defer func() {
-			io.Copy(ioutil.Discard, kustomizeStdout)
-			io.Copy(ioutil.Discard, kustomizeStderr)
-			err = kustomizeCmd.Wait()
-			if err != nil {
-				fmt.Printf("%s", err)
-			}
-		}()
-	} else {
-		cmdStr = strings.Join(args, " ")
+		kubectlCmd.Stdin = &kustomizeStdout
+		cmdStr = kustomizeCmd.String() + " | " + cmdStr
 	}
 
 	out, err := kubectlCmd.CombinedOutput()
@@ -86,13 +69,7 @@ func (c *Client) Apply(path, namespace string, dryRun, kustomize bool, pruneWhit
 		if e, ok := err.(*exec.ExitError); ok {
 			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
 		}
-		var str strings.Builder
-		if kustomizeStderr != nil {
-			kustomizeErr, _ := ioutil.ReadAll(kustomizeStderr)
-			str.WriteString(string(kustomizeErr))
-		}
-		str.WriteString(string(out))
-		return cmdStr, str.String(), err
+		return cmdStr, string(out), err
 	}
 	c.Metrics.UpdateKubectlExitCodeCount(path, 0)
 
