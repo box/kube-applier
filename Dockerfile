@@ -9,7 +9,7 @@ RUN apk --no-cache add git &&\
 
 FROM alpine:3.11
 ENV KUBECTL_VERSION v1.17.3
-ENV KUSTOMIZE_VERSION v3.5.5
+ENV KUSTOMIZE_VERSION v3.6.1
 COPY templates/ /templates/
 COPY static/ /static/
 RUN apk --no-cache add git openssh-client tini &&\
