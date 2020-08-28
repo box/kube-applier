@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"context"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +65,7 @@ func New() (*Client, error) {
 func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
 	kaa := KAAnnotations{}
 
-	ns, err := c.clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	ns, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		return kaa, err
 	}
