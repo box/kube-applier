@@ -108,8 +108,13 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 			kustomize = true
 		}
 
+		dryRunStrategy := "none"
+		if a.DryRun || dryRun {
+			dryRunStrategy = "server"
+		}
+
 		var cmd, output string
-		cmd, output, err = a.KubectlClient.Apply(path, ns, a.DryRun || dryRun, kustomize, pruneWhitelist)
+		cmd, output, err = a.KubectlClient.Apply(path, ns, dryRunStrategy, kustomize, pruneWhitelist)
 		success := (err == nil)
 		appliedFile := ApplyAttempt{path, cmd, output, ""}
 		if success {
