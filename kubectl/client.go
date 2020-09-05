@@ -13,7 +13,7 @@ var execCommand = exec.Command
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace string, dryRun, kustomize bool, pruneWhitelist []string) (string, string, error)
+	Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -27,13 +27,13 @@ type Client struct {
 //
 // kustomize - Do a `kustomize build | kubectl apply -f -` on the path, set to if there is a
 //             `kustomization.yaml` found in the path
-func (c *Client) Apply(path, namespace string, dryRun, kustomize bool, pruneWhitelist []string) (string, string, error) {
+func (c *Client) Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error) {
 	var args []string
 
 	if kustomize {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-f", "-", "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%s", dryRunStrategy), "-f", "-", "-n", namespace}
 	} else {
-		args = []string{"kubectl", "apply", fmt.Sprintf("--server-dry-run=%t", dryRun), "-R", "-f", path, "-n", namespace}
+		args = []string{"kubectl", "apply", fmt.Sprintf("--dry-run=%s", dryRunStrategy), "-R", "-f", path, "-n", namespace}
 	}
 
 	if len(pruneWhitelist) > 0 {
