@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine AS build
+FROM golang:1.15-alpine AS build
 WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 COPY . /go/src/github.com/utilitywarehouse/kube-applier
 ENV CGO_ENABLED 0
@@ -9,7 +9,7 @@ RUN apk --no-cache add git &&\
 
 FROM alpine:3.11
 ENV KUBECTL_VERSION v1.18.8
-ENV KUSTOMIZE_VERSION v3.8.1
+ENV KUSTOMIZE_VERSION v3.8.2
 COPY templates/ /templates/
 COPY static/ /static/
 RUN apk --no-cache add git openssh-client tini &&\
