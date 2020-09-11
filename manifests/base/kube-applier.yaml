@@ -58,8 +58,14 @@ spec:
         - name: kube-applier
           image: quay.io/utilitywarehouse/kube-applier:2.4.5
           env:
+            - name: NAMESPACES_DIR
+              value: "base"
             - name: REPO_PATH
-              value: "/src/manifests/$(REPO_RELATIVE_PATH)"
+              value: "/src/manifests/$(NAMESPACES_DIR)"
+            - name: NAMESPACES_FILTERS
+              value: ""
+            - name: REPO_PATH_FILTERS
+              value: "$(NAMESPACES_FILTERS)"
             - name: DIFF_URL_FORMAT
               value: "https://github.com/org/repo/commit/%s"
             - name: LOG_LEVEL
