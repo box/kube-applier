@@ -4,7 +4,7 @@ COPY . /go/src/github.com/utilitywarehouse/kube-applier
 ENV CGO_ENABLED 0
 RUN apk --no-cache add git &&\
   go get -t ./... &&\
-  go test ./... &&\
+  go test -race -count=1 ./... &&\
   go build -o /kube-applier .
 
 FROM alpine:3.11

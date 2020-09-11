@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
@@ -45,23 +46,33 @@ type ApplyOptions struct {
 func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
+	wg := sync.WaitGroup{}
+	mutex := sync.Mutex{}
 
 	for _, path := range applyList {
-		appliedFile, success := a.apply(path, options)
-		if appliedFile == nil {
-			continue
-		}
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
+			appliedFile, success := a.apply(path, options)
+			if appliedFile == nil {
+				return
+			}
 
-		if success {
-			successes = append(successes, *appliedFile)
-			log.Logger.Info(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.Output))
-		} else {
-			failures = append(failures, *appliedFile)
-			log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
-		}
+			mutex.Lock()
+			defer mutex.Unlock()
+			if success {
+				successes = append(successes, *appliedFile)
+				log.Logger.Info(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.Output))
+			} else {
+				failures = append(failures, *appliedFile)
+				log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
+			}
 
-		a.Metrics.UpdateNamespaceSuccess(path, success)
+			a.Metrics.UpdateNamespaceSuccess(path, success)
+		}(path)
 	}
+	wg.Wait()
+
 	return successes, failures
 }
 
