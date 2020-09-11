@@ -8,9 +8,9 @@ spec:
       containers:
       - name: kube-applier
         env:
-        - name: REPO_RELATIVE_PATH
+        - name: NAMESPACES_DIR
           value: "example-env"
-        - name: REPO_PATH_FILTERS
+        - name: NAMESPACES_FILTERS
           value: "my-namespace-1,my-namespace-2,team-namespace-*"
         - name: DIFF_URL_FORMAT
           value: "https://github.com/org/repo/commit/%s"
