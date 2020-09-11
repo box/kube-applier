@@ -2,7 +2,6 @@ package run
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
@@ -607,18 +606,6 @@ func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) 
 func applyAndAssert(t *testing.T, tc batchTestCase) {
 	assert := assert.New(t)
 	successes, failures := tc.ba.Apply(tc.applyList, tc.applyOptions)
-	sort.Slice(tc.expectedSuccesses, func(i, j int) bool {
-		return tc.expectedSuccesses[i].FilePath < tc.expectedSuccesses[j].FilePath
-	})
-	sort.Slice(tc.expectedFailures, func(i, j int) bool {
-		return tc.expectedFailures[i].FilePath < tc.expectedFailures[j].FilePath
-	})
-	sort.Slice(successes, func(i, j int) bool {
-		return successes[i].FilePath < successes[j].FilePath
-	})
-	sort.Slice(failures, func(i, j int) bool {
-		return failures[i].FilePath < failures[j].FilePath
-	})
 	assert.Equal(tc.expectedSuccesses, successes)
 	assert.Equal(tc.expectedFailures, failures)
 }

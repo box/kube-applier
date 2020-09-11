@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -72,6 +73,45 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 		}(path)
 	}
 	wg.Wait()
+
+	sort.Slice(successes, func(i, j int) bool {
+		indexI := -1
+		indexJ := -1
+		found := 0
+		for k, v := range applyList {
+			if successes[i].FilePath == v {
+				indexI = k
+				found++
+			}
+			if successes[j].FilePath == v {
+				indexJ = k
+				found++
+			}
+			if found == 2 {
+				break
+			}
+		}
+		return indexI < indexJ
+	})
+	sort.Slice(failures, func(i, j int) bool {
+		indexI := -1
+		indexJ := -1
+		found := 0
+		for k, v := range applyList {
+			if failures[i].FilePath == v {
+				indexI = k
+				found++
+			}
+			if failures[j].FilePath == v {
+				indexJ = k
+				found++
+			}
+			if found == 2 {
+				break
+			}
+		}
+		return indexI < indexJ
+	})
 
 	return successes, failures
 }
