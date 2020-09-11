@@ -1,11 +1,10 @@
 FROM golang:1.15-alpine AS build
 WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 COPY . /go/src/github.com/utilitywarehouse/kube-applier
-ENV CGO_ENABLED 0
-RUN apk --no-cache add git &&\
+RUN apk --no-cache add git gcc musl-dev &&\
   go get -t ./... &&\
-  go test -race -count=1 ./... &&\
-  go build -o /kube-applier .
+  CGO_ENABLED=1 && go test -race -count=1 ./... &&\
+  CGO_ENABLED=0 && go build -o /kube-applier .
 
 FROM alpine:3.11
 ENV KUBECTL_VERSION v1.18.8
