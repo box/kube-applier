@@ -58,6 +58,8 @@ spec:
         - name: kube-applier
           image: quay.io/utilitywarehouse/kube-applier:2.4.5
           env:
+            - name: REPO_RELATIVE_PATH
+              value: "base"
             - name: REPO_PATH
               value: "/src/manifests/$(REPO_RELATIVE_PATH)"
             - name: DIFF_URL_FORMAT
