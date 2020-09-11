@@ -8,8 +8,8 @@ spec:
       containers:
       - name: kube-applier
         env:
-        - name: REPO_PATH
-          value: "/src/manifests/example-env/"
+        - name: REPO_RELATIVE_PATH
+          value: "example-env"
         - name: REPO_PATH_FILTERS
           value: "my-namespace-1,my-namespace-2,team-namespace-*"
         - name: DIFF_URL_FORMAT

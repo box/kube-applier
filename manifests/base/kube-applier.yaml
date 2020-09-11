@@ -59,7 +59,7 @@ spec:
           image: quay.io/utilitywarehouse/kube-applier:2.4.5
           env:
             - name: REPO_PATH
-              value: "/src/manifests/base/"
+              value: "/src/manifests/$(REPO_RELATIVE_PATH)"
             - name: DIFF_URL_FORMAT
               value: "https://github.com/org/repo/commit/%s"
             - name: LOG_LEVEL
