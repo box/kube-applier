@@ -37,6 +37,9 @@ var (
 
 	// Github commit diff url
 	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
+	workerCount   = os.Getenv("WORKER_COUNT")
+
+	batchApplierWorkerCount int
 )
 
 func validate() {
@@ -108,6 +111,16 @@ func validate() {
 	if execTimeout == "" {
 		execTimeout = "3m"
 	}
+
+	if workerCount == "" {
+		workerCount = "0"
+	}
+	i, err := strconv.Atoi(workerCount)
+	if err != nil {
+		fmt.Printf("Cannot parse WORKER_COUNT: %v\n", err)
+		os.Exit(1)
+	}
+	batchApplierWorkerCount = i
 }
 
 func main() {
@@ -159,6 +172,7 @@ func main() {
 		KubectlClient:  kubectlClient,
 		DryRun:         dr,
 		Metrics:        metrics,
+		WorkerCount:    batchApplierWorkerCount,
 	}
 
 	gitUtil := &git.Util{

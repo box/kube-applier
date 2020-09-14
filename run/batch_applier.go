@@ -14,6 +14,10 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
+const (
+	defaultBatchApplierWorkerCount = 2
+)
+
 // ApplyAttempt stores the data from an attempt at applying a single file.
 type ApplyAttempt struct {
 	FilePath     string
@@ -34,6 +38,7 @@ type BatchApplier struct {
 	Metrics        metrics.PrometheusInterface
 	DryRun         bool
 	PruneBlacklist []string
+	WorkerCount    int
 }
 
 // ApplyOptions contains global configuration for Apply
@@ -45,33 +50,45 @@ type ApplyOptions struct {
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
 func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
+	if a.WorkerCount == 0 {
+		a.WorkerCount = defaultBatchApplierWorkerCount
+	}
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 	wg := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 
-	for _, path := range applyList {
+	paths := make(chan string, len(applyList))
+
+	for i := 0; i < a.WorkerCount; i++ {
 		wg.Add(1)
-		go func(path string) {
+		go func(paths <-chan string) {
 			defer wg.Done()
-			appliedFile, success := a.apply(path, options)
-			if appliedFile == nil {
-				return
-			}
+			for path := range paths {
+				appliedFile, success := a.apply(path, options)
+				if appliedFile == nil {
+					continue
+				}
 
-			mutex.Lock()
-			defer mutex.Unlock()
-			if success {
-				successes = append(successes, *appliedFile)
-				log.Logger.Info(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.Output))
-			} else {
-				failures = append(failures, *appliedFile)
-				log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
+				mutex.Lock()
+				if success {
+					successes = append(successes, *appliedFile)
+					log.Logger.Info(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.Output))
+				} else {
+					failures = append(failures, *appliedFile)
+					log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
+				}
+				a.Metrics.UpdateNamespaceSuccess(path, success)
+				mutex.Unlock()
 			}
-
-			a.Metrics.UpdateNamespaceSuccess(path, success)
-		}(path)
+		}(paths)
 	}
+
+	for _, path := range applyList {
+		paths <- path
+	}
+
+	close(paths)
 	wg.Wait()
 
 	sort.Slice(successes, func(i, j int) bool {
