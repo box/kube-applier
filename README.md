@@ -81,6 +81,9 @@ kube-applier serves a [status page](#status-ui) and provides
 - `PRUNE_BLACKLIST` - (string) A comma separated list of resources in the format
   `<group>/<version>/<kind>` that will be exempted from pruning
 
+- `EXEC_TIMEOUT` - (duration) Commands executed by kube-applier will be killed
+  if they exceed this duration. Default is `3m`.
+
 Additionally `KUBECONFIG` can be set as [described
 here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
 to configure cluster access.

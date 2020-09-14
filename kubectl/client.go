@@ -2,12 +2,15 @@ package kubectl
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/pkg/errors"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +36,7 @@ type ClientInterface interface {
 type Client struct {
 	Label   string
 	Metrics metrics.PrometheusInterface
+	Timeout time.Duration
 }
 
 // Apply attempts to "kubectl apply" the files located at path. It returns the
@@ -59,12 +63,18 @@ func (c *Client) applyPath(path, namespace, dryRunStrategy string, pruneWhitelis
 func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhitelist []string) (string, string, error) {
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
 
-	kustomizeCmd := exec.Command("kustomize", "build", path)
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	kustomizeCmd := exec.CommandContext(ctx, "kustomize", "build", path)
 	kustomizeCmd.Stdout = &kustomizeStdout
 	kustomizeCmd.Stderr = &kustomizeStderr
 
 	err := kustomizeCmd.Run()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			err = errors.Wrap(ctx.Err(), err.Error())
+		}
 		return kustomizeCmd.String(), kustomizeStderr.String(), err
 	}
 
@@ -132,7 +142,10 @@ func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhi
 func (c *Client) apply(path, namespace, dryRunStrategy string, pruneWhitelist []string, stdin []byte) (string, string, error) {
 	args := applyArgs(path, namespace, dryRunStrategy, pruneWhitelist)
 
-	kubectlCmd := exec.Command(args[0], args[1:]...)
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	kubectlCmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if path == "-" {
 		if len(stdin) == 0 {
 			return "", "", fmt.Errorf("path can't be %s when stdin is empty", path)
@@ -143,6 +156,9 @@ func (c *Client) apply(path, namespace, dryRunStrategy string, pruneWhitelist []
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
 			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			err = errors.Wrap(ctx.Err(), err.Error())
 		}
 		return kubectlCmd.String(), string(out), err
 	}

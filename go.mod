@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/hashicorp/go-hclog v0.12.2
 	github.com/imdario/mergo v0.3.9 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.5.1
 	github.com/stretchr/testify v1.4.0
 	github.com/utilitywarehouse/go-operational v0.0.0-20190722153447-b0f3f6284543
