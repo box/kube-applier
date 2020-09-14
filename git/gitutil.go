@@ -28,7 +28,7 @@ func (g *Util) HeadHashForPaths(args ...string) (string, error) {
 	return strings.Trim(hash, "'\n"), err
 }
 
-// HeadCommitLog returns the log of the current HEAD commit, including a list
+// HeadCommitLogForPaths returns the log of the current HEAD commit, including a list
 // of the files that were modified for the filtered directories
 func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 	cmd := []string{"log", "-1", "--name-status", "--"}
