@@ -77,9 +77,13 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
@@ -118,9 +122,13 @@ func TestBatchApplierApplyFail(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
 		expectApplyAndReturnFailure("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnFailure("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
 		expectApplyAndReturnFailure("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file3", metrics),
@@ -159,12 +167,18 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnFailure("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file4", kubeClient),
 		expectApplyAndReturnFailure("file4", "file4", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file4", metrics),
@@ -207,9 +221,13 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
@@ -249,9 +267,13 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("repo/file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("repo/file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
 		expectApplyAndReturnSuccess("repo/file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("repo/file3", metrics),
@@ -291,9 +313,13 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
 		expectApplyAndReturnSuccess("file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
@@ -331,9 +357,13 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file1", kubeClient),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
@@ -367,9 +397,13 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file1", kubeClient),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
@@ -404,6 +438,8 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
@@ -474,6 +510,8 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "false"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "none", nil, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
@@ -519,6 +557,8 @@ func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
 		expectApplyAndReturnSuccess("file1", "file1", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler"}, kubectlClient),
 		expectSuccessMetric("file1", metrics),
+	)
+	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneClusterResources: "true"}, "file2", kubeClient),
 		expectApplyAndReturnSuccess("file2", "file2", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler", "core/v1/Namespace"}, kubectlClient),
 		expectSuccessMetric("file2", metrics),
