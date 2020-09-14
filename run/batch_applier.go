@@ -91,44 +91,8 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 	close(paths)
 	wg.Wait()
 
-	sort.Slice(successes, func(i, j int) bool {
-		indexI := -1
-		indexJ := -1
-		found := 0
-		for k, v := range applyList {
-			if successes[i].FilePath == v {
-				indexI = k
-				found++
-			}
-			if successes[j].FilePath == v {
-				indexJ = k
-				found++
-			}
-			if found == 2 {
-				break
-			}
-		}
-		return indexI < indexJ
-	})
-	sort.Slice(failures, func(i, j int) bool {
-		indexI := -1
-		indexJ := -1
-		found := 0
-		for k, v := range applyList {
-			if failures[i].FilePath == v {
-				indexI = k
-				found++
-			}
-			if failures[j].FilePath == v {
-				indexJ = k
-				found++
-			}
-			if found == 2 {
-				break
-			}
-		}
-		return indexI < indexJ
-	})
+	sortApplyAttemptSlice(applyList, successes)
+	sortApplyAttemptSlice(applyList, failures)
 
 	return successes, failures
 }
@@ -208,4 +172,26 @@ func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt,
 	}
 
 	return &appliedFile, err == nil
+}
+
+func sortApplyAttemptSlice(paths []string, attempts []ApplyAttempt) {
+	sort.Slice(attempts, func(i, j int) bool {
+		indexI := -1
+		indexJ := -1
+		found := 0
+		for k, v := range paths {
+			if attempts[i].FilePath == v {
+				indexI = k
+				found++
+			}
+			if attempts[j].FilePath == v {
+				indexJ = k
+				found++
+			}
+			if found == 2 {
+				break
+			}
+		}
+		return indexI < indexJ
+	})
 }
