@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -42,10 +44,20 @@ type Client struct {
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
 func (c *Client) Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error) {
-	if kustomize {
-		return c.applyKustomize(path, namespace, dryRunStrategy, pruneWhitelist)
+	tmpDir, err := ioutil.TempDir("", namespace)
+	defer os.RemoveAll(tmpDir)
+	if err != nil {
+		return "", "", err
 	}
-	return c.applyPath(path, namespace, dryRunStrategy, pruneWhitelist)
+	err = sysutil.CopyDir(path, tmpDir)
+	if err != nil {
+		return "", "", err
+	}
+
+	if kustomize {
+		return c.applyKustomize(tmpDir, namespace, dryRunStrategy, pruneWhitelist)
+	}
+	return c.applyPath(tmpDir, namespace, dryRunStrategy, pruneWhitelist)
 }
 
 // applyPath runs `kubectl apply -f <path>`
