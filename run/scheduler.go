@@ -13,7 +13,7 @@ type Scheduler struct {
 	PollInterval    time.Duration
 	FullRunInterval time.Duration
 	RepoPathFilters []string
-	RunQueue        chan<- bool
+	RunQueue        chan<- Type
 	Errors          chan<- error
 }
 
@@ -30,7 +30,7 @@ func (s *Scheduler) Start() {
 				select {
 				case <-fullRunTickerChan:
 					log.Logger.Info("Full run interval reached, queueing run", "interval", s.FullRunInterval)
-					s.enqueue(s.RunQueue)
+					s.enqueue(s.RunQueue, FullRun)
 				}
 			}
 		}()
@@ -50,7 +50,7 @@ func (s *Scheduler) Start() {
 			}
 			if newCommitHash != lastCommitHash {
 				log.Logger.Info("Queueing run", "newest-commit", newCommitHash, "last-commit", lastCommitHash)
-				s.enqueue(s.RunQueue)
+				s.enqueue(s.RunQueue, PartialRun)
 				lastCommitHash = newCommitHash
 			}
 		}
@@ -58,9 +58,9 @@ func (s *Scheduler) Start() {
 }
 
 // enqueue attempts to add a run to the queue, logging the result of the request.
-func (s *Scheduler) enqueue(runQueue chan<- bool) {
+func (s *Scheduler) enqueue(runQueue chan<- Type, t Type) {
 	select {
-	case runQueue <- true:
+	case runQueue <- t:
 		log.Logger.Info("Run queued")
 	default:
 		log.Logger.Info("Run queue is already full")

@@ -19,7 +19,7 @@ const serverTemplatePath = "templates/status.html"
 type WebServer struct {
 	ListenPort int
 	Clock      sysutil.ClockInterface
-	RunQueue   chan<- bool
+	RunQueue   chan<- run.Type
 	RunResults <-chan run.Result
 	Errors     chan<- error
 }
@@ -49,7 +49,7 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- bool
+	RunQueue chan<- run.Type
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
@@ -63,7 +63,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		select {
-		case f.RunQueue <- true:
+		case f.RunQueue <- run.FullRun:
 			log.Logger.Info("Run queued")
 		default:
 			log.Logger.Info("Run queue is already full")

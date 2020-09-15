@@ -12,6 +12,18 @@ import (
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
+// Type defines what kind of apply run is performed.
+type Type int
+
+const (
+	// FullRun indicates a full apply run across all directories.
+	FullRun Type = iota
+	// PartialRun indicates a partial apply run, considering only directories
+	// which have changed in the git repository since the last successful apply
+	// run.
+	PartialRun
+)
+
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	RepoPath        string
@@ -22,7 +34,7 @@ type Runner struct {
 	Metrics         metrics.PrometheusInterface
 	KubeClient      kube.ClientInterface
 	DiffURLFormat   string
-	RunQueue        <-chan bool
+	RunQueue        <-chan Type
 	RunResults      chan<- Result
 	Errors          chan<- error
 	lastAppliedHash map[string]string
@@ -33,8 +45,8 @@ func (r *Runner) Start() {
 	if r.lastAppliedHash == nil {
 		r.lastAppliedHash = make(map[string]string)
 	}
-	for range r.RunQueue {
-		newRun, err := r.run()
+	for t := range r.RunQueue {
+		newRun, err := r.run(t)
 		if err != nil {
 			r.Errors <- err
 			return
@@ -43,8 +55,9 @@ func (r *Runner) Start() {
 	}
 }
 
-// Run performs a full apply run, and returns a Result with data about the completed run (or nil if the run failed to complete).
-func (r *Runner) run() (*Result, error) {
+// Run performs an apply run of the specified type, and returns a Result with
+// data about the completed run (or nil if the run failed to complete).
+func (r *Runner) run(t Type) (*Result, error) {
 
 	start := r.Clock.Now()
 	log.Logger.Info("Started apply run", "start-time", start)
@@ -55,8 +68,9 @@ func (r *Runner) run() (*Result, error) {
 	}
 
 	dirs = r.pruneDirs(dirs)
-	dirs = r.pruneUnchangedDirs(dirs)
-
+	if t == PartialRun {
+		dirs = r.pruneUnchangedDirs(dirs)
+	}
 	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
