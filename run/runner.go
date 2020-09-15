@@ -25,11 +25,14 @@ type Runner struct {
 	RunQueue        <-chan bool
 	RunResults      chan<- Result
 	Errors          chan<- error
-	lastRunHash     string
+	lastAppliedHash map[string]string
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
+	if r.lastAppliedHash == nil {
+		r.lastAppliedHash = make(map[string]string)
+	}
 	for range r.RunQueue {
 		newRun, err := r.run()
 		if err != nil {
@@ -91,7 +94,9 @@ func (r *Runner) run() (*Result, error) {
 	r.Metrics.UpdateLastRunTimestamp(finish)
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
-	r.lastRunHash = hash
+	for _, s := range successes {
+		r.lastAppliedHash[s.FilePath] = hash
+	}
 	return &newRun, nil
 }
 
@@ -116,20 +121,21 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 }
 
 func (r *Runner) pruneUnchangedDirs(dirs []string) []string {
-	if r.lastRunHash == "" {
-		log.Logger.Info("No previous run recorded, applying everything")
-		return dirs
-	}
 	var prunedDirs []string
 	for _, dir := range dirs {
-		changed, err := r.GitUtil.HasChangesForPath(dir, r.lastRunHash)
-		if err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply", dir))
-			changed = true
+		if r.lastAppliedHash[dir] != "" {
+			changed, err := r.GitUtil.HasChangesForPath(dir, r.lastAppliedHash[dir])
+			if err != nil {
+				log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply: %v", dir, err))
+				changed = true
+			}
+			if !changed {
+				continue
+			}
+		} else {
+			log.Logger.Info(fmt.Sprintf("No previous apply recorded for '%s', forcing apply", dir))
 		}
-		if changed {
-			prunedDirs = append(prunedDirs, dir)
-		}
+		prunedDirs = append(prunedDirs, dir)
 	}
 	return prunedDirs
 }
