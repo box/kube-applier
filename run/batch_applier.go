@@ -50,11 +50,17 @@ type ApplyOptions struct {
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
 func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
+	successes := []ApplyAttempt{}
+	failures := []ApplyAttempt{}
+
+	if len(applyList) == 0 {
+		return successes, failures
+	}
+
 	if a.WorkerCount == 0 {
 		a.WorkerCount = defaultBatchApplierWorkerCount
 	}
-	successes := []ApplyAttempt{}
-	failures := []ApplyAttempt{}
+
 	wg := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 
