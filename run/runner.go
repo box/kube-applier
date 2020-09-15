@@ -25,6 +25,7 @@ type Runner struct {
 	RunQueue        <-chan bool
 	RunResults      chan<- Result
 	Errors          chan<- error
+	lastRunHash     string
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
@@ -51,6 +52,7 @@ func (r *Runner) run() (*Result, error) {
 	}
 
 	dirs = r.pruneDirs(dirs)
+	dirs = r.pruneUnchangedDirs(dirs)
 
 	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
@@ -89,6 +91,7 @@ func (r *Runner) run() (*Result, error) {
 	r.Metrics.UpdateLastRunTimestamp(finish)
 
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
+	r.lastRunHash = hash
 	return &newRun, nil
 }
 
@@ -109,5 +112,24 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 		}
 	}
 
+	return prunedDirs
+}
+
+func (r *Runner) pruneUnchangedDirs(dirs []string) []string {
+	if r.lastRunHash == "" {
+		log.Logger.Info("No previous run recorded, applying everything")
+		return dirs
+	}
+	var prunedDirs []string
+	for _, dir := range dirs {
+		changed, err := r.GitUtil.HasChangesForPath(dir, r.lastRunHash)
+		if err != nil {
+			log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply", dir))
+			changed = true
+		}
+		if changed {
+			prunedDirs = append(prunedDirs, dir)
+		}
+	}
 	return prunedDirs
 }
