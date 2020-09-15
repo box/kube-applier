@@ -38,6 +38,11 @@ func (r *Result) TotalFiles() int {
 	return len(r.Successes) + len(r.Failures)
 }
 
+// Finished returns true if the Result is from a finished apply run.
+func (r *Result) Finished() bool {
+	return !r.Finish.IsZero()
+}
+
 // LastCommitLink returns a URL for the most recent commit if the envar $DIFF_URL_FORMAT is specified, otherwise it returns empty string.
 func (r *Result) LastCommitLink() string {
 	if r.CommitHash == "" || r.DiffURLFormat == "" || !strings.Contains(r.DiffURLFormat, "%s") {
