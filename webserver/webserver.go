@@ -62,8 +62,14 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		runType := run.FullRun
+		if err := r.ParseForm(); err != nil {
+			log.Logger.Error("Could not parse form data, assuming full run.")
+		} else if r.FormValue("failed") == "true" {
+			runType = run.FailedRun
+		}
 		select {
-		case f.RunQueue <- run.FullRun:
+		case f.RunQueue <- runType:
 			log.Logger.Info("Run queued")
 		default:
 			log.Logger.Info("Run queue is already full")

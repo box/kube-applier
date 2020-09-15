@@ -22,6 +22,9 @@ const (
 	// which have changed in the git repository since the last successful apply
 	// run.
 	PartialRun
+	// FailedRun indicates a partial apply run, considering only directories
+	// which failed to apply in the last run.
+	FailedRun
 )
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
@@ -38,12 +41,16 @@ type Runner struct {
 	RunResults      chan<- Result
 	Errors          chan<- error
 	lastAppliedHash map[string]string
+	lastRunFailures []string
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
 	if r.lastAppliedHash == nil {
 		r.lastAppliedHash = make(map[string]string)
+	}
+	if r.lastRunFailures == nil {
+		r.lastRunFailures = make([]string, 0)
 	}
 	for t := range r.RunQueue {
 		newRun, err := r.run(t)
@@ -62,15 +69,21 @@ func (r *Runner) run(t Type) (*Result, error) {
 	start := r.Clock.Now()
 	log.Logger.Info("Started apply run", "start-time", start)
 
-	dirs, err := sysutil.ListDirs(r.RepoPath)
-	if err != nil {
-		return nil, err
+	var dirs []string
+	if t == FailedRun {
+		dirs = r.lastRunFailures
+	} else {
+		d, err := sysutil.ListDirs(r.RepoPath)
+		if err != nil {
+			return nil, err
+		}
+		d = r.pruneDirs(d)
+		if t == PartialRun {
+			d = r.pruneUnchangedDirs(d)
+		}
+		dirs = d
 	}
 
-	dirs = r.pruneDirs(dirs)
-	if t == PartialRun {
-		dirs = r.pruneUnchangedDirs(dirs)
-	}
 	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
@@ -110,6 +123,10 @@ func (r *Runner) run(t Type) (*Result, error) {
 	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat, t}
 	for _, s := range successes {
 		r.lastAppliedHash[s.FilePath] = hash
+	}
+	r.lastRunFailures = make([]string, len(failures))
+	for i, f := range failures {
+		r.lastRunFailures[i] = f.FilePath
 	}
 	return &newRun, nil
 }
