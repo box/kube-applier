@@ -35,6 +35,7 @@ func (m *MockClockInterface) EXPECT() *MockClockInterfaceMockRecorder {
 
 // Now mocks base method
 func (m *MockClockInterface) Now() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Now")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockClockInterface) Now() time.Time {
 
 // Now indicates an expected call of Now
 func (mr *MockClockInterfaceMockRecorder) Now() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Now", reflect.TypeOf((*MockClockInterface)(nil).Now))
 }
 
 // Since mocks base method
 func (m *MockClockInterface) Since(arg0 time.Time) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Since", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -54,15 +57,18 @@ func (m *MockClockInterface) Since(arg0 time.Time) time.Duration {
 
 // Since indicates an expected call of Since
 func (mr *MockClockInterfaceMockRecorder) Since(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Since", reflect.TypeOf((*MockClockInterface)(nil).Since), arg0)
 }
 
 // Sleep mocks base method
 func (m *MockClockInterface) Sleep(arg0 time.Duration) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Sleep", arg0)
 }
 
 // Sleep indicates an expected call of Sleep
 func (mr *MockClockInterfaceMockRecorder) Sleep(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sleep", reflect.TypeOf((*MockClockInterface)(nil).Sleep), arg0)
 }

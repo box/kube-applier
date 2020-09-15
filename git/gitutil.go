@@ -11,6 +11,7 @@ import (
 type UtilInterface interface {
 	HeadCommitLogForPaths(args ...string) (string, error)
 	HeadHashForPaths(args ...string) (string, error)
+	HasChangesForPath(path, sinceHash string) (bool, error)
 }
 
 // Util allows for fetching information about a Git repository using Git CLI
@@ -35,6 +36,17 @@ func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 	cmd = append(cmd, args...)
 	log, err := runGitCmd(g.RepoPath, cmd...)
 	return log, err
+}
+
+// HasChangesForPath returns true if changes have been committed since the
+// commit hash provided, under the specified path.
+func (g *Util) HasChangesForPath(path, sinceHash string) (bool, error) {
+	cmd := []string{"diff", "--quiet", sinceHash, "HEAD", "--", path}
+	_, err := runGitCmd(g.RepoPath, cmd...)
+	if _, ok := err.(*exec.ExitError); ok {
+		return true, nil
+	}
+	return false, err
 }
 
 func runGitCmd(dir string, args ...string) (string, error) {
