@@ -107,7 +107,7 @@ func (r *Runner) run(t Type) (*Result, error) {
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 	r.Metrics.UpdateLastRunTimestamp(finish)
 
-	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
+	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat, t}
 	for _, s := range successes {
 		r.lastAppliedHash[s.FilePath] = hash
 	}

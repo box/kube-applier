@@ -1,9 +1,10 @@
 package run
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type latencyTestCase struct {
@@ -98,5 +99,52 @@ func TestResultLastCommitLink(t *testing.T) {
 	for _, tc := range lastCommitLinkTestCases {
 		r := Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
 		assert.Equal(tc.ExpectedLink, r.LastCommitLink())
+	}
+}
+
+func TestResultPatch(t *testing.T) {
+	tNow := time.Now()
+	tLater := tNow.Add(time.Second)
+	testCases := []struct {
+		a        Result
+		b        Result
+		expected Result
+	}{
+		{
+			Result{},
+			Result{tNow, tNow, "foo", "bar", nil, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", nil, nil, "baz", 0},
+		},
+		{
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
+			Result{tLater, tLater, "foo", "bar", nil, nil, "baz", 0},
+			Result{tLater, tLater, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
+		},
+		{
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "bar", "", ""}}, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "bar", "", ""}}, nil, "baz", 0},
+		},
+		{
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/bar", "bar", "", ""}}, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}, {"/bar", "bar", "", ""}}, nil, "baz", 0},
+		},
+		{
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, []ApplyAttempt{{"/bar", "bar", "", ""}}, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/bar", "bar", "", ""}}, nil, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}, {"/bar", "bar", "", ""}}, []ApplyAttempt{}, "baz", 0},
+		},
+		{
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/0", "", "", ""}, {"/1", "", "", ""}}, []ApplyAttempt{{"/2", "", "", ""}, {"/3", "", "", ""}}, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/2", "", "", ""}}, []ApplyAttempt{{"/3", "", "", ""}}, "baz", 0},
+			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/0", "", "", ""}, {"/1", "", "", ""}, {"/2", "", "", ""}}, []ApplyAttempt{{"/3", "", "", ""}}, "baz", 0},
+		},
+	}
+	assert := assert.New(t)
+
+	for _, tc := range testCases {
+		tc.a.Patch(tc.b)
+		assert.Equal(tc.expected, tc.a)
 	}
 }

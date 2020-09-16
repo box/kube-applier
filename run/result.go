@@ -16,6 +16,7 @@ type Result struct {
 	Successes     []ApplyAttempt
 	Failures      []ApplyAttempt
 	DiffURLFormat string
+	Type          Type
 }
 
 // FormattedStart returns the Start time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
@@ -49,4 +50,43 @@ func (r *Result) LastCommitLink() string {
 		return ""
 	}
 	return fmt.Sprintf(r.DiffURLFormat, r.CommitHash)
+}
+
+// Patch updates the Result's attributes from the provided Result.
+func (r *Result) Patch(result Result) {
+	r.Start = result.Start
+	r.Finish = result.Finish
+	r.CommitHash = result.CommitHash
+	r.FullCommit = result.FullCommit
+	r.DiffURLFormat = result.DiffURLFormat
+	r.Type = result.Type
+	updateApplyAttemptSlice(&r.Successes, &r.Failures, result.Successes)
+	updateApplyAttemptSlice(&r.Failures, &r.Successes, result.Failures)
+}
+
+func updateApplyAttemptSlice(to, from *[]ApplyAttempt, r []ApplyAttempt) {
+	toAppend := []ApplyAttempt{}
+	for _, ra := range r {
+		found := false
+		for i, ta := range *to {
+			if ta.FilePath == ra.FilePath {
+				(*to)[i] = ra
+				found = true
+				break
+			}
+		}
+		if !found {
+			toAppend = append(toAppend, ra)
+		}
+		for i, fa := range *from {
+			if fa.FilePath == ra.FilePath {
+				for j := i; j < len(*from)-1; j++ {
+					(*from)[j] = (*from)[j+1]
+				}
+				*from = (*from)[:len(*from)-1]
+				break
+			}
+		}
+	}
+	*to = append(*to, toAppend...)
 }

@@ -114,7 +114,11 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			*lastRun = result
+			if result.Type == run.FullRun {
+				*lastRun = result
+			} else {
+				lastRun.Patch(result)
+			}
 		}
 	}()
 
