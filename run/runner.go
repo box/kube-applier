@@ -15,6 +15,19 @@ import (
 // Type defines what kind of apply run is performed.
 type Type int
 
+func (t Type) String() string {
+	switch t {
+	case FullRun:
+		return "Full run"
+	case PartialRun:
+		return "Partial run"
+	case FailedRun:
+		return "Failed-only run"
+	default:
+		return "Unknown run type"
+	}
+}
+
 const (
 	// FullRun indicates a full apply run across all directories.
 	FullRun Type = iota

@@ -32,6 +32,7 @@
                     <h3 class="panel-title">Last Run</h3>
                 </div>
                 <div class="panel-body">
+                    <strong>Type: {{ .Type.String }}</strong><br>
                     <strong>Started: {{ .FormattedStart }}</strong><br>
                     <strong>Finished: {{ .FormattedFinish }}</strong><br>
                     <strong>Latency: {{ .Latency }}</strong><br>
