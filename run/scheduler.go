@@ -13,7 +13,7 @@ type Scheduler struct {
 	PollInterval    time.Duration
 	FullRunInterval time.Duration
 	RepoPathFilters []string
-	RunQueue        chan<- Type
+	RunQueue        chan<- Request
 	Errors          chan<- error
 }
 
@@ -58,9 +58,9 @@ func (s *Scheduler) Start() {
 }
 
 // enqueue attempts to add a run to the queue, logging the result of the request.
-func (s *Scheduler) enqueue(runQueue chan<- Type, t Type) {
+func (s *Scheduler) enqueue(runQueue chan<- Request, t Type) {
 	select {
-	case runQueue <- t:
+	case runQueue <- Request{Type: t}:
 		log.Logger.Info("Run queued")
 	default:
 		log.Logger.Info("Run queue is already full")

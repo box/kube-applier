@@ -24,6 +24,7 @@ type ApplyAttempt struct {
 	Command      string
 	Output       string
 	ErrorMessage string
+	Run          Info
 }
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
@@ -170,13 +171,16 @@ func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt,
 		dryRunStrategy = "server"
 	}
 
-	var cmd, output string
-	cmd, output, err = a.KubectlClient.Apply(path, ns, dryRunStrategy, kustomize, pruneWhitelist)
-	appliedFile := ApplyAttempt{path, cmd, output, ""}
+	cmd, output, err := a.KubectlClient.Apply(path, ns, dryRunStrategy, kustomize, pruneWhitelist)
+	appliedFile := ApplyAttempt{
+		FilePath:     path,
+		Command:      cmd,
+		Output:       output,
+		ErrorMessage: "",
+	}
 	if err != nil {
 		appliedFile.ErrorMessage = err.Error()
 	}
-
 	return &appliedFile, err == nil
 }
 

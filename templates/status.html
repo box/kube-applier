@@ -11,7 +11,7 @@
 </head>
 <body>
     <h1 class="text-center">kube-applier</h1>
-    {{ if .Finished }}
+    {{ if .LastRun.Finished }}
     <div class="row">
         <div class="text-center">
             <div class="force-button-group btn-group">
@@ -32,12 +32,12 @@
                     <h3 class="panel-title">Last Run</h3>
                 </div>
                 <div class="panel-body">
-                    <strong>Type: {{ .Type.String }}</strong><br>
-                    <strong>Started: {{ .FormattedStart }}</strong><br>
-                    <strong>Finished: {{ .FormattedFinish }}</strong><br>
-                    <strong>Latency: {{ .Latency }}</strong><br>
-                    <strong>Last Commit {{ if .LastCommitLink }}<a href="{{ .LastCommitLink }}">(see diff)</a>{{ end }}</strong>
-                    <p><pre class="commit">{{ .FullCommit }}</pre></p>
+                    <strong>Type: {{ .LastRun.Type.String }}</strong><br>
+                    <strong>Started: {{ .LastRun.FormattedStart }}</strong><br>
+                    <strong>Finished: {{ .LastRun.FormattedFinish }}</strong><br>
+                    <strong>Latency: {{ .LastRun.Latency }}</strong><br>
+                    <strong>Last Commit {{ if .LastRun.LastCommitLink }}<a href="{{ .LastRun.LastCommitLink }}">(see diff)</a>{{ end }}</strong>
+                    <p><pre class="commit">{{ .LastRun.FullCommit }}</pre></p>
                 </div>
             </div>
         </div>
@@ -62,6 +62,12 @@
                             </div>
                             <div id="failure-{{$i}}" class="panel-collapse collapse">
                                 <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <div class="row">
+                                            <div class="col-md-10"><pre>{{ $file.Run.Type.String }} at commit <a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a> started at {{ $file.Run.FormattedStart }}</pre></div>
+                                            <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                        </div>
+                                    </li>
                                     <li class="list-group-item">
                                         <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}{{ $file.ErrorMessage }}</pre>
                                     </li>
@@ -89,11 +95,17 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    {{ $file.FilePath }}
+                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.FilePath }}</a>
                                 </div>
                             </div>
-                            <div class="panel-collapse">
+                            <div id="success-{{$i}}" class="panel-collapse collapse">
                                 <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <div class="row">
+                                            <div class="col-md-10"><pre>{{ $file.Run.Type.String }} at commit <a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a> started at {{ $file.Run.FormattedStart }}</pre></div>
+                                            <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                        </div>
+                                    </li>
                                     <li class="list-group-item">
                                         <pre class="file-output">{{ printf "$ %s\n" $file.Command }}{{ $file.Output }}</pre>
                                     </li>

@@ -122,7 +122,7 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 
 //**** Tests for Force Run Handler ****
 func TestForceRunHandlerServeHTTP(t *testing.T) {
-	runQueue := make(chan run.Type, 1)
+	runQueue := make(chan run.Request, 1)
 	handler := ForceRunHandler{
 		runQueue,
 	}

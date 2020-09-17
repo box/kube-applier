@@ -29,8 +29,8 @@ var latencyTestCases = []latencyTestCase{
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range latencyTestCases {
-		r := Result{Start: tc.Start, Finish: tc.Finish}
-		assert.Equal(tc.Expected, r.Latency())
+		r := Result{LastRun: Info{Start: tc.Start, Finish: tc.Finish}}
+		assert.Equal(tc.Expected, r.LastRun.Latency())
 	}
 }
 
@@ -97,14 +97,16 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
-		assert.Equal(tc.ExpectedLink, r.LastCommitLink())
+		r := Result{LastRun: Info{CommitHash: tc.CommitHash, DiffURLFormat: tc.DiffURLFormat}}
+		assert.Equal(tc.ExpectedLink, r.LastRun.LastCommitLink())
 	}
 }
 
 func TestResultPatch(t *testing.T) {
 	tNow := time.Now()
 	tLater := tNow.Add(time.Second)
+	infoA := Info{tNow, tNow, "foo", "bar", "", 0}
+	infoB := Info{tLater, tLater, "foo", "bar", "", 0}
 	testCases := []struct {
 		a        Result
 		b        Result
@@ -112,33 +114,33 @@ func TestResultPatch(t *testing.T) {
 	}{
 		{
 			Result{},
-			Result{tNow, tNow, "foo", "bar", nil, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", nil, nil, "baz", 0},
+			Result{infoA, nil, nil},
+			Result{infoA, nil, nil},
 		},
 		{
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
-			Result{tLater, tLater, "foo", "bar", nil, nil, "baz", 0},
-			Result{tLater, tLater, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, nil, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
 		},
 		{
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "bar", "", ""}}, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "bar", "", ""}}, nil, "baz", 0},
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "bar", "", "", infoB}}, nil},
 		},
 		{
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/bar", "bar", "", ""}}, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}, {"/bar", "bar", "", ""}}, nil, "baz", 0},
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, []ApplyAttempt{{"/bar", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}, {"/bar", "bar", "", "", infoB}}, nil},
 		},
 		{
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}}, []ApplyAttempt{{"/bar", "bar", "", ""}}, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/bar", "bar", "", ""}}, nil, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/foo", "foo", "", ""}, {"/bar", "bar", "", ""}}, []ApplyAttempt{}, "baz", 0},
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, []ApplyAttempt{{"/bar", "bar", "", "", infoA}}},
+			Result{infoB, []ApplyAttempt{{"/bar", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}, {"/bar", "bar", "", "", infoB}}, []ApplyAttempt{}},
 		},
 		{
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/0", "", "", ""}, {"/1", "", "", ""}}, []ApplyAttempt{{"/2", "", "", ""}, {"/3", "", "", ""}}, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/2", "", "", ""}}, []ApplyAttempt{{"/3", "", "", ""}}, "baz", 0},
-			Result{tNow, tNow, "foo", "bar", []ApplyAttempt{{"/0", "", "", ""}, {"/1", "", "", ""}, {"/2", "", "", ""}}, []ApplyAttempt{{"/3", "", "", ""}}, "baz", 0},
+			Result{infoA, []ApplyAttempt{{"/0", "", "", "", infoA}, {"/1", "", "", "", infoA}}, []ApplyAttempt{{"/2", "", "", "", infoA}, {"/3", "", "", "", infoA}}},
+			Result{infoB, []ApplyAttempt{{"/2", "", "", "", infoB}}, []ApplyAttempt{{"/3", "", "", "", infoB}}},
+			Result{infoB, []ApplyAttempt{{"/0", "", "", "", infoA}, {"/1", "", "", "", infoA}, {"/2", "", "", "", infoB}}, []ApplyAttempt{{"/3", "", "", "", infoB}}},
 		},
 	}
 	assert := assert.New(t)

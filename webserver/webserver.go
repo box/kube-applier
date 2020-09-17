@@ -19,7 +19,7 @@ const serverTemplatePath = "templates/status.html"
 type WebServer struct {
 	ListenPort int
 	Clock      sysutil.ClockInterface
-	RunQueue   chan<- run.Type
+	RunQueue   chan<- run.Request
 	RunResults <-chan run.Result
 	Errors     chan<- error
 }
@@ -49,7 +49,7 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- run.Type
+	RunQueue chan<- run.Request
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
@@ -62,14 +62,17 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		runType := run.FullRun
+		runRequest := run.Request{Type: run.FullRun}
 		if err := r.ParseForm(); err != nil {
 			log.Logger.Error("Could not parse form data, assuming full run.")
 		} else if r.FormValue("failed") == "true" {
-			runType = run.FailedRun
+			runRequest.Type = run.FailedRun
+		} else if v := r.FormValue("path"); v != "" {
+			runRequest.Type = run.DirectoryRun
+			runRequest.Args = v
 		}
 		select {
-		case f.RunQueue <- runType:
+		case f.RunQueue <- runRequest:
 			log.Logger.Info("Run queued")
 		default:
 			log.Logger.Info("Run queue is already full")
@@ -120,7 +123,7 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			if result.Type == run.FullRun {
+			if result.LastRun.Type == run.FullRun {
 				*lastRun = result
 			} else {
 				lastRun.Patch(result)
