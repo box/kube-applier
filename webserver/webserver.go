@@ -40,8 +40,8 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Template.Execute(w, s.Data); err != nil {
-		http.Error(w, "Error: Unable to load HTML template", http.StatusInternalServerError)
-		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String())
+		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
+		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
 	}
 	log.Logger.Info("Request completed successfully", "time", s.Clock.Now().String())

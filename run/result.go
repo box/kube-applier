@@ -2,6 +2,7 @@ package run
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -42,6 +43,11 @@ func (i Info) Latency() string {
 // Finished returns true if the Result is from a finished apply run.
 func (i Info) Finished() bool {
 	return !i.Finish.IsZero()
+}
+
+// Equal checks whether the Info struct is equal to another.
+func (i Info) Equal(info Info) bool {
+	return reflect.DeepEqual(i, info)
 }
 
 // LastCommitLink returns a URL for the most recent commit if the envar $DIFF_URL_FORMAT is specified, otherwise it returns empty string.
