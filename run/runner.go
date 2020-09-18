@@ -81,7 +81,9 @@ func (r *Runner) Start() {
 			r.Errors <- err
 			return
 		}
-		r.RunResults <- *newRun
+		if newRun != nil {
+			r.RunResults <- *newRun
+		}
 	}
 }
 
@@ -113,7 +115,8 @@ func (r *Runner) run(t Request) (*Result, error) {
 				}
 			}
 			if !valid {
-				return nil, fmt.Errorf("Invalid path '%s'", t.Args.(string))
+				log.Logger.Error(fmt.Sprintf("Invalid path '%s' requested, ignoring", t.Args.(string)))
+				return nil, nil
 			}
 		}
 		dirs = d
