@@ -30,7 +30,7 @@ func (s *Scheduler) Start() {
 				select {
 				case <-fullRunTickerChan:
 					log.Logger.Info("Full run interval reached, queueing run", "interval", s.FullRunInterval)
-					s.enqueue(s.RunQueue, FullRun)
+					s.enqueue(s.RunQueue, ScheduledFullRun)
 				}
 			}
 		}()

@@ -62,13 +62,13 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		runRequest := run.Request{Type: run.FullRun}
+		runRequest := run.Request{Type: run.ForcedFullRun}
 		if err := r.ParseForm(); err != nil {
 			log.Logger.Error("Could not parse form data, assuming full run.")
 		} else if r.FormValue("failed") == "true" {
-			runRequest.Type = run.FailedRun
+			runRequest.Type = run.FailedOnlyRun
 		} else if v := r.FormValue("path"); v != "" {
-			runRequest.Type = run.DirectoryRun
+			runRequest.Type = run.SingleDirectoryRun
 			runRequest.Args = v
 		}
 		select {
@@ -123,11 +123,7 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			if result.LastRun.Type == run.FullRun {
-				*lastRun = result
-			} else {
-				lastRun.Patch(result)
-			}
+			lastRun.Patch(result)
 		}
 	}()
 
