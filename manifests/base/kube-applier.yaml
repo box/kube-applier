@@ -80,7 +80,7 @@ spec:
               memory: 25Mi
             limits:
               cpu: 500m
-              memory: 200Mi
+              memory: 400Mi
           ports:
             - containerPort: 8080
         - name: git-sync
