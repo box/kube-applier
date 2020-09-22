@@ -60,7 +60,7 @@
                                     <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.FilePath }}</a>
                                 </div>
                             </div>
-                            <div id="failure-{{$i}}" class="panel-collapse">
+                            <div id="failure-{{$i}}" class="panel-collapse collapse in">
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
@@ -98,7 +98,7 @@
                                     <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.FilePath }}</a>
                                 </div>
                             </div>
-                            <div id="success-{{$i}}" class="panel-collapse {{ if not ($.LastRun.Equal $file.Run) }}collapse{{ end }}">
+                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.LastRun.Equal $file.Run }}in{{ end }}">
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
