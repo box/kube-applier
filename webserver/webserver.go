@@ -19,7 +19,7 @@ const serverTemplatePath = "templates/status.html"
 type WebServer struct {
 	ListenPort int
 	Clock      sysutil.ClockInterface
-	RunQueue   chan<- bool
+	RunQueue   chan<- run.Request
 	RunResults <-chan run.Result
 	Errors     chan<- error
 }
@@ -40,8 +40,8 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Template.Execute(w, s.Data); err != nil {
-		http.Error(w, "Error: Unable to load HTML template", http.StatusInternalServerError)
-		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String())
+		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
+		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
 	}
 	log.Logger.Info("Request completed successfully", "time", s.Clock.Now().String())
@@ -49,7 +49,7 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- bool
+	RunQueue chan<- run.Request
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
@@ -62,8 +62,17 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		runRequest := run.Request{Type: run.FullRun}
+		if err := r.ParseForm(); err != nil {
+			log.Logger.Error("Could not parse form data, assuming full run.")
+		} else if r.FormValue("failed") == "true" {
+			runRequest.Type = run.FailedRun
+		} else if v := r.FormValue("path"); v != "" {
+			runRequest.Type = run.DirectoryRun
+			runRequest.Args = v
+		}
 		select {
-		case f.RunQueue <- true:
+		case f.RunQueue <- runRequest:
 			log.Logger.Info("Run queued")
 		default:
 			log.Logger.Info("Run queue is already full")
@@ -114,7 +123,11 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			*lastRun = result
+			if result.LastRun.Type == run.FullRun {
+				*lastRun = result
+			} else {
+				lastRun.Patch(result)
+			}
 		}
 	}()
 

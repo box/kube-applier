@@ -181,7 +181,7 @@ func main() {
 
 	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 	// Only 1 pending request may sit in the queue at a time.
-	runQueue := make(chan bool, 1)
+	runQueue := make(chan run.Request, 1)
 
 	// Runner sends run results to runResults channel, webserver receives the results and displays them.
 	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.

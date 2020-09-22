@@ -12,6 +12,44 @@ import (
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
+// Request defines an apply run request
+type Request struct {
+	Type Type
+	Args interface{}
+}
+
+// Type defines what kind of apply run is performed.
+type Type int
+
+func (t Type) String() string {
+	switch t {
+	case FullRun:
+		return "Full run"
+	case PartialRun:
+		return "Partial run"
+	case FailedRun:
+		return "Failed-only run"
+	case DirectoryRun:
+		return "Single directory run"
+	default:
+		return "Unknown run type"
+	}
+}
+
+const (
+	// FullRun indicates a full apply run across all directories.
+	FullRun Type = iota
+	// PartialRun indicates a partial apply run, considering only directories
+	// which have changed in the git repository since the last successful apply
+	// run.
+	PartialRun
+	// FailedRun indicates a partial apply run, considering only directories
+	// which failed to apply in the last run.
+	FailedRun
+	// DirectoryRun indicates a partial apply run for a single directory
+	DirectoryRun
+)
+
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	RepoPath        string
@@ -22,35 +60,67 @@ type Runner struct {
 	Metrics         metrics.PrometheusInterface
 	KubeClient      kube.ClientInterface
 	DiffURLFormat   string
-	RunQueue        <-chan bool
+	RunQueue        <-chan Request
 	RunResults      chan<- Result
 	Errors          chan<- error
+	lastAppliedHash map[string]string
+	lastRunFailures []string
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
-	for range r.RunQueue {
-		newRun, err := r.run()
+	if r.lastAppliedHash == nil {
+		r.lastAppliedHash = make(map[string]string)
+	}
+	if r.lastRunFailures == nil {
+		r.lastRunFailures = make([]string, 0)
+	}
+	for t := range r.RunQueue {
+		newRun, err := r.run(t)
 		if err != nil {
 			r.Errors <- err
 			return
 		}
-		r.RunResults <- *newRun
+		if newRun != nil {
+			r.RunResults <- *newRun
+		}
 	}
 }
 
-// Run performs a full apply run, and returns a Result with data about the completed run (or nil if the run failed to complete).
-func (r *Runner) run() (*Result, error) {
-
+// Run executes the requested apply run, and returns a Result with data about
+// the completed run (or nil if the run failed to complete).
+func (r *Runner) run(t Request) (*Result, error) {
 	start := r.Clock.Now()
 	log.Logger.Info("Started apply run", "start-time", start)
 
-	dirs, err := sysutil.ListDirs(r.RepoPath)
-	if err != nil {
-		return nil, err
-	}
+	var dirs []string
+	if t.Type == FailedRun {
+		dirs = r.lastRunFailures
+	} else {
+		d, err := sysutil.ListDirs(r.RepoPath)
+		if err != nil {
+			return nil, err
+		}
+		d = r.pruneDirs(d)
 
-	dirs = r.pruneDirs(dirs)
+		if t.Type == PartialRun {
+			d = r.pruneUnchangedDirs(d)
+		} else if t.Type == DirectoryRun {
+			valid := false
+			for _, v := range d {
+				if v == t.Args.(string) {
+					d = []string{v}
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				log.Logger.Error(fmt.Sprintf("Invalid path '%s' requested, ignoring", t.Args.(string)))
+				return nil, nil
+			}
+		}
+		dirs = d
+	}
 
 	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
@@ -88,7 +158,32 @@ func (r *Runner) run() (*Result, error) {
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 	r.Metrics.UpdateLastRunTimestamp(finish)
 
-	newRun := Result{start, finish, hash, commitLog, successes, failures, r.DiffURLFormat}
+	runInfo := Info{
+		Start:         start,
+		Finish:        finish,
+		CommitHash:    hash,
+		FullCommit:    commitLog,
+		DiffURLFormat: r.DiffURLFormat,
+		Type:          t.Type,
+	}
+	for i := range successes {
+		successes[i].Run = runInfo
+	}
+	for i := range failures {
+		failures[i].Run = runInfo
+	}
+	newRun := Result{
+		LastRun:   runInfo,
+		Successes: successes,
+		Failures:  failures,
+	}
+	for _, s := range successes {
+		r.lastAppliedHash[s.FilePath] = hash
+	}
+	r.lastRunFailures = make([]string, len(failures))
+	for i, f := range failures {
+		r.lastRunFailures[i] = f.FilePath
+	}
 	return &newRun, nil
 }
 
@@ -109,5 +204,25 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 		}
 	}
 
+	return prunedDirs
+}
+
+func (r *Runner) pruneUnchangedDirs(dirs []string) []string {
+	var prunedDirs []string
+	for _, dir := range dirs {
+		if r.lastAppliedHash[dir] != "" {
+			changed, err := r.GitUtil.HasChangesForPath(dir, r.lastAppliedHash[dir])
+			if err != nil {
+				log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply: %v", dir, err))
+				changed = true
+			}
+			if !changed {
+				continue
+			}
+		} else {
+			log.Logger.Info(fmt.Sprintf("No previous apply recorded for '%s', forcing apply", dir))
+		}
+		prunedDirs = append(prunedDirs, dir)
+	}
 	return prunedDirs
 }

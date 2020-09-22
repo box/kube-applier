@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/utilitywarehouse/kube-applier/log"
+	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 
 	"github.com/golang/mock/gomock"
@@ -121,7 +122,7 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 
 //**** Tests for Force Run Handler ****
 func TestForceRunHandlerServeHTTP(t *testing.T) {
-	runQueue := make(chan bool, 1)
+	runQueue := make(chan run.Request, 1)
 	handler := ForceRunHandler{
 		runQueue,
 	}

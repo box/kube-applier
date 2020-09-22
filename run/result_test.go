@@ -1,9 +1,10 @@
 package run
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type latencyTestCase struct {
@@ -28,8 +29,8 @@ var latencyTestCases = []latencyTestCase{
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range latencyTestCases {
-		r := Result{Start: tc.Start, Finish: tc.Finish}
-		assert.Equal(tc.Expected, r.Latency())
+		r := Result{LastRun: Info{Start: tc.Start, Finish: tc.Finish}}
+		assert.Equal(tc.Expected, r.LastRun.Latency())
 	}
 }
 
@@ -96,7 +97,56 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{DiffURLFormat: tc.DiffURLFormat, CommitHash: tc.CommitHash}
-		assert.Equal(tc.ExpectedLink, r.LastCommitLink())
+		r := Result{LastRun: Info{CommitHash: tc.CommitHash, DiffURLFormat: tc.DiffURLFormat}}
+		assert.Equal(tc.ExpectedLink, r.LastRun.LastCommitLink())
+	}
+}
+
+func TestResultPatch(t *testing.T) {
+	tNow := time.Now()
+	tLater := tNow.Add(time.Second)
+	infoA := Info{tNow, tNow, "foo", "bar", "", 0}
+	infoB := Info{tLater, tLater, "foo", "bar", "", 0}
+	testCases := []struct {
+		a        Result
+		b        Result
+		expected Result
+	}{
+		{
+			Result{},
+			Result{infoA, nil, nil},
+			Result{infoA, nil, nil},
+		},
+		{
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, nil, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+		},
+		{
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "bar", "", "", infoB}}, nil},
+		},
+		{
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, nil},
+			Result{infoB, []ApplyAttempt{{"/bar", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}, {"/bar", "bar", "", "", infoB}}, nil},
+		},
+		{
+			Result{infoA, []ApplyAttempt{{"/foo", "foo", "", "", infoA}}, []ApplyAttempt{{"/bar", "bar", "", "", infoA}}},
+			Result{infoB, []ApplyAttempt{{"/bar", "bar", "", "", infoB}}, nil},
+			Result{infoB, []ApplyAttempt{{"/foo", "foo", "", "", infoA}, {"/bar", "bar", "", "", infoB}}, []ApplyAttempt{}},
+		},
+		{
+			Result{infoA, []ApplyAttempt{{"/0", "", "", "", infoA}, {"/1", "", "", "", infoA}}, []ApplyAttempt{{"/2", "", "", "", infoA}, {"/3", "", "", "", infoA}}},
+			Result{infoB, []ApplyAttempt{{"/2", "", "", "", infoB}}, []ApplyAttempt{{"/3", "", "", "", infoB}}},
+			Result{infoB, []ApplyAttempt{{"/0", "", "", "", infoA}, {"/1", "", "", "", infoA}, {"/2", "", "", "", infoB}}, []ApplyAttempt{{"/3", "", "", "", infoB}}},
+		},
+	}
+	assert := assert.New(t)
+
+	for _, tc := range testCases {
+		tc.a.Patch(tc.b)
+		assert.Equal(tc.expected, tc.a)
 	}
 }

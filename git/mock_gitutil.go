@@ -34,6 +34,7 @@ func (m *MockUtilInterface) EXPECT() *MockUtilInterfaceMockRecorder {
 
 // HeadCommitLogForPaths mocks base method
 func (m *MockUtilInterface) HeadCommitLogForPaths(args ...string) (string, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range args {
 		varargs = append(varargs, a)
@@ -46,11 +47,13 @@ func (m *MockUtilInterface) HeadCommitLogForPaths(args ...string) (string, error
 
 // HeadCommitLogForPaths indicates an expected call of HeadCommitLogForPaths
 func (mr *MockUtilInterfaceMockRecorder) HeadCommitLogForPaths(args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadCommitLogForPaths", reflect.TypeOf((*MockUtilInterface)(nil).HeadCommitLogForPaths), args...)
 }
 
 // HeadHashForPaths mocks base method
 func (m *MockUtilInterface) HeadHashForPaths(args ...string) (string, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range args {
 		varargs = append(varargs, a)
@@ -63,5 +66,21 @@ func (m *MockUtilInterface) HeadHashForPaths(args ...string) (string, error) {
 
 // HeadHashForPaths indicates an expected call of HeadHashForPaths
 func (mr *MockUtilInterfaceMockRecorder) HeadHashForPaths(args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadHashForPaths", reflect.TypeOf((*MockUtilInterface)(nil).HeadHashForPaths), args...)
+}
+
+// HasChangesForPath mocks base method
+func (m *MockUtilInterface) HasChangesForPath(path, sinceHash string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasChangesForPath", path, sinceHash)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasChangesForPath indicates an expected call of HasChangesForPath
+func (mr *MockUtilInterfaceMockRecorder) HasChangesForPath(path, sinceHash interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasChangesForPath", reflect.TypeOf((*MockUtilInterface)(nil).HasChangesForPath), path, sinceHash)
 }
