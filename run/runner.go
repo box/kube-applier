@@ -23,13 +23,15 @@ type Type int
 
 func (t Type) String() string {
 	switch t {
-	case FullRun:
-		return "Full run"
+	case ScheduledFullRun:
+		return "Scheduled full run"
+	case ForcedFullRun:
+		return "Forced full run"
 	case PartialRun:
-		return "Partial run"
-	case FailedRun:
+		return "Git polling partial run"
+	case FailedOnlyRun:
 		return "Failed-only run"
-	case DirectoryRun:
+	case SingleDirectoryRun:
 		return "Single directory run"
 	default:
 		return "Unknown run type"
@@ -37,17 +39,21 @@ func (t Type) String() string {
 }
 
 const (
-	// FullRun indicates a full apply run across all directories.
-	FullRun Type = iota
+	// ScheduledFullRun indicates a scheduled, full apply run across all
+	// directories.
+	ScheduledFullRun Type = iota
+	// ForcedFullRun indicates a forced (triggered on the UI), full apply run
+	// across all directories.
+	ForcedFullRun
 	// PartialRun indicates a partial apply run, considering only directories
 	// which have changed in the git repository since the last successful apply
 	// run.
 	PartialRun
-	// FailedRun indicates a partial apply run, considering only directories
+	// FailedOnlyRun indicates a partial apply run, considering only directories
 	// which failed to apply in the last run.
-	FailedRun
-	// DirectoryRun indicates a partial apply run for a single directory
-	DirectoryRun
+	FailedOnlyRun
+	// SingleDirectoryRun indicates a partial apply run for a single directory.
+	SingleDirectoryRun
 )
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
@@ -94,7 +100,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 	log.Logger.Info("Started apply run", "start-time", start)
 
 	var dirs []string
-	if t.Type == FailedRun {
+	if t.Type == FailedOnlyRun {
 		dirs = r.lastRunFailures
 	} else {
 		d, err := sysutil.ListDirs(r.RepoPath)
@@ -105,7 +111,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 
 		if t.Type == PartialRun {
 			d = r.pruneUnchangedDirs(d)
-		} else if t.Type == DirectoryRun {
+		} else if t.Type == SingleDirectoryRun {
 			valid := false
 			for _, v := range d {
 				if v == t.Args.(string) {
