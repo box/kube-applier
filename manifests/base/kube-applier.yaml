@@ -56,7 +56,7 @@ spec:
               mountPath: /root/
       containers:
         - name: kube-applier
-          image: quay.io/utilitywarehouse/kube-applier:2.5.0
+          image: quay.io/utilitywarehouse/kube-applier:2.5.1
           env:
             - name: NAMESPACES_DIR
               value: "base"
@@ -80,7 +80,7 @@ spec:
               memory: 25Mi
             limits:
               cpu: 500m
-              memory: 200Mi
+              memory: 400Mi
           ports:
             - containerPort: 8080
         - name: git-sync

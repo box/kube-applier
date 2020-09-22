@@ -162,7 +162,7 @@ namespace:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.5.0
+- github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.5.1
 ```
 
 and patch as per example:
