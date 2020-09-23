@@ -3,6 +3,7 @@ package run
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
@@ -38,6 +39,12 @@ type batchTestCase struct {
 	expectedFailures  []ApplyAttempt
 }
 
+type zeroClock struct{}
+
+func (c *zeroClock) Now() time.Time                  { return time.Time{} }
+func (c *zeroClock) Since(t time.Time) time.Duration { return time.Duration(0) }
+func (c *zeroClock) Sleep(d time.Duration)           {}
+
 func TestBatchApplierApply(t *testing.T) {
 	log.InitLogger("info")
 	mockCtrl := gomock.NewController(t)
@@ -53,6 +60,7 @@ func TestBatchApplierApply(t *testing.T) {
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 		},
 		[]string{},
 		testApplyOptions,
@@ -89,15 +97,16 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
-		{"file3", "cmd file3", "output file3", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 		},
 		applyList,
 		testApplyOptions,
@@ -134,15 +143,16 @@ func TestBatchApplierApplyFail(t *testing.T) {
 		expectFailureMetric("file3", metrics),
 	)
 	failures := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "error file1", Info{}},
-		{"file2", "cmd file2", "output file2", "error file2", Info{}},
-		{"file3", "cmd file3", "output file3", "error file3", Info{}},
+		{"file1", "cmd file1", "output file1", "error file1", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "error file2", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd file3", "output file3", "error file3", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 		},
 		applyList,
 		testApplyOptions,
@@ -184,18 +194,19 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 		expectFailureMetric("file4", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file3", "cmd file3", "output file3", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	failures := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "error file2", Info{}},
-		{"file4", "cmd file4", "output file4", "error file4", Info{}},
+		{"file2", "cmd file2", "output file2", "error file2", Info{}, time.Time{}, time.Time{}},
+		{"file4", "cmd file4", "output file4", "error file4", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 		},
 		applyList,
 		testApplyOptions,
@@ -233,15 +244,16 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
-		{"file3", "cmd file3", "output file3", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        true,
 		},
 		applyList,
@@ -279,15 +291,16 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 		expectSuccessMetric("repo/file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"repo/file1", "cmd repo/file1", "output repo/file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
-		{"repo/file3", "cmd repo/file3", "output repo/file3", "", Info{}},
+		{"repo/file1", "cmd repo/file1", "output repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"repo/file3", "cmd repo/file3", "output repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -325,15 +338,16 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
-		{"file3", "cmd file3", "output file3", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        true,
 		},
 		applyList,
@@ -367,13 +381,14 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "", Info{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -407,13 +422,14 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "", Info{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -445,14 +461,15 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -479,13 +496,14 @@ func TestBatchApplierApplySuccessPruneClusterResources(t *testing.T) {
 		expectSuccessMetric("file1", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -517,14 +535,15 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient: kubectlClient,
 			KubeClient:    kubeClient,
 			Metrics:       metrics,
+			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
 		applyList,
@@ -564,14 +583,15 @@ func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}},
-		{"file2", "cmd file2", "output file2", "", Info{}},
+		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
 			KubectlClient:  kubectlClient,
 			KubeClient:     kubeClient,
 			Metrics:        metrics,
+			Clock:          &zeroClock{},
 			DryRun:         false,
 			PruneBlacklist: pruneBlacklist,
 		},

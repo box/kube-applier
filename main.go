@@ -170,6 +170,7 @@ func main() {
 		PruneBlacklist: pruneBlacklistSlice,
 		KubeClient:     kubeClient,
 		KubectlClient:  kubectlClient,
+		Clock:          clock,
 		DryRun:         dr,
 		Metrics:        metrics,
 		WorkerCount:    batchApplierWorkerCount,

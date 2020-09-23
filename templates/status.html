@@ -32,11 +32,11 @@
                     <h3 class="panel-title">Last Run</h3>
                 </div>
                 <div class="panel-body">
-                    <strong>Type: {{ .LastRun.Type.String }}</strong><br>
-                    <strong>Started: {{ .LastRun.FormattedStart }}</strong><br>
-                    <strong>Finished: {{ .LastRun.FormattedFinish }}</strong><br>
-                    <strong>Latency: {{ .LastRun.Latency }}</strong><br>
-                    <strong>Last Commit {{ if .LastRun.LastCommitLink }}<a href="{{ .LastRun.LastCommitLink }}">(see diff)</a>{{ end }}</strong>
+                    <strong>Type: </strong>{{ .LastRun.Type.String }}<br>
+                    <strong>Started: </strong>{{ .LastRun.FormattedStart }}<br>
+                    <strong>Finished: </strong>{{ .LastRun.FormattedFinish }}<br>
+                    <strong>Latency: </strong>{{ .LastRun.Latency }}<br>
+                    <strong>Last Commit: </strong>{{ if .LastRun.LastCommitLink }}<a href="{{ .LastRun.LastCommitLink }}">{{ .LastRun.CommitHash }}</a>{{ end }}
                     <p><pre class="commit">{{ .LastRun.FullCommit }}</pre></p>
                 </div>
             </div>
@@ -64,7 +64,11 @@
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
-                                            <div class="col-md-10"><pre>{{ $file.Run.Type.String }} at commit <a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a> started at {{ $file.Run.FormattedStart }}</pre></div>
+                                            <div class="col-md-10">
+                                                <strong>Applied by: </strong>{{ $file.Run.Type.String }} (started at {{ $file.Run.FormattedStart }})<br/>
+                                                <strong>Commit: </strong> {{ if $file.Run.LastCommitLink }}<a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a>{{ end }}<br/>
+                                                <strong>Finished: </strong>{{ $file.FormattedFinish }} (took {{ $file.Latency }})
+                                            </div>
                                             <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
                                         </div>
                                     </li>
@@ -102,7 +106,11 @@
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
-                                            <div class="col-md-10"><pre>{{ $file.Run.Type.String }} at commit <a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a> started at {{ $file.Run.FormattedStart }}</pre></div>
+                                            <div class="col-md-10">
+                                                <strong>Applied by: </strong>{{ $file.Run.Type.String }} (started at {{ $file.Run.FormattedStart }})<br/>
+                                                <strong>Commit: </strong> {{ if $file.Run.LastCommitLink }}<a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a>{{ end }}<br/>
+                                                <strong>Finished: </strong>{{ $file.FormattedFinish }} (took {{ $file.Latency }})
+                                            </div>
                                             <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
                                         </div>
                                     </li>
