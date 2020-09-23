@@ -7,11 +7,13 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
 const (
@@ -25,6 +27,24 @@ type ApplyAttempt struct {
 	Output       string
 	ErrorMessage string
 	Run          Info
+	Start        time.Time
+	Finish       time.Time
+}
+
+// FormattedStart returns the Start time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
+func (a ApplyAttempt) FormattedStart() string {
+	return a.Start.Truncate(time.Second).String()
+}
+
+// FormattedFinish returns the Finish time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
+func (a ApplyAttempt) FormattedFinish() string {
+	return a.Finish.Truncate(time.Second).String()
+}
+
+// Latency returns the latency for the apply task in seconds, truncated to 3
+// decimal places.
+func (a ApplyAttempt) Latency() string {
+	return fmt.Sprintf("%.3f sec", a.Finish.Sub(a.Start).Seconds())
 }
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
@@ -37,6 +57,7 @@ type BatchApplier struct {
 	KubeClient     kube.ClientInterface
 	KubectlClient  kubectl.ClientInterface
 	Metrics        metrics.PrometheusInterface
+	Clock          sysutil.ClockInterface
 	DryRun         bool
 	PruneBlacklist []string
 	WorkerCount    int
@@ -105,6 +126,7 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 }
 
 func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt, bool) {
+	start := a.Clock.Now()
 	log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 	ns := filepath.Base(path)
 	kaa, err := a.KubeClient.NamespaceAnnotations(ns)
@@ -172,11 +194,15 @@ func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt,
 	}
 
 	cmd, output, err := a.KubectlClient.Apply(path, ns, dryRunStrategy, kustomize, pruneWhitelist)
+	finish := a.Clock.Now()
+
 	appliedFile := ApplyAttempt{
 		FilePath:     path,
 		Command:      cmd,
 		Output:       output,
 		ErrorMessage: "",
+		Start:        start,
+		Finish:       finish,
 	}
 	if err != nil {
 		appliedFile.ErrorMessage = err.Error()
