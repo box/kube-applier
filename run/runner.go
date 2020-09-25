@@ -251,8 +251,7 @@ func (r *Runner) copyRepository() (*git.Util, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	err = sysutil.CopyDir(root, tmpDir)
-	if err != nil {
+	if err := git.CloneRepository(root, tmpDir); err != nil {
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: path.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil

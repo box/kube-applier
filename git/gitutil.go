@@ -64,6 +64,12 @@ func (g *Util) SplitPath() (string, string, error) {
 	return strings.Trim(root, "\n"), strings.Trim(sub, "\n"), nil
 }
 
+// CloneRepository clones a local repository to a new location on disk.
+func CloneRepository(src, dst string) error {
+	_, err := runGitCmd("/", "clone", src, dst)
+	return err
+}
+
 func runGitCmd(dir string, args ...string) (string, error) {
 	var cmd *exec.Cmd
 	cmd = exec.Command("git", args...)
