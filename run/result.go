@@ -11,6 +11,7 @@ import (
 // The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
 type Result struct {
 	LastRun   Info
+	RootPath  string
 	Successes []ApplyAttempt
 	Failures  []ApplyAttempt
 }
@@ -66,6 +67,7 @@ func (r *Result) TotalFiles() int {
 // Patch updates the Result's attributes from the provided Result.
 func (r *Result) Patch(result Result) {
 	r.LastRun = result.LastRun
+	r.RootPath = result.RootPath
 	updateApplyAttemptSlice(&r.Successes, &r.Failures, result.Successes)
 	updateApplyAttemptSlice(&r.Failures, &r.Successes, result.Failures)
 }

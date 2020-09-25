@@ -180,6 +180,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 	}
 	newRun := Result{
 		LastRun:   runInfo,
+		RootPath:  r.RepoPath,
 		Successes: successes,
 		Failures:  failures,
 	}
