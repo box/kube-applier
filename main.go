@@ -176,10 +176,6 @@ func main() {
 		WorkerCount:    batchApplierWorkerCount,
 	}
 
-	gitUtil := &git.Util{
-		RepoPath: repoPath,
-	}
-
 	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 	// Only 1 pending request may sit in the queue at a time.
 	runQueue := make(chan run.Request, 1)
@@ -201,7 +197,6 @@ func main() {
 		RepoPath:        repoPath,
 		RepoPathFilters: repoPathFiltersSlice,
 		BatchApplier:    batchApplier,
-		GitUtil:         gitUtil,
 		Clock:           clock,
 		Metrics:         metrics,
 		KubeClient:      kubeClient,
@@ -214,7 +209,7 @@ func main() {
 	pi, _ := strconv.Atoi(pollInterval)
 	fi, _ := strconv.Atoi(fullRunInterval)
 	scheduler := &run.Scheduler{
-		GitUtil:         gitUtil,
+		GitUtil:         &git.Util{RepoPath: repoPath},
 		PollInterval:    time.Duration(pi) * time.Second,
 		FullRunInterval: time.Duration(fi) * time.Second,
 		RepoPathFilters: repoPathFiltersSlice,

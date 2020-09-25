@@ -2,6 +2,8 @@ package run
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 
@@ -61,7 +63,6 @@ type Runner struct {
 	RepoPath        string
 	RepoPathFilters []string
 	BatchApplier    BatchApplierInterface
-	GitUtil         git.UtilInterface
 	Clock           sysutil.ClockInterface
 	Metrics         metrics.PrometheusInterface
 	KubeClient      kube.ClientInterface
@@ -99,18 +100,24 @@ func (r *Runner) run(t Request) (*Result, error) {
 	start := r.Clock.Now()
 	log.Logger.Info("Started apply run", "start-time", start)
 
+	gitUtil, cleanupTemp, err := r.copyRepository()
+	if err != nil {
+		return nil, err
+	}
+	defer cleanupTemp()
+
 	var dirs []string
 	if t.Type == FailedOnlyRun {
 		dirs = r.lastRunFailures
 	} else {
-		d, err := sysutil.ListDirs(r.RepoPath)
+		d, err := sysutil.ListDirs(gitUtil.RepoPath)
 		if err != nil {
 			return nil, err
 		}
 		d = r.pruneDirs(d)
 
 		if t.Type == PartialRun {
-			d = r.pruneUnchangedDirs(d)
+			d = r.pruneUnchangedDirs(gitUtil, d)
 		} else if t.Type == SingleDirectoryRun {
 			valid := false
 			for _, v := range d {
@@ -128,11 +135,11 @@ func (r *Runner) run(t Request) (*Result, error) {
 		dirs = d
 	}
 
-	hash, err := r.GitUtil.HeadHashForPaths(r.RepoPathFilters...)
+	hash, err := gitUtil.HeadHashForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
 	}
-	commitLog, err := r.GitUtil.HeadCommitLogForPaths(r.RepoPathFilters...)
+	commitLog, err := gitUtil.HeadCommitLogForPaths(r.RepoPathFilters...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +154,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 	}
 
 	log.Logger.Debug(fmt.Sprintf("applying dirs: %v", dirs))
-	successes, failures := r.BatchApplier.Apply(r.RepoPath, dirs, applyOptions)
+	successes, failures := r.BatchApplier.Apply(gitUtil.RepoPath, dirs, applyOptions)
 
 	finish := r.Clock.Now()
 
@@ -214,12 +221,12 @@ func (r *Runner) pruneDirs(dirs []string) []string {
 	return prunedDirs
 }
 
-func (r *Runner) pruneUnchangedDirs(dirs []string) []string {
+func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, dirs []string) []string {
 	var prunedDirs []string
 	for _, dir := range dirs {
-		path := path.Join(r.RepoPath, dir)
+		path := path.Join(gitUtil.RepoPath, dir)
 		if r.lastAppliedHash[dir] != "" {
-			changed, err := r.GitUtil.HasChangesForPath(path, r.lastAppliedHash[dir])
+			changed, err := gitUtil.HasChangesForPath(path, r.lastAppliedHash[dir])
 			if err != nil {
 				log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply: %v", path, err))
 				changed = true
@@ -233,4 +240,20 @@ func (r *Runner) pruneUnchangedDirs(dirs []string) []string {
 		prunedDirs = append(prunedDirs, dir)
 	}
 	return prunedDirs
+}
+
+func (r *Runner) copyRepository() (*git.Util, func(), error) {
+	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
+	if err != nil {
+		return nil, nil, err
+	}
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run-%d-", r.Clock.Now().Unix()))
+	if err != nil {
+		return nil, nil, err
+	}
+	err = sysutil.CopyDir(root, tmpDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &git.Util{RepoPath: path.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil
 }

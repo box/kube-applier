@@ -84,3 +84,19 @@ func (mr *MockUtilInterfaceMockRecorder) HasChangesForPath(path, sinceHash inter
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasChangesForPath", reflect.TypeOf((*MockUtilInterface)(nil).HasChangesForPath), path, sinceHash)
 }
+
+// SplitPath mocks base method
+func (m *MockUtilInterface) SplitPath() (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SplitPath")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SplitPath indicates an expected call of SplitPath
+func (mr *MockUtilInterfaceMockRecorder) SplitPath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SplitPath", reflect.TypeOf((*MockUtilInterface)(nil).SplitPath))
+}
