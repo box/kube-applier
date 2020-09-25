@@ -49,7 +49,7 @@ func (a ApplyAttempt) Latency() string {
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
 type BatchApplierInterface interface {
-	Apply([]string, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
+	Apply(string, []string, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
 }
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
@@ -71,7 +71,7 @@ type ApplyOptions struct {
 
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
-func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
+func (a *BatchApplier) Apply(rootPath string, applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 
@@ -90,10 +90,10 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 
 	for i := 0; i < a.WorkerCount; i++ {
 		wg.Add(1)
-		go func(paths <-chan string) {
+		go func(root string, paths <-chan string, opts *ApplyOptions) {
 			defer wg.Done()
 			for path := range paths {
-				appliedFile, success := a.apply(path, options)
+				appliedFile, success := a.apply(root, path, opts)
 				if appliedFile == nil {
 					continue
 				}
@@ -109,7 +109,7 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 				a.Metrics.UpdateNamespaceSuccess(path, success)
 				mutex.Unlock()
 			}
-		}(paths)
+		}(rootPath, paths, options)
 	}
 
 	for _, path := range applyList {
@@ -125,10 +125,12 @@ func (a *BatchApplier) Apply(applyList []string, options *ApplyOptions) ([]Apply
 	return successes, failures
 }
 
-func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt, bool) {
+func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*ApplyAttempt, bool) {
 	start := a.Clock.Now()
+	path := filepath.Join(rootPath, subPath)
+	ns := subPath
 	log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
-	ns := filepath.Base(path)
+
 	kaa, err := a.KubeClient.NamespaceAnnotations(ns)
 	if err != nil {
 		log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
@@ -197,7 +199,7 @@ func (a *BatchApplier) apply(path string, options *ApplyOptions) (*ApplyAttempt,
 	finish := a.Clock.Now()
 
 	appliedFile := ApplyAttempt{
-		FilePath:     path,
+		FilePath:     subPath,
 		Command:      cmd,
 		Output:       output,
 		ErrorMessage: "",

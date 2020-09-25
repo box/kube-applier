@@ -32,6 +32,7 @@
                     <h3 class="panel-title">Last Run</h3>
                 </div>
                 <div class="panel-body">
+                    <strong>Root path: </strong>{{ .RootPath }}<br>
                     <strong>Type: </strong>{{ .LastRun.Type.String }}<br>
                     <strong>Started: </strong>{{ .LastRun.FormattedStart }}<br>
                     <strong>Finished: </strong>{{ .LastRun.FormattedFinish }}<br>

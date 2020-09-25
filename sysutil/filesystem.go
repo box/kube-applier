@@ -6,13 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 
-// ListDirs walks the directory tree rooted at the path and adds all non-directory file paths to a []string.
+// ListDirs returns a list of all the subdirectories of the rootPath.
 func ListDirs(rootPath string) ([]string, error) {
 	var dirs []string
 	files, err := ioutil.ReadDir(rootPath)
@@ -22,7 +21,7 @@ func ListDirs(rootPath string) ([]string, error) {
 
 	for _, file := range files {
 		if file.IsDir() {
-			dirs = append(dirs, filepath.Join(rootPath, file.Name()))
+			dirs = append(dirs, file.Name())
 		}
 	}
 	return dirs, nil

@@ -32,6 +32,7 @@ var (
 
 type batchTestCase struct {
 	ba           BatchApplier
+	rootPath     string
 	applyList    []string
 	applyOptions *ApplyOptions
 
@@ -62,6 +63,7 @@ func TestBatchApplierApply(t *testing.T) {
 			Metrics:       metrics,
 			Clock:         &zeroClock{},
 		},
+		"",
 		[]string{},
 		testApplyOptions,
 		[]ApplyAttempt{},
@@ -83,23 +85,23 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
-		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -108,6 +110,7 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 			Metrics:       metrics,
 			Clock:         &zeroClock{},
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -129,23 +132,23 @@ func TestBatchApplierApplyFail(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnFailure("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnFailure("/repo/file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnFailure("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnFailure("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnFailure("/repo/file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file3", metrics),
 	)
 	failures := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "error file1", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "error file2", Info{}, time.Time{}, time.Time{}},
-		{"file3", "cmd file3", "output file3", "error file3", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "error /repo/file1", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "error /repo/file2", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "error /repo/file3", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -154,6 +157,7 @@ func TestBatchApplierApplyFail(t *testing.T) {
 			Metrics:       metrics,
 			Clock:         &zeroClock{},
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		[]ApplyAttempt{},
@@ -175,31 +179,31 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3", "file4"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnFailure("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnFailure("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file3", "file3", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file4", kubeClient),
-		expectApplyAndReturnFailure("file4", "file4", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnFailure("/repo/file4", "file4", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectFailureMetric("file4", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	failures := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "error file2", Info{}, time.Time{}, time.Time{}},
-		{"file4", "cmd file4", "output file4", "error file4", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "error /repo/file2", Info{}, time.Time{}, time.Time{}},
+		{"file4", "cmd /repo/file4", "output /repo/file4", "error /repo/file4", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -208,6 +212,7 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 			Metrics:       metrics,
 			Clock:         &zeroClock{},
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -230,23 +235,23 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
-		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -256,6 +261,7 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        true,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -274,26 +280,26 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run namespaces
-	applyList := []string{"repo/file1", "file2", "repo/file3"}
+	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("repo/file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
-		expectSuccessMetric("repo/file1", metrics),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("repo/file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
-		expectSuccessMetric("repo/file3", metrics),
+		expectApplyAndReturnSuccess("/repo/file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"repo/file1", "cmd repo/file1", "output repo/file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
-		{"repo/file3", "cmd repo/file3", "output repo/file3", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -303,6 +309,7 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -324,23 +331,23 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 	applyList := []string{"file1", "file2", "file3"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", DryRun: "true"}, "file3", kubeClient),
-		expectApplyAndReturnSuccess("file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file3", "file3", "server", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file3", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
-		{"file3", "cmd file3", "output file3", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file3", "cmd /repo/file3", "output /repo/file3", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -350,6 +357,7 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        true,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -374,14 +382,14 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "false"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -391,6 +399,7 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -415,14 +424,14 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "unsupportedOption"}, "file3", kubeClient),
 	)
 	successes := []ApplyAttempt{
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -432,6 +441,7 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -452,17 +462,17 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -472,6 +482,7 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -492,11 +503,11 @@ func TestBatchApplierApplySuccessPruneClusterResources(t *testing.T) {
 	applyList := []string{"file1"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneClusterResources: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", testAllResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", testAllResources, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -506,6 +517,7 @@ func TestBatchApplierApplySuccessPruneClusterResources(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -526,17 +538,17 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", Prune: "false"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", nil, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", nil, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", testApplyOptions.NamespacedResources, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -546,6 +558,7 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 			Clock:         &zeroClock{},
 			DryRun:        false,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -574,17 +587,17 @@ func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 	applyList := []string{"file1", "file2"}
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true"}, "file1", kubeClient),
-		expectApplyAndReturnSuccess("file1", "file1", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler"}, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file1", "file1", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler"}, kubectlClient),
 		expectSuccessMetric("file1", metrics),
 	)
 	gomock.InOrder(
 		expectNamespaceAnnotationsAndReturn(kube.KAAnnotations{Enabled: "true", PruneClusterResources: "true"}, "file2", kubeClient),
-		expectApplyAndReturnSuccess("file2", "file2", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler", "core/v1/Namespace"}, kubectlClient),
+		expectApplyAndReturnSuccess("/repo/file2", "file2", "none", []string{"autoscaling/v1/HorizontalPodAutoscaler", "core/v1/Namespace"}, kubectlClient),
 		expectSuccessMetric("file2", metrics),
 	)
 	successes := []ApplyAttempt{
-		{"file1", "cmd file1", "output file1", "", Info{}, time.Time{}, time.Time{}},
-		{"file2", "cmd file2", "output file2", "", Info{}, time.Time{}, time.Time{}},
+		{"file1", "cmd /repo/file1", "output /repo/file1", "", Info{}, time.Time{}, time.Time{}},
+		{"file2", "cmd /repo/file2", "output /repo/file2", "", Info{}, time.Time{}, time.Time{}},
 	}
 	tc := batchTestCase{
 		BatchApplier{
@@ -595,6 +608,7 @@ func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 			DryRun:         false,
 			PruneBlacklist: pruneBlacklist,
 		},
+		"/repo",
 		applyList,
 		testApplyOptions,
 		successes,
@@ -625,7 +639,7 @@ func expectFailureMetric(file string, metrics *metrics.MockPrometheusInterface) 
 
 func applyAndAssert(t *testing.T, tc batchTestCase) {
 	assert := assert.New(t)
-	successes, failures := tc.ba.Apply(tc.applyList, tc.applyOptions)
+	successes, failures := tc.ba.Apply(tc.rootPath, tc.applyList, tc.applyOptions)
 	assert.Equal(tc.expectedSuccesses, successes)
 	assert.Equal(tc.expectedFailures, failures)
 }
