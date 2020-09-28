@@ -74,6 +74,15 @@ spec:
             - name: git-repo
               mountPath: /src
               readOnly: true
+            - name: strongbox-secret
+              mountPath: /root/.strongbox_keyring
+              subPath: .strongbox_keyring
+            - name: gs-sb-bin
+              mountPath: /usr/local/bin/strongbox
+              subPath: strongbox
+            - name: gs-gitconfig
+              mountPath: /root/.gitconfig
+              subPath: .gitconfig
           resources:
             requests:
               cpu: 10m
