@@ -73,18 +73,15 @@ func (r *Result) Patch(result Result) {
 }
 
 func updateApplyAttemptSlice(to, from *[]ApplyAttempt, r []ApplyAttempt) {
-	toAppend := []ApplyAttempt{}
 	for _, ra := range r {
-		found := false
 		for i, ta := range *to {
 			if ta.FilePath == ra.FilePath {
-				(*to)[i] = ra
-				found = true
+				for j := i; j < len(*to)-1; j++ {
+					(*to)[j] = (*to)[j+1]
+				}
+				*to = (*to)[:len(*to)-1]
 				break
 			}
-		}
-		if !found {
-			toAppend = append(toAppend, ra)
 		}
 		for i, fa := range *from {
 			if fa.FilePath == ra.FilePath {
@@ -96,5 +93,6 @@ func updateApplyAttemptSlice(to, from *[]ApplyAttempt, r []ApplyAttempt) {
 			}
 		}
 	}
-	*to = append(*to, toAppend...)
+	sortApplyAttemptSlice(*to)
+	*to = append(r, *to...)
 }
