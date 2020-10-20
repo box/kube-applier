@@ -61,7 +61,7 @@ func (f *ApplyFlags) Args() []string {
 	}
 
 	if f.ServerSide {
-		args = append(args, "--server-side")
+		args = append(args, []string{"--server-side", "--force-conflicts"}...)
 	}
 
 	if len(f.PruneWhitelist) > 0 {

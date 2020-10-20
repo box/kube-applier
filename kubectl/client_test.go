@@ -123,6 +123,7 @@ func TestApplyFlagsArgs(t *testing.T) {
 			},
 			want: []string{"-n", "example", "--dry-run=server",
 				"--server-side",
+				"--force-conflicts",
 				"--prune", "--all",
 				"--prune-whitelist=core/v1/ConfigMap",
 				"--prune-whitelist=core/v1/Pod",
