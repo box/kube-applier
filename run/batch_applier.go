@@ -2,7 +2,6 @@ package run
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -158,6 +157,12 @@ func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*
 		prune = true
 	}
 
+	serverSide, err := strconv.ParseBool(kaa.ServerSide)
+	if err != nil {
+		log.Logger.Info("Could not get value for kube-applier.io/server-side", "error", err)
+		serverSide = false
+	}
+
 	var pruneWhitelist []string
 	if prune {
 		pruneWhitelist = append(pruneWhitelist, options.NamespacedResources...)
@@ -181,21 +186,17 @@ func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*
 		}
 	}
 
-	var kustomize bool
-	if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
-		kustomize = true
-	} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
-		kustomize = true
-	} else if _, err := os.Stat(path + "/Kustomization"); err == nil {
-		kustomize = true
-	}
-
 	dryRunStrategy := "none"
 	if a.DryRun || dryRun {
 		dryRunStrategy = "server"
 	}
 
-	cmd, output, err := a.KubectlClient.Apply(path, ns, dryRunStrategy, kustomize, pruneWhitelist)
+	cmd, output, err := a.KubectlClient.Apply(path, kubectl.ApplyFlags{
+		Namespace:      ns,
+		DryRunStrategy: dryRunStrategy,
+		PruneWhitelist: pruneWhitelist,
+		ServerSide:     serverSide,
+	})
 	finish := a.Clock.Now()
 
 	appliedFile := ApplyAttempt{

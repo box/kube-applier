@@ -103,6 +103,7 @@ metadata:
     kube-applier.io/dry-run: "false"
     kube-applier.io/prune: "true"
     kube-applier.io/prune-cluster-resources: "false"
+    kube-applier.io/server-side: "false"
 ```
 
 ### Mounting the Git Repository

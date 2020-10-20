@@ -17,6 +17,7 @@ const (
 	dryRunAnnotation                = "kube-applier.io/dry-run"
 	pruneAnnotation                 = "kube-applier.io/prune"
 	pruneClusterResourcesAnnotation = "kube-applier.io/prune-cluster-resources"
+	serverSideAnnotation            = "kube-applier.io/server-side"
 )
 
 // KAAnnotations contains the standard set of annotations on the Namespace
@@ -26,6 +27,7 @@ type KAAnnotations struct {
 	DryRun                string
 	Prune                 string
 	PruneClusterResources string
+	ServerSide            string
 }
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
@@ -74,6 +76,7 @@ func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
 	kaa.DryRun = ns.Annotations[dryRunAnnotation]
 	kaa.Prune = ns.Annotations[pruneAnnotation]
 	kaa.PruneClusterResources = ns.Annotations[pruneClusterResourcesAnnotation]
+	kaa.ServerSide = ns.Annotations[serverSideAnnotation]
 
 	return kaa, nil
 }

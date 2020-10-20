@@ -98,3 +98,34 @@ secret/k8s-auth-conf unchanged (server dry run)
 		t.Error(diff)
 	}
 }
+
+func TestParseKubectlServerSideApply(t *testing.T) {
+	output := `namespace/namespaceName serverside-applied
+limitrange/limit-range serverside-applied
+role.rbac.authorization.k8s.io/auth serverside-applied
+rolebinding.rbac.authorization.k8s.io/rolebinding serverside-applied
+serviceaccount/account serverside-applied
+networkpolicy.networking.k8s.io/default serverside-applied
+clusterrole.rbac.authorization.k8s.io/system:metrics-server serverside-applied
+service/serviceName serverside-applied
+deployment.apps/deploymentName serverside-applied
+`
+
+	want := []Result{
+		{"namespace", "namespaceName", "serverside-applied"},
+		{"limitrange", "limit-range", "serverside-applied"},
+		{"role.rbac.authorization.k8s.io", "auth", "serverside-applied"},
+		{"rolebinding.rbac.authorization.k8s.io", "rolebinding", "serverside-applied"},
+		{"serviceaccount", "account", "serverside-applied"},
+		{"networkpolicy.networking.k8s.io", "default", "serverside-applied"},
+		{"clusterrole.rbac.authorization.k8s.io", "system:metrics-server", "serverside-applied"},
+		{"service", "serviceName", "serverside-applied"},
+		{"deployment.apps", "deploymentName", "serverside-applied"},
+	}
+
+	got := parseKubectlOutput(output)
+
+	if diff := deep.Equal(got, want); diff != nil {
+		t.Error(diff)
+	}
+}

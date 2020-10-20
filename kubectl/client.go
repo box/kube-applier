@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ var (
 
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error)
+	Apply(path string, flags ApplyFlags) (string, string, error)
 }
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
@@ -39,18 +40,61 @@ type Client struct {
 	Timeout time.Duration
 }
 
+// ApplyFlags configure kubectl apply
+type ApplyFlags struct {
+	DryRunStrategy string
+	Namespace      string
+	PruneWhitelist []string
+	ServerSide     bool
+}
+
+// Args returns the flags as args that can be provided to exec.Command
+func (f *ApplyFlags) Args() []string {
+	args := []string{}
+
+	if f.Namespace != "" {
+		args = append(args, []string{"-n", f.Namespace}...)
+	}
+
+	if f.DryRunStrategy != "" {
+		args = append(args, fmt.Sprintf("--dry-run=%s", f.DryRunStrategy))
+	}
+
+	if f.ServerSide {
+		args = append(args, "--server-side")
+	}
+
+	if len(f.PruneWhitelist) > 0 {
+		args = append(args, []string{"--prune", "--all"}...)
+		for _, w := range f.PruneWhitelist {
+			args = append(args, "--prune-whitelist="+w)
+		}
+	}
+
+	return args
+}
+
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
-func (c *Client) Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error) {
-	if kustomize {
-		return c.applyKustomize(path, namespace, dryRunStrategy, pruneWhitelist)
+func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
+	var kustomize bool
+	if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
+		kustomize = true
+	} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
+		kustomize = true
+	} else if _, err := os.Stat(path + "/Kustomization"); err == nil {
+		kustomize = true
 	}
-	return c.applyPath(path, namespace, dryRunStrategy, pruneWhitelist)
+
+	if kustomize {
+		return c.applyKustomize(path, flags)
+	}
+	return c.applyPath(path, flags)
 }
 
 // applyPath runs `kubectl apply -f <path>`
-func (c *Client) applyPath(path, namespace, dryRunStrategy string, pruneWhitelist []string) (string, string, error) {
-	cmdStr, out, err := c.apply(path, namespace, dryRunStrategy, pruneWhitelist, []byte{})
+func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error) {
+	cmdStr, out, err := c.apply(path, []byte{}, flags)
 	if err != nil {
 		// Filter potential secret leaks out of the output
 		return cmdStr, filterErrOutput(out), err
@@ -60,7 +104,7 @@ func (c *Client) applyPath(path, namespace, dryRunStrategy string, pruneWhitelis
 }
 
 // applyKustomize does a `kustomize build | kubectl apply -f -` on the path
-func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhitelist []string) (string, string, error) {
+func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, error) {
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
@@ -94,8 +138,9 @@ func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhi
 	// This is the command we are effectively applying. In actuality we're splitting it into two
 	// separate invocations of kubectl but we'll return this as the command
 	// string.
-	displayArgs := applyArgs("-", namespace, dryRunStrategy, pruneWhitelist)
-	kubectlCmd := exec.Command(displayArgs[0], displayArgs[1:]...)
+	displayArgs := []string{"apply", "-f", "-"}
+	displayArgs = append(displayArgs, flags.Args()...)
+	kubectlCmd := exec.Command("kubectl", displayArgs...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
 
 	var kubectlOut string
@@ -103,13 +148,16 @@ func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhi
 	if len(resources) > 0 {
 		// Don't prune secrets
 		resourcesPruneWhitelist := []string{}
-		for _, w := range pruneWhitelist {
+		for _, w := range flags.PruneWhitelist {
 			if w != "core/v1/Secret" {
 				resourcesPruneWhitelist = append(resourcesPruneWhitelist, w)
 			}
 		}
 
-		_, out, err := c.apply("-", namespace, dryRunStrategy, resourcesPruneWhitelist, resources)
+		resourcesFlags := flags
+		resourcesFlags.PruneWhitelist = resourcesPruneWhitelist
+
+		_, out, err := c.apply("-", resources, resourcesFlags)
 		kubectlOut = kubectlOut + out
 		if err != nil {
 			return cmdStr, kubectlOut, err
@@ -119,13 +167,16 @@ func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhi
 	if len(secrets) > 0 {
 		// Only prune secrets
 		var secretsPruneWhitelist []string
-		for _, w := range pruneWhitelist {
+		for _, w := range flags.PruneWhitelist {
 			if w == "core/v1/Secret" {
 				secretsPruneWhitelist = append(secretsPruneWhitelist, w)
 			}
 		}
 
-		_, out, err := c.apply("-", namespace, dryRunStrategy, secretsPruneWhitelist, secrets)
+		secretsFlags := flags
+		secretsFlags.PruneWhitelist = secretsPruneWhitelist
+
+		_, out, err := c.apply("-", secrets, secretsFlags)
 		if err != nil {
 			// Don't append the actual output, as the error output
 			// from kubectl can leak the content of secrets
@@ -139,13 +190,17 @@ func (c *Client) applyKustomize(path, namespace, dryRunStrategy string, pruneWhi
 }
 
 // apply runs `kubectl apply`
-func (c *Client) apply(path, namespace, dryRunStrategy string, pruneWhitelist []string, stdin []byte) (string, string, error) {
-	args := applyArgs(path, namespace, dryRunStrategy, pruneWhitelist)
+func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, string, error) {
+	args := []string{"apply", "-f", path}
+	if path != "-" {
+		args = append(args, "-R")
+	}
+	args = append(args, flags.Args()...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	kubectlCmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	kubectlCmd := exec.CommandContext(ctx, "kubectl", args...)
 	if path == "-" {
 		if len(stdin) == 0 {
 			return "", "", fmt.Errorf("path can't be %s when stdin is empty", path)
@@ -155,45 +210,16 @@ func (c *Client) apply(path, namespace, dryRunStrategy string, pruneWhitelist []
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
-			c.Metrics.UpdateKubectlExitCodeCount(namespace, e.ExitCode())
+			c.Metrics.UpdateKubectlExitCodeCount(flags.Namespace, e.ExitCode())
 		}
 		if ctx.Err() == context.DeadlineExceeded {
 			err = errors.Wrap(ctx.Err(), err.Error())
 		}
 		return kubectlCmd.String(), string(out), err
 	}
-	c.Metrics.UpdateKubectlExitCodeCount(namespace, 0)
+	c.Metrics.UpdateKubectlExitCodeCount(flags.Namespace, 0)
 
 	return kubectlCmd.String(), string(out), nil
-}
-
-// applyArgs constructs the arguments for `kubectl apply`
-func applyArgs(path, namespace, dryRunStrategy string, pruneWhitelist []string) []string {
-	args := []string{"kubectl", "apply"}
-
-	if path != "" {
-		args = append(args, []string{"-f", path}...)
-		if path != "-" {
-			args = append(args, "-R")
-		}
-	}
-
-	if namespace != "" {
-		args = append(args, []string{"-n", namespace}...)
-	}
-
-	if dryRunStrategy != "" {
-		args = append(args, fmt.Sprintf("--dry-run=%s", dryRunStrategy))
-	}
-
-	if len(pruneWhitelist) > 0 {
-		args = append(args, []string{"--prune", "--all"}...)
-		for _, w := range pruneWhitelist {
-			args = append(args, "--prune-whitelist="+w)
-		}
-	}
-
-	return args
 }
 
 // filterErrOutput squashes output that may contain potentially sensitive

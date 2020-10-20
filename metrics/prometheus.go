@@ -11,7 +11,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 
-var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) (\w+).*`)
+var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
 
 // PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
 type PrometheusInterface interface {

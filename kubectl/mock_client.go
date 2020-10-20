@@ -33,9 +33,9 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path, namespace, dryRunStrategy string, kustomize bool, pruneWhitelist []string) (string, string, error) {
+func (m *MockClientInterface) Apply(path string, applyFlags ApplyFlags) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", path, namespace, dryRunStrategy, kustomize, pruneWhitelist)
+	ret := m.ctrl.Call(m, "Apply", path, applyFlags)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -43,7 +43,7 @@ func (m *MockClientInterface) Apply(path, namespace, dryRunStrategy string, kust
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, namespace, dryRunStrategy, kustomize, pruneWhitelist interface{}) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) Apply(path, applyFlags interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, namespace, dryRunStrategy, kustomize, pruneWhitelist)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, applyFlags)
 }
