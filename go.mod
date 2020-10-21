@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/Azure/go-autorest/autorest v0.11.6 // indirect
 	github.com/fatih/color v1.9.0 // indirect
+	github.com/go-logr/logr v0.1.0
 	github.com/go-test/deep v1.0.5
 	github.com/golang/mock v1.4.4
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -14,6 +15,8 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.13.0 // indirect
@@ -28,5 +31,6 @@ require (
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v0.18.8
 	k8s.io/utils v0.0.0-20200912215256-4140de9c8800 // indirect
+	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/yaml v1.2.0
 )

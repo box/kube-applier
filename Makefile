@@ -1,6 +1,13 @@
 SHELL := /bin/bash
 
-.PHONY: generate-mocks build run
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
+
+.PHONY: generate-mocks manifests generate controller-gen build run release
 
 generate-mocks:
 	mockgen -package=git -source=git/gitutil.go -destination=git/mock_gitutil.go
@@ -8,6 +15,41 @@ generate-mocks:
 	mockgen -package=metrics -source metrics/prometheus.go -destination=metrics/mock_prometheus.go
 	mockgen -package=kube -source kube/client.go -destination=kube/mock_client.go
 	mockgen -package=kubectl -source kubectl/client.go -destination=kubectl/mock_client.go
+
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) \
+		crd:trivialVersions=true \
+		rbac:roleName=kube-applier \
+		paths="./..." \
+		output:rbac:artifacts:config=manifests/base \
+		output:crd:artifacts:config=manifests/base/crd
+	@{ \
+	cd manifests/base/crd ;\
+	kustomize edit add resource kube-applier.io_* ;\
+	}
+
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
 
 build:
 	docker build -t kube-applier .
