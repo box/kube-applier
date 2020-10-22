@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -21,7 +21,7 @@ const (
 
 // ApplyAttempt stores the data from an attempt at applying a single file.
 type ApplyAttempt struct {
-	FilePath     string
+	Application  kubeapplierv1alpha1.Application
 	Command      string
 	Output       string
 	ErrorMessage string
@@ -48,7 +48,7 @@ func (a ApplyAttempt) Latency() string {
 
 // BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
 type BatchApplierInterface interface {
-	Apply(string, []string, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
+	Apply(string, []kubeapplierv1alpha1.Application, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
 }
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
@@ -70,11 +70,11 @@ type ApplyOptions struct {
 
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
-func (a *BatchApplier) Apply(rootPath string, applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
+func (a *BatchApplier) Apply(rootPath string, appList []kubeapplierv1alpha1.Application, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
 	successes := []ApplyAttempt{}
 	failures := []ApplyAttempt{}
 
-	if len(applyList) == 0 {
+	if len(appList) == 0 {
 		return successes, failures
 	}
 
@@ -85,14 +85,14 @@ func (a *BatchApplier) Apply(rootPath string, applyList []string, options *Apply
 	wg := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 
-	paths := make(chan string, len(applyList))
+	apps := make(chan kubeapplierv1alpha1.Application, len(appList))
 
 	for i := 0; i < a.WorkerCount; i++ {
 		wg.Add(1)
-		go func(root string, paths <-chan string, opts *ApplyOptions) {
+		go func(root string, apps <-chan kubeapplierv1alpha1.Application, opts *ApplyOptions) {
 			defer wg.Done()
-			for path := range paths {
-				appliedFile, success := a.apply(root, path, opts)
+			for app := range apps {
+				appliedFile, success := a.apply(root, app, opts)
 				if appliedFile == nil {
 					continue
 				}
@@ -105,17 +105,17 @@ func (a *BatchApplier) Apply(rootPath string, applyList []string, options *Apply
 					failures = append(failures, *appliedFile)
 					log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
 				}
-				a.Metrics.UpdateNamespaceSuccess(path, success)
+				a.Metrics.UpdateNamespaceSuccess(app.Namespace, success)
 				mutex.Unlock()
 			}
-		}(rootPath, paths, options)
+		}(rootPath, apps, options)
 	}
 
-	for _, path := range applyList {
-		paths <- path
+	for _, app := range appList {
+		apps <- app
 	}
 
-	close(paths)
+	close(apps)
 	wg.Wait()
 
 	sortApplyAttemptSlice(successes)
@@ -124,55 +124,16 @@ func (a *BatchApplier) Apply(rootPath string, applyList []string, options *Apply
 	return successes, failures
 }
 
-func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*ApplyAttempt, bool) {
+func (a *BatchApplier) apply(rootPath string, app kubeapplierv1alpha1.Application, options *ApplyOptions) (*ApplyAttempt, bool) {
 	start := a.Clock.Now()
-	path := filepath.Join(rootPath, subPath)
-	ns := subPath
+	path := filepath.Join(rootPath, app.Spec.RepositoryPath)
 	log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 
-	kaa, err := a.KubeClient.NamespaceAnnotations(ns)
-	if err != nil {
-		log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
-		return nil, false
-	}
-
-	enabled, err := strconv.ParseBool(kaa.Enabled)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/enabled", "error", err)
-		return nil, false
-	} else if !enabled {
-		log.Logger.Info("Skipping namespace", "kube-applier.io/enabled", enabled)
-		return nil, false
-	}
-
-	dryRun, err := strconv.ParseBool(kaa.DryRun)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/dry-run", "error", err)
-		dryRun = false
-	}
-
-	prune, err := strconv.ParseBool(kaa.Prune)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/prune", "error", err)
-		prune = true
-	}
-
-	serverSide, err := strconv.ParseBool(kaa.ServerSide)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/server-side", "error", err)
-		serverSide = false
-	}
-
 	var pruneWhitelist []string
-	if prune {
+	if app.Spec.Prune {
 		pruneWhitelist = append(pruneWhitelist, options.NamespacedResources...)
 
-		pruneClusterResources, err := strconv.ParseBool(kaa.PruneClusterResources)
-		if err != nil {
-			log.Logger.Info("Could not get value for kube-applier.io/prune-cluster-resources", "error", err)
-			pruneClusterResources = false
-		}
-		if pruneClusterResources {
+		if app.Spec.PruneClusterResources {
 			pruneWhitelist = append(pruneWhitelist, options.ClusterResources...)
 		}
 
@@ -187,20 +148,20 @@ func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*
 	}
 
 	dryRunStrategy := "none"
-	if a.DryRun || dryRun {
+	if a.DryRun || app.Spec.DryRun {
 		dryRunStrategy = "server"
 	}
 
 	cmd, output, err := a.KubectlClient.Apply(path, kubectl.ApplyFlags{
-		Namespace:      ns,
+		Namespace:      app.Namespace,
 		DryRunStrategy: dryRunStrategy,
 		PruneWhitelist: pruneWhitelist,
-		ServerSide:     serverSide,
+		ServerSide:     app.Spec.ServerSideApply,
 	})
 	finish := a.Clock.Now()
 
 	appliedFile := ApplyAttempt{
-		FilePath:     subPath,
+		Application:  app,
 		Command:      cmd,
 		Output:       output,
 		ErrorMessage: "",
@@ -215,6 +176,6 @@ func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*
 
 func sortApplyAttemptSlice(attempts []ApplyAttempt) {
 	sort.Slice(attempts, func(i, j int) bool {
-		return attempts[i].FilePath < attempts[j].FilePath
+		return attempts[i].Application.Spec.RepositoryPath < attempts[j].Application.Spec.RepositoryPath
 	})
 }

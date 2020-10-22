@@ -25,7 +25,6 @@ const (
 
 var (
 	repoPath        = os.Getenv("REPO_PATH")
-	repoPathFilters = os.Getenv("REPO_PATH_FILTERS")
 	repoTimeout     = os.Getenv("REPO_TIMEOUT_SECONDS")
 	listenPort      = os.Getenv("LISTEN_PORT")
 	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
@@ -188,22 +187,16 @@ func main() {
 	// No limit needed, as a single fatal error will exit the program anyway.
 	errors := make(chan error)
 
-	var repoPathFiltersSlice []string
-	if repoPathFilters != "" {
-		repoPathFiltersSlice = strings.Split(repoPathFilters, ",")
-	}
-
 	runner := &run.Runner{
-		RepoPath:        repoPath,
-		RepoPathFilters: repoPathFiltersSlice,
-		BatchApplier:    batchApplier,
-		Clock:           clock,
-		Metrics:         metrics,
-		KubeClient:      kubeClient,
-		DiffURLFormat:   diffURLFormat,
-		RunQueue:        runQueue,
-		RunResults:      runResults,
-		Errors:          errors,
+		RepoPath:      repoPath,
+		BatchApplier:  batchApplier,
+		Clock:         clock,
+		Metrics:       metrics,
+		KubeClient:    kubeClient,
+		DiffURLFormat: diffURLFormat,
+		RunQueue:      runQueue,
+		RunResults:    runResults,
+		Errors:        errors,
 	}
 
 	pi, _ := strconv.Atoi(pollInterval)
@@ -212,7 +205,6 @@ func main() {
 		GitUtil:         &git.Util{RepoPath: repoPath},
 		PollInterval:    time.Duration(pi) * time.Second,
 		FullRunInterval: time.Duration(fi) * time.Second,
-		RepoPathFilters: repoPathFiltersSlice,
 		RunQueue:        runQueue,
 		Errors:          errors,
 	}

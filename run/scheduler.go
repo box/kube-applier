@@ -12,7 +12,6 @@ type Scheduler struct {
 	GitUtil         git.UtilInterface
 	PollInterval    time.Duration
 	FullRunInterval time.Duration
-	RepoPathFilters []string
 	RunQueue        chan<- Request
 	Errors          chan<- error
 }
@@ -43,7 +42,7 @@ func (s *Scheduler) Start() {
 	for {
 		select {
 		case <-pollTickerChan:
-			newCommitHash, err := s.GitUtil.HeadHashForPaths(s.RepoPathFilters...)
+			newCommitHash, err := s.GitUtil.HeadHashForPaths(".")
 			if err != nil {
 				s.Errors <- err
 				return

@@ -58,7 +58,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.FilePath }}</a>
+                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.Application.Spec.RepositoryPath }}</a>
                                 </div>
                             </div>
                             <div id="failure-{{$i}}" class="panel-collapse collapse in">
@@ -70,7 +70,7 @@
                                                 <strong>Commit: </strong> {{ if $file.Run.LastCommitLink }}<a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $file.FormattedFinish }} (took {{ $file.Latency }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
+                                            <div class="col-md-2"><button data-path="{{ $file.Application.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
@@ -100,7 +100,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.FilePath }}</a>
+                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.Application.Spec.RepositoryPath }}</a>
                                 </div>
                             </div>
                             <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.LastRun.Equal $file.Run }}in{{ end }}">
@@ -112,7 +112,7 @@
                                                 <strong>Commit: </strong> {{ if $file.Run.LastCommitLink }}<a href="{{ $file.Run.LastCommitLink }}">{{ $file.Run.CommitHash }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $file.FormattedFinish }} (took {{ $file.Latency }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.FilePath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                            <div class="col-md-2"><button data-path="{{ $file.Application.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">

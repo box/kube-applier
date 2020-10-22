@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/utilitywarehouse/kube-applier/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 var (

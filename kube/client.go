@@ -1,7 +1,6 @@
 package kube
 
 import (
-	"context"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,27 +11,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-const (
-	enabledAnnotation               = "kube-applier.io/enabled"
-	dryRunAnnotation                = "kube-applier.io/dry-run"
-	pruneAnnotation                 = "kube-applier.io/prune"
-	pruneClusterResourcesAnnotation = "kube-applier.io/prune-cluster-resources"
-	serverSideAnnotation            = "kube-applier.io/server-side"
-)
-
-// KAAnnotations contains the standard set of annotations on the Namespace
-// resource defining behaviour for that Namespace
-type KAAnnotations struct {
-	Enabled               string
-	DryRun                string
-	Prune                 string
-	PruneClusterResources string
-	ServerSide            string
-}
-
 // ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
 type ClientInterface interface {
-	NamespaceAnnotations(namespace string) (KAAnnotations, error)
 	PrunableResourceGVKs() ([]string, []string, error)
 }
 
@@ -61,24 +41,6 @@ func New() (*Client, error) {
 	return &Client{
 		clientset: clientset,
 	}, nil
-}
-
-// NamespaceAnnotations returns string values of kube-applier annotations
-func (c *Client) NamespaceAnnotations(namespace string) (KAAnnotations, error) {
-	kaa := KAAnnotations{}
-
-	ns, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-	if err != nil {
-		return kaa, err
-	}
-
-	kaa.Enabled = ns.Annotations[enabledAnnotation]
-	kaa.DryRun = ns.Annotations[dryRunAnnotation]
-	kaa.Prune = ns.Annotations[pruneAnnotation]
-	kaa.PruneClusterResources = ns.Annotations[pruneClusterResourcesAnnotation]
-	kaa.ServerSide = ns.Annotations[serverSideAnnotation]
-
-	return kaa, nil
 }
 
 // PrunableResourceGVKs returns cluster and namespaced resources as two slices of

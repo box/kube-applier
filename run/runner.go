@@ -1,17 +1,20 @@
 package run
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 
+	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
+
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
 // Request defines an apply run request
@@ -60,28 +63,26 @@ const (
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
-	RepoPath        string
-	RepoPathFilters []string
-	BatchApplier    BatchApplierInterface
-	Clock           sysutil.ClockInterface
-	Metrics         metrics.PrometheusInterface
-	KubeClient      kube.ClientInterface
-	DiffURLFormat   string
-	RunQueue        <-chan Request
-	RunResults      chan<- Result
-	Errors          chan<- error
-	lastAppliedHash map[string]string
-	lastRunFailures []string
+	RepoPath      string
+	BatchApplier  BatchApplierInterface
+	Clock         sysutil.ClockInterface
+	Metrics       metrics.PrometheusInterface
+	KubeClient    kube.ClientInterface
+	DiffURLFormat string
+	RunQueue      <-chan Request
+	RunResults    chan<- Result
+	Errors        chan<- error
+	client        *client.Client
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
-	if r.lastAppliedHash == nil {
-		r.lastAppliedHash = make(map[string]string)
+	c, err := client.New()
+	if err != nil {
+		r.Errors <- err
+		return
 	}
-	if r.lastRunFailures == nil {
-		r.lastRunFailures = make([]string, 0)
-	}
+	r.client = c
 	for t := range r.RunQueue {
 		newRun, err := r.run(t)
 		if err != nil {
@@ -106,40 +107,44 @@ func (r *Runner) run(t Request) (*Result, error) {
 	}
 	defer cleanupTemp()
 
-	var dirs []string
-	if t.Type == FailedOnlyRun {
-		dirs = r.lastRunFailures
-	} else {
-		d, err := sysutil.ListDirs(gitUtil.RepoPath)
-		if err != nil {
-			return nil, err
-		}
-		d = r.pruneDirs(d)
-
-		if t.Type == PartialRun {
-			d = r.pruneUnchangedDirs(gitUtil, d)
-		} else if t.Type == SingleDirectoryRun {
-			valid := false
-			for _, v := range d {
-				if v == t.Args.(string) {
-					d = []string{v}
-					valid = true
-					break
-				}
-			}
-			if !valid {
-				log.Logger.Error(fmt.Sprintf("Invalid path '%s' requested, ignoring", t.Args.(string)))
-				return nil, nil
-			}
-		}
-		dirs = d
+	apps, err := r.client.ListApplications(context.TODO())
+	if err != nil {
+		log.Logger.Error("Could not list Applications: %v", err)
 	}
 
-	hash, err := gitUtil.HeadHashForPaths(r.RepoPathFilters...)
+	var appList []kubeapplierv1alpha1.Application
+	if t.Type == ScheduledFullRun || t.Type == ForcedFullRun {
+		appList = apps
+	} else if t.Type == FailedOnlyRun {
+		for _, a := range apps {
+			if a.Status.LastRun != nil && !a.Status.LastRun.Success {
+				appList = append(appList, a)
+			}
+		}
+	} else if t.Type == PartialRun {
+		appList = r.pruneUnchangedDirs(gitUtil, apps)
+	} else if t.Type == SingleDirectoryRun {
+		valid := false
+		for _, app := range apps {
+			if app.Spec.RepositoryPath == t.Args.(string) {
+				appList = []kubeapplierv1alpha1.Application{app}
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			log.Logger.Error(fmt.Sprintf("Invalid path '%s' requested, ignoring", t.Args.(string)))
+			return nil, nil
+		}
+	} else {
+		log.Logger.Error(fmt.Sprintf("Run type '%s' is not properly handled", t.Type))
+	}
+
+	hash, err := gitUtil.HeadHashForPaths(".")
 	if err != nil {
 		return nil, err
 	}
-	commitLog, err := gitUtil.HeadCommitLogForPaths(r.RepoPathFilters...)
+	commitLog, err := gitUtil.HeadCommitLogForPaths(".")
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +158,12 @@ func (r *Runner) run(t Request) (*Result, error) {
 		NamespacedResources: namespacedResources,
 	}
 
+	dirs := make([]string, len(appList))
+	for i, app := range appList {
+		dirs[i] = app.Spec.RepositoryPath
+	}
 	log.Logger.Debug(fmt.Sprintf("applying dirs: %v", dirs))
-	successes, failures := r.BatchApplier.Apply(gitUtil.RepoPath, dirs, applyOptions)
+	successes, failures := r.BatchApplier.Apply(gitUtil.RepoPath, appList, applyOptions)
 
 	finish := r.Clock.Now()
 
@@ -164,7 +173,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 
 	results := make(map[string]string)
 	for _, s := range successes {
-		results[s.FilePath] = s.Output
+		results[s.Application.Spec.RepositoryPath] = s.Output
 	}
 	r.Metrics.UpdateResultSummary(results)
 
@@ -191,6 +200,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 		Successes: successes,
 		Failures:  failures,
 	}
+	/* TODO: update CRDs
 	for _, s := range successes {
 		r.lastAppliedHash[s.FilePath] = hash
 	}
@@ -198,35 +208,16 @@ func (r *Runner) run(t Request) (*Result, error) {
 	for i, f := range failures {
 		r.lastRunFailures[i] = f.FilePath
 	}
+	*/
 	return &newRun, nil
 }
 
-func (r *Runner) pruneDirs(dirs []string) []string {
-	if len(r.RepoPathFilters) == 0 {
-		return dirs
-	}
-
-	var prunedDirs []string
-	for _, dir := range dirs {
-		for _, repoPathFilter := range r.RepoPathFilters {
-			matched, err := filepath.Match(repoPathFilter, dir)
-			if err != nil {
-				log.Logger.Error(err.Error())
-			} else if matched {
-				prunedDirs = append(prunedDirs, dir)
-			}
-		}
-	}
-
-	return prunedDirs
-}
-
-func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, dirs []string) []string {
-	var prunedDirs []string
-	for _, dir := range dirs {
-		path := path.Join(gitUtil.RepoPath, dir)
-		if r.lastAppliedHash[dir] != "" {
-			changed, err := gitUtil.HasChangesForPath(path, r.lastAppliedHash[dir])
+func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, apps []kubeapplierv1alpha1.Application) []kubeapplierv1alpha1.Application {
+	var prunedApps []kubeapplierv1alpha1.Application
+	for _, app := range apps {
+		path := path.Join(gitUtil.RepoPath, app.Spec.RepositoryPath)
+		if app.Status.LastRun != nil && app.Status.LastRun.Commit != "" {
+			changed, err := gitUtil.HasChangesForPath(path, app.Status.LastRun.Commit)
 			if err != nil {
 				log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply: %v", path, err))
 				changed = true
@@ -235,11 +226,11 @@ func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, dirs []string) []string {
 				continue
 			}
 		} else {
-			log.Logger.Info(fmt.Sprintf("No previous apply recorded for '%s', forcing apply", dir))
+			log.Logger.Info(fmt.Sprintf("No previous apply recorded for Application '%s/%s', forcing apply", app.Namespace, app.Name))
 		}
-		prunedDirs = append(prunedDirs, dir)
+		prunedApps = append(prunedApps, app)
 	}
-	return prunedDirs
+	return prunedApps
 }
 
 func (r *Runner) copyRepository() (*git.Util, func(), error) {

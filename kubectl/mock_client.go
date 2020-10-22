@@ -33,9 +33,9 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Apply mocks base method
-func (m *MockClientInterface) Apply(path string, applyFlags ApplyFlags) (string, string, error) {
+func (m *MockClientInterface) Apply(path string, flags ApplyFlags) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", path, applyFlags)
+	ret := m.ctrl.Call(m, "Apply", path, flags)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -43,7 +43,7 @@ func (m *MockClientInterface) Apply(path string, applyFlags ApplyFlags) (string,
 }
 
 // Apply indicates an expected call of Apply
-func (mr *MockClientInterfaceMockRecorder) Apply(path, applyFlags interface{}) *gomock.Call {
+func (mr *MockClientInterfaceMockRecorder) Apply(path, flags interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, applyFlags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockClientInterface)(nil).Apply), path, flags)
 }

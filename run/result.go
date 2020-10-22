@@ -75,7 +75,7 @@ func (r *Result) Patch(result Result) {
 func updateApplyAttemptSlice(to, from *[]ApplyAttempt, r []ApplyAttempt) {
 	for _, ra := range r {
 		for i, ta := range *to {
-			if ta.FilePath == ra.FilePath {
+			if ta.Application.Spec.RepositoryPath == ra.Application.Spec.RepositoryPath {
 				for j := i; j < len(*to)-1; j++ {
 					(*to)[j] = (*to)[j+1]
 				}
@@ -84,7 +84,7 @@ func updateApplyAttemptSlice(to, from *[]ApplyAttempt, r []ApplyAttempt) {
 			}
 		}
 		for i, fa := range *from {
-			if fa.FilePath == ra.FilePath {
+			if fa.Application.Spec.RepositoryPath == ra.Application.Spec.RepositoryPath {
 				for j := i; j < len(*from)-1; j++ {
 					(*from)[j] = (*from)[j+1]
 				}
