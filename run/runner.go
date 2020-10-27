@@ -7,14 +7,15 @@ import (
 	"os"
 	"path"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
-
-	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
 // Request defines an apply run request
@@ -190,9 +191,29 @@ func (r *Runner) run(t Request) (*Result, error) {
 	}
 	for i := range successes {
 		successes[i].Run = runInfo
+		successes[i].Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
+			Commit:   runInfo.CommitHash,
+			Finished: metav1.NewTime(successes[i].Finish),
+			Started:  metav1.NewTime(successes[i].Start),
+			Success:  true,
+			Type:     runInfo.Type.String(),
+		}
+		if err := r.client.UpdateApplicationStatus(context.TODO(), &successes[i].Application); err != nil {
+			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
+		}
 	}
 	for i := range failures {
 		failures[i].Run = runInfo
+		failures[i].Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
+			Commit:   runInfo.CommitHash,
+			Finished: metav1.NewTime(failures[i].Finish),
+			Started:  metav1.NewTime(failures[i].Start),
+			Success:  false,
+			Type:     runInfo.Type.String(),
+		}
+		if err := r.client.UpdateApplicationStatus(context.TODO(), &failures[i].Application); err != nil {
+			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
+		}
 	}
 	newRun := Result{
 		LastRun:   runInfo,
@@ -200,15 +221,6 @@ func (r *Runner) run(t Request) (*Result, error) {
 		Successes: successes,
 		Failures:  failures,
 	}
-	/* TODO: update CRDs
-	for _, s := range successes {
-		r.lastAppliedHash[s.FilePath] = hash
-	}
-	r.lastRunFailures = make([]string, len(failures))
-	for i, f := range failures {
-		r.lastRunFailures[i] = f.FilePath
-	}
-	*/
 	return &newRun, nil
 }
 

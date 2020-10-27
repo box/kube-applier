@@ -16,6 +16,8 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
+
+	defaultUpdateOptions = &client.UpdateOptions{FieldManager: "kube-applier"}
 )
 
 func init() {
@@ -62,4 +64,12 @@ func (c *Client) GetApplication(ctx context.Context, key client.ObjectKey) (*kub
 		return nil, err
 	}
 	return app, nil
+}
+
+func (c *Client) UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
+	return c.Update(ctx, app, defaultUpdateOptions)
+}
+
+func (c *Client) UpdateApplicationStatus(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
+	return c.Status().Update(ctx, app, defaultUpdateOptions)
 }
