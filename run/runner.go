@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -26,21 +27,20 @@ type Request struct {
 // Type defines what kind of apply run is performed.
 type Type int
 
+func TypeFromString(s string) Type {
+	for i, v := range typeToString {
+		if s == v {
+			return Type(i)
+		}
+	}
+	return -1
+}
+
 func (t Type) String() string {
-	switch t {
-	case ScheduledFullRun:
-		return "Scheduled full run"
-	case ForcedFullRun:
-		return "Forced full run"
-	case PartialRun:
-		return "Git polling partial run"
-	case FailedOnlyRun:
-		return "Failed-only run"
-	case SingleDirectoryRun:
-		return "Single directory run"
-	default:
+	if int(t) >= len(typeToString) {
 		return "Unknown run type"
 	}
+	return typeToString[int(t)]
 }
 
 const (
@@ -61,6 +61,14 @@ const (
 	SingleDirectoryRun
 )
 
+var typeToString = []string{
+	"Scheduled full run",      // ScheduledFullRun
+	"Forced full run",         // ForcedFullRun
+	"Git polling partial run", // PartialRun
+	"Failed-only run",         // FailedOnlyRun
+	"Single directory run",    // SingleDirectoryRun
+}
+
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	RepoPath      string
@@ -76,6 +84,7 @@ type Runner struct {
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
+	r.RunResults <- r.initialiseResultFromKubernetes()
 	for t := range r.RunQueue {
 		newRun, err := r.run(t)
 		if err != nil {
@@ -250,4 +259,56 @@ func (r *Runner) copyRepository() (*git.Util, func(), error) {
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: path.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil
+}
+
+func (r *Runner) initialiseResultFromKubernetes() Result {
+	gitUtil := &git.Util{RepoPath: r.RepoPath}
+	res := Result{
+		LastRun:  Info{},
+		RootPath: r.RepoPath,
+	}
+	apps, err := r.KubeClient.ListApplications(context.TODO())
+	if err != nil {
+		log.Logger.Warn(fmt.Sprintf("Could not list Application resources: %v", err))
+		return res
+	}
+	for _, app := range apps {
+		if app.Status.LastRun != nil {
+			commitHash := app.Status.LastRun.Commit
+			commitLog, err := gitUtil.CommitLog(commitHash)
+			if err != nil {
+				log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", commitHash, err))
+			}
+			ri := Info{
+				Start:         app.Status.LastRun.Started.Time, // TODO: these are actually the times for this particular namespace
+				Finish:        app.Status.LastRun.Finished.Time,
+				CommitHash:    commitHash,
+				FullCommit:    commitLog,
+				DiffURLFormat: r.DiffURLFormat,
+				Type:          TypeFromString(app.Status.LastRun.Type),
+			}
+			aa := ApplyAttempt{
+				Application:  app,
+				Command:      "<unknown>", // TODO: should we capture these outputs?
+				Output:       "<unknown>",
+				ErrorMessage: "<unknown>",
+				Run:          ri,
+				Start:        app.Status.LastRun.Started.Time,
+				Finish:       app.Status.LastRun.Finished.Time,
+			}
+			if app.Status.LastRun.Success {
+				res.Successes = append(res.Successes, aa)
+			} else {
+				res.Failures = append(res.Failures)
+			}
+			if ri.Start.After(res.LastRun.Start) {
+				res.LastRun = ri
+			}
+		}
+	}
+	// TODO: we zero out the start and finish times for the last run here, since
+	// these times are from an individual namespace (see TODO comment above)
+	res.LastRun.Start = time.Time{}
+	res.LastRun.Finish = time.Time{}
+	return res
 }

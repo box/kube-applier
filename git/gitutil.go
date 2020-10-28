@@ -39,6 +39,15 @@ func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 	return log, err
 }
 
+// CommitLog returns the log of the provided commit, including a list of the
+// files that were modified for the filtered directories
+func (g *Util) CommitLog(commit string) (string, error) {
+	cmd := []string{"log", "-1", "--name-status", commit}
+	cmd = append(cmd)
+	log, err := runGitCmd(g.RepoPath, cmd...)
+	return log, err
+}
+
 // HasChangesForPath returns true if changes have been committed since the
 // commit hash provided, under the specified path.
 func (g *Util) HasChangesForPath(path, sinceHash string) (bool, error) {
