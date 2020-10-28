@@ -12,7 +12,6 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
-	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -68,22 +67,15 @@ type Runner struct {
 	BatchApplier  BatchApplierInterface
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
-	KubeClient    kube.ClientInterface
+	KubeClient    client.ClientInterface
 	DiffURLFormat string
 	RunQueue      <-chan Request
 	RunResults    chan<- Result
 	Errors        chan<- error
-	client        *client.Client
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() {
-	c, err := client.New()
-	if err != nil {
-		r.Errors <- err
-		return
-	}
-	r.client = c
 	for t := range r.RunQueue {
 		newRun, err := r.run(t)
 		if err != nil {
@@ -108,7 +100,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 	}
 	defer cleanupTemp()
 
-	apps, err := r.client.ListApplications(context.TODO())
+	apps, err := r.KubeClient.ListApplications(context.TODO())
 	if err != nil {
 		log.Logger.Error("Could not list Applications: %v", err)
 	}
@@ -198,7 +190,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 			Success:  true,
 			Type:     runInfo.Type.String(),
 		}
-		if err := r.client.UpdateApplicationStatus(context.TODO(), &successes[i].Application); err != nil {
+		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), &successes[i].Application); err != nil {
 			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
 		}
 	}
@@ -211,7 +203,7 @@ func (r *Runner) run(t Request) (*Result, error) {
 			Success:  false,
 			Type:     runInfo.Type.String(),
 		}
-		if err := r.client.UpdateApplicationStatus(context.TODO(), &failures[i].Application); err != nil {
+		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), &failures[i].Application); err != nil {
 			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
 		}
 	}

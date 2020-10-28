@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
-	"github.com/utilitywarehouse/kube-applier/kube"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -138,7 +138,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeClient, err := kube.New()
+	kubeClient, err := client.New()
 	if err != nil {
 		log.Logger.Error("error creating kubernetes API client", "error", err)
 		os.Exit(1)

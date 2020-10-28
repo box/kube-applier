@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/utilitywarehouse/kube-applier/kube"
+	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -52,7 +52,7 @@ func TestBatchApplierApply(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Empty apply list
@@ -77,7 +77,7 @@ func TestBatchApplierApplySuccess(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
@@ -124,7 +124,7 @@ func TestBatchApplierApplyFail(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
@@ -172,7 +172,7 @@ func TestBatchApplierApplyPartial(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Some successes, some failures
@@ -227,7 +227,7 @@ func TestBatchApplierApplySuccessDryRun(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run
@@ -276,7 +276,7 @@ func TestBatchApplierApplySuccessDryRunNamespaces(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run namespaces
@@ -324,7 +324,7 @@ func TestBatchApplierApplySuccessDryRunAndDryRunNamespaces(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// All files succeed dry-run and dry-run namespaces
@@ -372,7 +372,7 @@ func TestBatchApplierApplyDisabledNamespaces(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	//Disabled namespaces
@@ -414,7 +414,7 @@ func TestBatchApplierApplyInvalidAnnotation(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	//Unsupported automatic deployment option on namespace
@@ -456,7 +456,7 @@ func TestBatchApplierApplySuccessPruneTrue(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	applyList := []string{"file1", "file2"}
@@ -497,7 +497,7 @@ func TestBatchApplierApplySuccessPruneClusterResources(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	applyList := []string{"file1"}
@@ -532,7 +532,7 @@ func TestBatchApplierApplySuccessPruneFalse(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	applyList := []string{"file1", "file2"}
@@ -573,7 +573,7 @@ func TestBatchApplierApplySuccessPruneBlacklist(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 
 	// Valid yaml list
@@ -622,7 +622,7 @@ func TestBatchApplierApplySuccessServerSide(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	kubeClient := kube.NewMockClientInterface(mockCtrl)
+	kubeClient := client.NewMockClientInterface(mockCtrl)
 	kubectlClient := kubectl.NewMockClientInterface(mockCtrl)
 	metrics := metrics.NewMockPrometheusInterface(mockCtrl)
 

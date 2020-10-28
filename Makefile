@@ -10,10 +10,10 @@ endif
 .PHONY: generate-mocks manifests generate controller-gen build run release
 
 generate-mocks:
+	mockgen -package=client -source client/client.go -destination=client/mock_client.go
 	mockgen -package=git -source=git/gitutil.go -destination=git/mock_gitutil.go
 	mockgen -package=sysutil -source sysutil/clock.go -destination=sysutil/mock_clock.go 
 	mockgen -package=metrics -source metrics/prometheus.go -destination=metrics/mock_prometheus.go
-	mockgen -package=kube -source kube/client.go -destination=kube/mock_client.go
 	mockgen -package=kubectl -source kubectl/client.go -destination=kubectl/mock_client.go
 
 
