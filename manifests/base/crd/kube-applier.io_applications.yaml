@@ -80,7 +80,6 @@ spec:
                   flag is enabled for this Application.
                 type: boolean
             required:
-            - repositoryName
             - repositoryPath
             type: object
           status:

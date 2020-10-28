@@ -29,7 +29,8 @@ type ApplicationSpec struct {
 
 	// RepositoryName defines a Repository resource from which configuration is
 	// pulled for this Application.
-	RepositoryName string `json:"repositoryName"`
+	// +optional
+	RepositoryName string `json:"repositoryName,omitempty"`
 
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Application is stored.
