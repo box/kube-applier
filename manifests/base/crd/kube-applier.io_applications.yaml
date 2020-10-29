@@ -89,33 +89,64 @@ spec:
                 description: LastRun contains the last apply run's information.
                 nullable: true
                 properties:
-                  commit:
-                    description: Commit is the git commit hash on which this apply
-                      run operated.
+                  command:
+                    description: Command is the command used during the apply run.
+                    type: string
+                  errorMessage:
+                    description: ErrorMessage describes any errors that occured during
+                      the apply run.
                     type: string
                   finished:
-                    description: Finished is the time that the apply run finished.
+                    description: Finished is the time that the apply run finished
+                      applying this Application.
                     format: date-time
                     type: string
+                  info:
+                    description: Info is the information on the overall apply run.
+                    properties:
+                      commit:
+                        description: Commit is the git commit hash on which this apply
+                          run operated.
+                        type: string
+                      finished:
+                        description: Finished is the time that the apply run finished.
+                        format: date-time
+                        type: string
+                      started:
+                        description: Started is the time that the apply run started.
+                        format: date-time
+                        type: string
+                      type:
+                        default: unknown
+                        description: Type is a short description of the kind of apply
+                          run that was attempted.
+                        type: string
+                    required:
+                    - commit
+                    - finished
+                    - started
+                    - type
+                    type: object
+                  output:
+                    description: Output is the stdout of the Command.
+                    type: string
                   started:
-                    description: Started is the time that the apply run started.
+                    description: Started is the time that the apply run started applying
+                      this Application.
                     format: date-time
                     type: string
                   success:
                     description: Success denotes whether the apply run was successful
                       or not.
                     type: boolean
-                  type:
-                    default: unknown
-                    description: Type is a short description of the kind of apply
-                      run that was attempted.
-                    type: string
                 required:
-                - commit
+                - command
+                - errorMessage
                 - finished
+                - info
+                - output
                 - started
                 - success
-                - type
                 type: object
             type: object
         type: object
