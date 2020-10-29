@@ -1,5 +1,6 @@
 package run
 
+/*
 import (
 	"testing"
 	"time"
@@ -102,7 +103,6 @@ func TestResultLastCommitLink(t *testing.T) {
 	}
 }
 
-/*
 func TestResultPatch(t *testing.T) {
 	tNow := time.Now()
 	tLater := tNow.Add(time.Second)

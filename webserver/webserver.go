@@ -123,7 +123,7 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			lastRun.Patch(result)
+			*lastRun = result
 		}
 	}()
 

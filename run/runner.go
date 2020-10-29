@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -27,7 +26,7 @@ type Request struct {
 // Type defines what kind of apply run is performed.
 type Type int
 
-func TypeFromString(s string) Type {
+func typeFromString(s string) Type {
 	for i, v := range typeToString {
 		if s == v {
 			return Type(i)
@@ -37,7 +36,7 @@ func TypeFromString(s string) Type {
 }
 
 func (t Type) String() string {
-	if int(t) >= len(typeToString) {
+	if int(t) >= len(typeToString) || int(t) < 0 {
 		return "Unknown run type"
 	}
 	return typeToString[int(t)]
@@ -142,6 +141,12 @@ func (r *Runner) run(t Request) (*Result, error) {
 		log.Logger.Error(fmt.Sprintf("Run type '%s' is not properly handled", t.Type))
 	}
 
+	// TODO: BatchApplier performs the same check, is this necessary? (especially if we merge appList with apps below)
+	if len(appList) == 0 {
+		log.Logger.Info("No Applications eligible to apply")
+		return nil, nil
+	}
+
 	hash, err := gitUtil.HeadHashForPaths(".")
 	if err != nil {
 		return nil, err
@@ -165,62 +170,59 @@ func (r *Runner) run(t Request) (*Result, error) {
 		dirs[i] = app.Spec.RepositoryPath
 	}
 	log.Logger.Debug(fmt.Sprintf("applying dirs: %v", dirs))
-	successes, failures := r.BatchApplier.Apply(gitUtil.RepoPath, appList, applyOptions)
+	r.BatchApplier.Apply(gitUtil.RepoPath, appList, applyOptions)
 
 	finish := r.Clock.Now()
 
 	log.Logger.Info("Finished apply run", "stop-time", finish)
 
-	success := len(failures) == 0
-
+	success := true
 	results := make(map[string]string)
-	for _, s := range successes {
-		results[s.Application.Spec.RepositoryPath] = s.Output
+
+	statusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{
+		Started:  metav1.NewTime(start),
+		Finished: metav1.NewTime(finish),
+		Commit:   hash,
+		Type:     t.Type.String(),
 	}
+	for i := range appList {
+		appList[i].Status.LastRun.Info = statusRunInfo
+		if !appList[i].Status.LastRun.Success {
+			success = false
+		}
+
+		// TODO: what does this do?
+		results[appList[i].Spec.RepositoryPath] = appList[i].Status.LastRun.Output
+
+		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), &appList[i]); err != nil {
+			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
+		}
+	}
+
 	r.Metrics.UpdateResultSummary(results)
 
 	r.Metrics.UpdateRunLatency(r.Clock.Since(start).Seconds(), success)
 	r.Metrics.UpdateLastRunTimestamp(finish)
 
-	runInfo := Info{
-		Start:         start,
-		Finish:        finish,
-		CommitHash:    hash,
-		FullCommit:    commitLog,
-		DiffURLFormat: r.DiffURLFormat,
-		Type:          t.Type,
-	}
-	for i := range successes {
-		successes[i].Run = runInfo
-		successes[i].Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
-			Commit:   runInfo.CommitHash,
-			Finished: metav1.NewTime(successes[i].Finish),
-			Started:  metav1.NewTime(successes[i].Start),
-			Success:  true,
-			Type:     runInfo.Type.String(),
+	// merge apps (all Applications) and appList (applied in this run)
+	resultApps := appList
+	for _, a1 := range apps {
+		found := false
+		for _, a2 := range appList {
+			if a1.Name == a2.Name && a1.Namespace == a2.Namespace {
+				found = true
+			}
 		}
-		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), &successes[i].Application); err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
-		}
-	}
-	for i := range failures {
-		failures[i].Run = runInfo
-		failures[i].Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
-			Commit:   runInfo.CommitHash,
-			Finished: metav1.NewTime(failures[i].Finish),
-			Started:  metav1.NewTime(failures[i].Start),
-			Success:  false,
-			Type:     runInfo.Type.String(),
-		}
-		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), &failures[i].Application); err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
+		if !found {
+			resultApps = append(resultApps, a1)
 		}
 	}
 	newRun := Result{
-		LastRun:   runInfo,
-		RootPath:  r.RepoPath,
-		Successes: successes,
-		Failures:  failures,
+		Applications:  resultApps,
+		DiffURLFormat: r.DiffURLFormat,
+		FullCommit:    commitLog,
+		LastRun:       statusRunInfo,
+		RootPath:      r.RepoPath,
 	}
 	return &newRun, nil
 }
@@ -229,8 +231,8 @@ func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, apps []kubeapplierv1alpha
 	var prunedApps []kubeapplierv1alpha1.Application
 	for _, app := range apps {
 		path := path.Join(gitUtil.RepoPath, app.Spec.RepositoryPath)
-		if app.Status.LastRun != nil && app.Status.LastRun.Commit != "" {
-			changed, err := gitUtil.HasChangesForPath(path, app.Status.LastRun.Commit)
+		if app.Status.LastRun != nil && app.Status.LastRun.Info.Commit != "" {
+			changed, err := gitUtil.HasChangesForPath(path, app.Status.LastRun.Info.Commit)
 			if err != nil {
 				log.Logger.Warn(fmt.Sprintf("Could not check dir '%s' for changes, forcing apply: %v", path, err))
 				changed = true
@@ -264,8 +266,8 @@ func (r *Runner) copyRepository() (*git.Util, func(), error) {
 func (r *Runner) initialiseResultFromKubernetes() Result {
 	gitUtil := &git.Util{RepoPath: r.RepoPath}
 	res := Result{
-		LastRun:  Info{},
-		RootPath: r.RepoPath,
+		DiffURLFormat: r.DiffURLFormat,
+		RootPath:      r.RepoPath,
 	}
 	apps, err := r.KubeClient.ListApplications(context.TODO())
 	if err != nil {
@@ -273,42 +275,18 @@ func (r *Runner) initialiseResultFromKubernetes() Result {
 		return res
 	}
 	for _, app := range apps {
+		// TODO: what do we do with these?
 		if app.Status.LastRun != nil {
-			commitHash := app.Status.LastRun.Commit
-			commitLog, err := gitUtil.CommitLog(commitHash)
-			if err != nil {
-				log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", commitHash, err))
-			}
-			ri := Info{
-				Start:         app.Status.LastRun.Started.Time, // TODO: these are actually the times for this particular namespace
-				Finish:        app.Status.LastRun.Finished.Time,
-				CommitHash:    commitHash,
-				FullCommit:    commitLog,
-				DiffURLFormat: r.DiffURLFormat,
-				Type:          TypeFromString(app.Status.LastRun.Type),
-			}
-			aa := ApplyAttempt{
-				Application:  app,
-				Command:      "<unknown>", // TODO: should we capture these outputs?
-				Output:       "<unknown>",
-				ErrorMessage: "<unknown>",
-				Run:          ri,
-				Start:        app.Status.LastRun.Started.Time,
-				Finish:       app.Status.LastRun.Finished.Time,
-			}
-			if app.Status.LastRun.Success {
-				res.Successes = append(res.Successes, aa)
-			} else {
-				res.Failures = append(res.Failures)
-			}
-			if ri.Start.After(res.LastRun.Start) {
-				res.LastRun = ri
+			res.Applications = append(res.Applications, app)
+			if app.Status.LastRun.Info.Started.After(res.LastRun.Started.Time) {
+				res.LastRun = app.Status.LastRun.Info
 			}
 		}
 	}
-	// TODO: we zero out the start and finish times for the last run here, since
-	// these times are from an individual namespace (see TODO comment above)
-	res.LastRun.Start = time.Time{}
-	res.LastRun.Finish = time.Time{}
+	commitLog, err := gitUtil.CommitLog(res.LastRun.Commit)
+	if err != nil {
+		log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", res.LastRun.Commit, err))
+	}
+	res.FullCommit = commitLog
 	return res
 }
