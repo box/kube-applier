@@ -74,7 +74,7 @@ type Runner struct {
 	BatchApplier  BatchApplierInterface
 	Clock         sysutil.ClockInterface
 	Metrics       metrics.PrometheusInterface
-	KubeClient    client.ClientInterface
+	KubeClient    client.Interface
 	DiffURLFormat string
 	RunQueue      <-chan Request
 	RunResults    chan<- Result

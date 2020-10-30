@@ -12,31 +12,31 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// MockClientInterface is a mock of ClientInterface interface
-type MockClientInterface struct {
+// MockInterface is a mock of Interface interface
+type MockInterface struct {
 	ctrl     *gomock.Controller
-	recorder *MockClientInterfaceMockRecorder
+	recorder *MockInterfaceMockRecorder
 }
 
-// MockClientInterfaceMockRecorder is the mock recorder for MockClientInterface
-type MockClientInterfaceMockRecorder struct {
-	mock *MockClientInterface
+// MockInterfaceMockRecorder is the mock recorder for MockInterface
+type MockInterfaceMockRecorder struct {
+	mock *MockInterface
 }
 
-// NewMockClientInterface creates a new mock instance
-func NewMockClientInterface(ctrl *gomock.Controller) *MockClientInterface {
-	mock := &MockClientInterface{ctrl: ctrl}
-	mock.recorder = &MockClientInterfaceMockRecorder{mock}
+// NewMockInterface creates a new mock instance
+func NewMockInterface(ctrl *gomock.Controller) *MockInterface {
+	mock := &MockInterface{ctrl: ctrl}
+	mock.recorder = &MockInterfaceMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
+func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 	return m.recorder
 }
 
 // ListApplications mocks base method
-func (m *MockClientInterface) ListApplications(ctx context.Context) ([]v1alpha1.Application, error) {
+func (m *MockInterface) ListApplications(ctx context.Context) ([]v1alpha1.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListApplications", ctx)
 	ret0, _ := ret[0].([]v1alpha1.Application)
@@ -45,13 +45,13 @@ func (m *MockClientInterface) ListApplications(ctx context.Context) ([]v1alpha1.
 }
 
 // ListApplications indicates an expected call of ListApplications
-func (mr *MockClientInterfaceMockRecorder) ListApplications(ctx interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) ListApplications(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListApplications", reflect.TypeOf((*MockClientInterface)(nil).ListApplications), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListApplications", reflect.TypeOf((*MockInterface)(nil).ListApplications), ctx)
 }
 
 // GetApplication mocks base method
-func (m *MockClientInterface) GetApplication(ctx context.Context, key client.ObjectKey) (*v1alpha1.Application, error) {
+func (m *MockInterface) GetApplication(ctx context.Context, key client.ObjectKey) (*v1alpha1.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplication", ctx, key)
 	ret0, _ := ret[0].(*v1alpha1.Application)
@@ -60,13 +60,13 @@ func (m *MockClientInterface) GetApplication(ctx context.Context, key client.Obj
 }
 
 // GetApplication indicates an expected call of GetApplication
-func (mr *MockClientInterfaceMockRecorder) GetApplication(ctx, key interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetApplication(ctx, key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplication", reflect.TypeOf((*MockClientInterface)(nil).GetApplication), ctx, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplication", reflect.TypeOf((*MockInterface)(nil).GetApplication), ctx, key)
 }
 
 // UpdateApplication mocks base method
-func (m *MockClientInterface) UpdateApplication(ctx context.Context, app *v1alpha1.Application) error {
+func (m *MockInterface) UpdateApplication(ctx context.Context, app *v1alpha1.Application) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplication", ctx, app)
 	ret0, _ := ret[0].(error)
@@ -74,13 +74,13 @@ func (m *MockClientInterface) UpdateApplication(ctx context.Context, app *v1alph
 }
 
 // UpdateApplication indicates an expected call of UpdateApplication
-func (mr *MockClientInterfaceMockRecorder) UpdateApplication(ctx, app interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateApplication(ctx, app interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplication", reflect.TypeOf((*MockClientInterface)(nil).UpdateApplication), ctx, app)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplication", reflect.TypeOf((*MockInterface)(nil).UpdateApplication), ctx, app)
 }
 
 // UpdateApplicationStatus mocks base method
-func (m *MockClientInterface) UpdateApplicationStatus(ctx context.Context, app *v1alpha1.Application) error {
+func (m *MockInterface) UpdateApplicationStatus(ctx context.Context, app *v1alpha1.Application) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateApplicationStatus", ctx, app)
 	ret0, _ := ret[0].(error)
@@ -88,13 +88,13 @@ func (m *MockClientInterface) UpdateApplicationStatus(ctx context.Context, app *
 }
 
 // UpdateApplicationStatus indicates an expected call of UpdateApplicationStatus
-func (mr *MockClientInterfaceMockRecorder) UpdateApplicationStatus(ctx, app interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateApplicationStatus(ctx, app interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationStatus", reflect.TypeOf((*MockClientInterface)(nil).UpdateApplicationStatus), ctx, app)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationStatus", reflect.TypeOf((*MockInterface)(nil).UpdateApplicationStatus), ctx, app)
 }
 
 // PrunableResourceGVKs mocks base method
-func (m *MockClientInterface) PrunableResourceGVKs() ([]string, []string, error) {
+func (m *MockInterface) PrunableResourceGVKs() ([]string, []string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrunableResourceGVKs")
 	ret0, _ := ret[0].([]string)
@@ -104,7 +104,7 @@ func (m *MockClientInterface) PrunableResourceGVKs() ([]string, []string, error)
 }
 
 // PrunableResourceGVKs indicates an expected call of PrunableResourceGVKs
-func (mr *MockClientInterfaceMockRecorder) PrunableResourceGVKs() *gomock.Call {
+func (mr *MockInterfaceMockRecorder) PrunableResourceGVKs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrunableResourceGVKs", reflect.TypeOf((*MockClientInterface)(nil).PrunableResourceGVKs))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrunableResourceGVKs", reflect.TypeOf((*MockInterface)(nil).PrunableResourceGVKs))
 }

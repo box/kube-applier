@@ -35,9 +35,9 @@ func init() {
 
 }
 
-// ClientInterface allows for mocking out the functionality of Client when
-// testing the full process of an apply run.
-type ClientInterface interface {
+// Interface allows for mocking out the functionality of Client when testing the
+// the full process of an apply run.
+type Interface interface {
 	ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Application, error)
 	GetApplication(ctx context.Context, key client.ObjectKey) (*kubeapplierv1alpha1.Application, error)
 	UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1.Application) error
@@ -73,7 +73,7 @@ func New() (*Client, error) {
 	}, nil
 }
 
-// ListApplication returns a list of all the Application resources.
+// ListApplications returns a list of all the Application resources.
 func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Application, error) {
 	apps := &kubeapplierv1alpha1.ApplicationList{}
 	if err := c.List(ctx, apps); err != nil {
@@ -96,7 +96,8 @@ func (c *Client) UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1
 	return c.Update(ctx, app, defaultUpdateOptions)
 }
 
-// UpdateApplication updates the status of the Application resource provided.
+// UpdateApplicationStatus updates the status of the Application resource
+// provided.
 func (c *Client) UpdateApplicationStatus(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
 	return c.Status().Update(ctx, app, defaultUpdateOptions)
 }
