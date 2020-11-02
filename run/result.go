@@ -71,5 +71,8 @@ func (r Result) Finished() bool {
 // AppliedDuringLastRun checks whether the provided Application was applied
 // during the last run.
 func (r Result) AppliedDuringLastRun(app kubeapplierv1alpha1.Application) bool {
-	return reflect.DeepEqual(r.LastRun, app.Status.LastRun.Info)
+	return r.LastRun.Commit == app.Status.LastRun.Info.Commit &&
+		r.LastRun.Finished.Time.Unix() == app.Status.LastRun.Info.Finished.Time.Unix() &&
+		r.LastRun.Started.Time.Unix() == app.Status.LastRun.Info.Started.Time.Unix() &&
+		r.LastRun.Type == app.Status.LastRun.Info.Type
 }
