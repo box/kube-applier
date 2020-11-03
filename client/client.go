@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -57,6 +58,16 @@ func New() (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Cannot get kubernetes config: %v", err)
 	}
+	return newClient(cfg)
+}
+
+// NewWithConfig returns a new kubernetes client initialised with the provided
+// configuration.
+func NewWithConfig(cfg *rest.Config) (*Client, error) {
+	return newClient(cfg)
+}
+
+func newClient(cfg *rest.Config) (*Client, error) {
 	c, err := client.New(cfg, client.Options{
 		Scheme: scheme,
 	})
