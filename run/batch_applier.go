@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
-	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -27,7 +26,6 @@ type BatchApplierInterface interface {
 
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubeClient     client.Interface
 	KubectlClient  kubectl.ClientInterface
 	Metrics        metrics.PrometheusInterface
 	Clock          sysutil.ClockInterface

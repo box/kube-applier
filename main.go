@@ -167,7 +167,6 @@ func main() {
 	dr, _ := strconv.ParseBool(dryRun)
 	batchApplier := &run.BatchApplier{
 		PruneBlacklist: pruneBlacklistSlice,
-		KubeClient:     kubeClient,
 		KubectlClient:  kubectlClient,
 		Clock:          clock,
 		DryRun:         dr,
