@@ -36,6 +36,7 @@ type ClientInterface interface {
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 type Client struct {
+	Host    string
 	Label   string
 	Metrics metrics.PrometheusInterface
 	Timeout time.Duration
@@ -139,7 +140,11 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 	// This is the command we are effectively applying. In actuality we're splitting it into two
 	// separate invocations of kubectl but we'll return this as the command
 	// string.
-	displayArgs := []string{"apply", "-f", "-"}
+	displayArgs := []string{}
+	if c.Host != "" {
+		displayArgs = append(displayArgs, "--server", c.Host)
+	}
+	displayArgs = append(displayArgs, "apply", "-f", "-")
 	displayArgs = append(displayArgs, flags.Args()...)
 	kubectlCmd := exec.Command("kubectl", displayArgs...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
@@ -192,7 +197,11 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 
 // apply runs `kubectl apply`
 func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, string, error) {
-	args := []string{"apply", "-f", path}
+	args := []string{}
+	if c.Host != "" {
+		args = append(args, "--server", c.Host)
+	}
+	args = append(args, "apply", "-f", path)
 	if path != "-" {
 		args = append(args, "-R")
 	}
