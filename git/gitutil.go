@@ -6,15 +6,6 @@ import (
 	"strings"
 )
 
-// UtilInterface allows for mocking out the functionality of GitUtil when
-// testing the full process of an apply run.
-type UtilInterface interface {
-	HeadCommitLogForPaths(args ...string) (string, error)
-	HeadHashForPaths(args ...string) (string, error)
-	HasChangesForPath(path, sinceHash string) (bool, error)
-	SplitPath() (string, string, error)
-}
-
 // Util allows for fetching information about a Git repository using Git CLI
 // commands.
 type Util struct {

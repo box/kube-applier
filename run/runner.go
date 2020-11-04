@@ -71,10 +71,10 @@ var typeToString = []string{
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	RepoPath      string
-	BatchApplier  BatchApplierInterface
+	BatchApplier  *BatchApplier
 	Clock         sysutil.ClockInterface
-	Metrics       metrics.PrometheusInterface
-	KubeClient    client.Interface
+	Metrics       *metrics.Prometheus
+	KubeClient    *client.Client
 	DiffURLFormat string
 	RunQueue      <-chan Request
 	RunResults    chan<- Result

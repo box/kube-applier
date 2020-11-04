@@ -19,15 +19,10 @@ const (
 	defaultBatchApplierWorkerCount = 2
 )
 
-// BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
-type BatchApplierInterface interface {
-	Apply(string, []kubeapplierv1alpha1.Application, *ApplyOptions)
-}
-
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubectlClient  kubectl.ClientInterface
-	Metrics        metrics.PrometheusInterface
+	KubectlClient  *kubectl.Client
+	Metrics        *metrics.Prometheus
 	Clock          sysutil.ClockInterface
 	DryRun         bool
 	PruneBlacklist []string

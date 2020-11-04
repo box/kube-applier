@@ -10,9 +10,7 @@ endif
 .PHONY: generate-mocks manifests generate controller-gen build run release
 
 generate-mocks:
-	mockgen -package=git -source=git/gitutil.go -destination=git/mock_gitutil.go
 	mockgen -package=sysutil -source sysutil/clock.go -destination=sysutil/mock_clock.go 
-	mockgen -package=metrics -source metrics/prometheus.go -destination=metrics/mock_prometheus.go
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen

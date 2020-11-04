@@ -36,16 +36,6 @@ func init() {
 
 }
 
-// Interface allows for mocking out the functionality of Client when testing the
-// the full process of an apply run.
-type Interface interface {
-	ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Application, error)
-	GetApplication(ctx context.Context, key client.ObjectKey) (*kubeapplierv1alpha1.Application, error)
-	UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1.Application) error
-	UpdateApplicationStatus(ctx context.Context, app *kubeapplierv1alpha1.Application) error
-	PrunableResourceGVKs() ([]string, []string, error)
-}
-
 // Client encapsulates a kubernetes client for interacting with the apiserver.
 type Client struct {
 	client.Client

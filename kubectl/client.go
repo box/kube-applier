@@ -29,16 +29,11 @@ var (
 	omitErrOutputMessage = "Some error output has been omitted because it may contain sensitive data\n"
 )
 
-// ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
-type ClientInterface interface {
-	Apply(path string, flags ApplyFlags) (string, string, error)
-}
-
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 type Client struct {
 	Host    string
 	Label   string
-	Metrics metrics.PrometheusInterface
+	Metrics *metrics.Prometheus
 	Timeout time.Duration
 }
 
