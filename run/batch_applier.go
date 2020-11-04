@@ -101,10 +101,12 @@ func (a *BatchApplier) apply(rootPath string, app *kubeapplierv1alpha1.Applicati
 		}
 
 		// Trim blacklisted items out of the whitelist
-		for _, b := range a.PruneBlacklist {
+		pruneBlacklist := uniqueStrings(append(a.PruneBlacklist, app.Spec.PruneBlacklist...))
+		for _, b := range pruneBlacklist {
 			for i, w := range pruneWhitelist {
 				if b == w {
 					pruneWhitelist = append(pruneWhitelist[:i], pruneWhitelist[i+1:]...)
+					break
 				}
 			}
 		}
@@ -135,4 +137,18 @@ func (a *BatchApplier) apply(rootPath string, app *kubeapplierv1alpha1.Applicati
 	} else {
 		app.Status.LastRun.Success = true
 	}
+}
+
+func uniqueStrings(in []string) []string {
+	m := make(map[string]bool)
+	for _, i := range in {
+		m[i] = true
+	}
+	out := make([]string, len(m))
+	i := 0
+	for v := range m {
+		out[i] = v
+		i++
+	}
+	return out
 }
