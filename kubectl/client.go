@@ -89,6 +89,12 @@ func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
 	return c.applyPath(path, flags)
 }
 
+// Path returns the filesystem path to the kubectl binary
+func (c *Client) Path() (string, error) {
+	kubectlCmd := exec.Command("kubectl")
+	return kubectlCmd.String(), nil
+}
+
 // applyPath runs `kubectl apply -f <path>`
 func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error) {
 	cmdStr, out, err := c.apply(path, []byte{}, flags)

@@ -87,10 +87,14 @@ var _ = Describe("BatchApplier", func() {
 				},
 			}
 			expectedStatusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{}
-			// TODO: kubectl path might differ
+
+			kubectlPath, err := testBatchApplier.KubectlClient.Path()
+			Expect(err).Should(BeNil())
+			Expect(kubectlPath).ShouldNot(BeEmpty())
+
 			expectedStatus := []*kubeapplierv1alpha1.ApplicationStatusRun{
 				{
-					Command:      fmt.Sprintf("/usr/local/bin/kubectl --server %s apply -f ../testdata/manifests/app-a -R -n app-a --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment", testConfig.Host),
+					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-a -R -n app-a --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment", kubectlPath, testConfig.Host),
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
@@ -101,7 +105,7 @@ deployment.apps/test-deployment created
 					Success: true,
 				},
 				{
-					Command:      fmt.Sprintf("/usr/local/bin/kubectl --server %s apply -f ../testdata/manifests/app-b -R -n app-b --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment --prune-whitelist=core/v1/Namespace", testConfig.Host),
+					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-b -R -n app-b --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment --prune-whitelist=core/v1/Namespace", kubectlPath, testConfig.Host),
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
@@ -112,7 +116,7 @@ error: error validating "../testdata/manifests/app-b/deployment.yaml": error val
 					Success: false,
 				},
 				{
-					Command:      fmt.Sprintf("/usr/local/bin/kubectl --server %s apply -f ../testdata/manifests/app-c -R -n app-c --dry-run=server --prune --all --prune-whitelist=apps/v1/Deployment", testConfig.Host),
+					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-c -R -n app-c --dry-run=server --prune --all --prune-whitelist=apps/v1/Deployment", kubectlPath, testConfig.Host),
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
