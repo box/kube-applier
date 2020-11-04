@@ -1,7 +1,12 @@
 FROM golang:1.15-alpine AS build
 WORKDIR /go/src/github.com/utilitywarehouse/kube-applier
 COPY . /go/src/github.com/utilitywarehouse/kube-applier
-RUN apk --no-cache add git gcc musl-dev &&\
+RUN apk --no-cache add git gcc musl-dev curl &&\
+  os=$(go env GOOS) &&\
+  arch=$(go env GOARCH) &&\
+  curl -Ls https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/ &&\
+  mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder &&\
+  export PATH=$PATH:/usr/local/kubebuilder/bin &&\
   go get -t ./... &&\
   CGO_ENABLED=1 && go test -race -count=1 ./... &&\
   CGO_ENABLED=0 && go build -o /kube-applier .
