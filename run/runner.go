@@ -193,7 +193,7 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 	}
 	cleanup := func() { os.RemoveAll(tmpDir) }
 	path := filepath.Join(sub, app.Spec.RepositoryPath)
-	if err := git.CloneRepository(root, tmpDir, path); err != nil {
+	if err := git.CloneRepository(root, tmpDir, path, nil); err != nil {
 		cleanup()
 		return nil, nil, err
 	}

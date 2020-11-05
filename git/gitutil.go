@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -17,7 +18,7 @@ type Util struct {
 func (g *Util) HeadHashForPaths(args ...string) (string, error) {
 	cmd := []string{"log", "--pretty=format:%h", "-n", "1", "--"}
 	cmd = append(cmd, args...)
-	hash, err := runGitCmd(g.RepoPath, cmd...)
+	hash, err := runGitCmd(nil, g.RepoPath, cmd...)
 	return strings.Trim(hash, "\n"), err
 }
 
@@ -26,7 +27,7 @@ func (g *Util) HeadHashForPaths(args ...string) (string, error) {
 func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 	cmd := []string{"log", "-1", "--name-status", "--"}
 	cmd = append(cmd, args...)
-	log, err := runGitCmd(g.RepoPath, cmd...)
+	log, err := runGitCmd(nil, g.RepoPath, cmd...)
 	return log, err
 }
 
@@ -35,7 +36,7 @@ func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 func (g *Util) CommitLog(commit string) (string, error) {
 	cmd := []string{"log", "-1", "--name-status", commit}
 	cmd = append(cmd)
-	log, err := runGitCmd(g.RepoPath, cmd...)
+	log, err := runGitCmd(nil, g.RepoPath, cmd...)
 	return log, err
 }
 
@@ -43,7 +44,7 @@ func (g *Util) CommitLog(commit string) (string, error) {
 // commit hash provided, under the specified path.
 func (g *Util) HasChangesForPath(path, sinceHash string) (bool, error) {
 	cmd := []string{"diff", "--quiet", sinceHash, "HEAD", "--", path}
-	_, err := runGitCmd(g.RepoPath, cmd...)
+	_, err := runGitCmd(nil, g.RepoPath, cmd...)
 	if _, ok := err.(*exec.ExitError); ok {
 		return true, nil
 	}
@@ -53,11 +54,11 @@ func (g *Util) HasChangesForPath(path, sinceHash string) (bool, error) {
 // SplitPath returns the absolute root path of the git repository, as well as
 // the relative subpath, based on the RepoPath attribute.
 func (g *Util) SplitPath() (string, string, error) {
-	root, err := runGitCmd(g.RepoPath, "rev-parse", "--show-toplevel")
+	root, err := runGitCmd(nil, g.RepoPath, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", "", err
 	}
-	sub, err := runGitCmd(g.RepoPath, "rev-parse", "--show-prefix")
+	sub, err := runGitCmd(nil, g.RepoPath, "rev-parse", "--show-prefix")
 	if err != nil {
 		return "", "", err
 	}
@@ -66,20 +67,23 @@ func (g *Util) SplitPath() (string, string, error) {
 
 // CloneRepository clones a shallow copy of local repository to a new location
 // on disk and only checkouts the specified path.
-func CloneRepository(src, dst, path string) error {
+func CloneRepository(src, dst, path string, environment []string) error {
 	// git clone --no-checkout src dst
-	if _, err := runGitCmd("/", "clone", "--no-checkout", src, dst); err != nil {
+	if _, err := runGitCmd(nil, "/", "clone", "--no-checkout", src, dst); err != nil {
 		return err
 	}
 
 	// git checkout HEAD -- ./path
-	_, err := runGitCmd(dst, "checkout", "HEAD", "--", fmt.Sprintf("./%s", path))
+	_, err := runGitCmd(environment, dst, "checkout", "HEAD", "--", fmt.Sprintf("./%s", path))
 	return err
 }
 
-func runGitCmd(dir string, args ...string) (string, error) {
+func runGitCmd(environment []string, dir string, args ...string) (string, error) {
 	var cmd *exec.Cmd
 	cmd = exec.Command("git", args...)
+	if len(environment) > 0 {
+		cmd.Env = append(os.Environ(), environment...)
+	}
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
