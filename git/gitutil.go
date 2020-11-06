@@ -6,15 +6,6 @@ import (
 	"strings"
 )
 
-// UtilInterface allows for mocking out the functionality of GitUtil when
-// testing the full process of an apply run.
-type UtilInterface interface {
-	HeadCommitLogForPaths(args ...string) (string, error)
-	HeadHashForPaths(args ...string) (string, error)
-	HasChangesForPath(path, sinceHash string) (bool, error)
-	SplitPath() (string, string, error)
-}
-
 // Util allows for fetching information about a Git repository using Git CLI
 // commands.
 type Util struct {
@@ -35,6 +26,15 @@ func (g *Util) HeadHashForPaths(args ...string) (string, error) {
 func (g *Util) HeadCommitLogForPaths(args ...string) (string, error) {
 	cmd := []string{"log", "-1", "--name-status", "--"}
 	cmd = append(cmd, args...)
+	log, err := runGitCmd(g.RepoPath, cmd...)
+	return log, err
+}
+
+// CommitLog returns the log of the provided commit, including a list of the
+// files that were modified for the filtered directories
+func (g *Util) CommitLog(commit string) (string, error) {
+	cmd := []string{"log", "-1", "--name-status", commit}
+	cmd = append(cmd)
 	log, err := runGitCmd(g.RepoPath, cmd...)
 	return log, err
 }

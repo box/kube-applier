@@ -62,10 +62,6 @@ spec:
               value: "base"
             - name: REPO_PATH
               value: "/src/manifests/$(NAMESPACES_DIR)"
-            - name: NAMESPACES_FILTERS
-              value: ""
-            - name: REPO_PATH_FILTERS
-              value: "$(NAMESPACES_FILTERS)"
             - name: DIFF_URL_FORMAT
               value: "https://github.com/org/repo/commit/%s"
             - name: LOG_LEVEL

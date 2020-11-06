@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/utilitywarehouse/kube-applier/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 var (
@@ -28,15 +29,11 @@ var (
 	omitErrOutputMessage = "Some error output has been omitted because it may contain sensitive data\n"
 )
 
-// ClientInterface allows for mocking out the functionality of Client when testing the full process of an apply run.
-type ClientInterface interface {
-	Apply(path string, flags ApplyFlags) (string, string, error)
-}
-
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 type Client struct {
+	Host    string
 	Label   string
-	Metrics metrics.PrometheusInterface
+	Metrics *metrics.Prometheus
 	Timeout time.Duration
 }
 
@@ -92,6 +89,12 @@ func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
 	return c.applyPath(path, flags)
 }
 
+// Path returns the filesystem path to the kubectl binary
+func (c *Client) Path() (string, error) {
+	kubectlCmd := exec.Command("kubectl")
+	return kubectlCmd.String(), nil
+}
+
 // applyPath runs `kubectl apply -f <path>`
 func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error) {
 	cmdStr, out, err := c.apply(path, []byte{}, flags)
@@ -138,7 +141,11 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 	// This is the command we are effectively applying. In actuality we're splitting it into two
 	// separate invocations of kubectl but we'll return this as the command
 	// string.
-	displayArgs := []string{"apply", "-f", "-"}
+	displayArgs := []string{}
+	if c.Host != "" {
+		displayArgs = append(displayArgs, "--server", c.Host)
+	}
+	displayArgs = append(displayArgs, "apply", "-f", "-")
 	displayArgs = append(displayArgs, flags.Args()...)
 	kubectlCmd := exec.Command("kubectl", displayArgs...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
@@ -191,7 +198,11 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 
 // apply runs `kubectl apply`
 func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, string, error) {
-	args := []string{"apply", "-f", path}
+	args := []string{}
+	if c.Host != "" {
+		args = append(args, "--server", c.Host)
+	}
+	args = append(args, "apply", "-f", path)
 	if path != "-" {
 		args = append(args, "-R")
 	}

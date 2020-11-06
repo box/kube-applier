@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"sync"
-	"time"
 
-	"github.com/utilitywarehouse/kube-applier/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -19,43 +19,10 @@ const (
 	defaultBatchApplierWorkerCount = 2
 )
 
-// ApplyAttempt stores the data from an attempt at applying a single file.
-type ApplyAttempt struct {
-	FilePath     string
-	Command      string
-	Output       string
-	ErrorMessage string
-	Run          Info
-	Start        time.Time
-	Finish       time.Time
-}
-
-// FormattedStart returns the Start time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
-func (a ApplyAttempt) FormattedStart() string {
-	return a.Start.Truncate(time.Second).String()
-}
-
-// FormattedFinish returns the Finish time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
-func (a ApplyAttempt) FormattedFinish() string {
-	return a.Finish.Truncate(time.Second).String()
-}
-
-// Latency returns the latency for the apply task in seconds, truncated to 3
-// decimal places.
-func (a ApplyAttempt) Latency() string {
-	return fmt.Sprintf("%.3f sec", a.Finish.Sub(a.Start).Seconds())
-}
-
-// BatchApplierInterface allows for mocking out the functionality of BatchApplier when testing the full process of an apply run.
-type BatchApplierInterface interface {
-	Apply(string, []string, *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt)
-}
-
 // BatchApplier makes apply calls for a batch of files, and updates metrics based on the results of each call.
 type BatchApplier struct {
-	KubeClient     kube.ClientInterface
-	KubectlClient  kubectl.ClientInterface
-	Metrics        metrics.PrometheusInterface
+	KubectlClient  *kubectl.Client
+	Metrics        *metrics.Prometheus
 	Clock          sysutil.ClockInterface
 	DryRun         bool
 	PruneBlacklist []string
@@ -70,12 +37,9 @@ type ApplyOptions struct {
 
 // Apply takes a list of files and attempts an apply command on each.
 // It returns two lists of ApplyAttempts - one for files that succeeded, and one for files that failed.
-func (a *BatchApplier) Apply(rootPath string, applyList []string, options *ApplyOptions) ([]ApplyAttempt, []ApplyAttempt) {
-	successes := []ApplyAttempt{}
-	failures := []ApplyAttempt{}
-
-	if len(applyList) == 0 {
-		return successes, failures
+func (a *BatchApplier) Apply(rootPath string, appList []kubeapplierv1alpha1.Application, options *ApplyOptions) {
+	if len(appList) == 0 {
+		return
 	}
 
 	if a.WorkerCount == 0 {
@@ -85,136 +49,101 @@ func (a *BatchApplier) Apply(rootPath string, applyList []string, options *Apply
 	wg := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 
-	paths := make(chan string, len(applyList))
+	apps := make(chan *kubeapplierv1alpha1.Application, len(appList))
 
 	for i := 0; i < a.WorkerCount; i++ {
 		wg.Add(1)
-		go func(root string, paths <-chan string, opts *ApplyOptions) {
+		go func(root string, apps <-chan *kubeapplierv1alpha1.Application, opts *ApplyOptions) {
 			defer wg.Done()
-			for path := range paths {
-				appliedFile, success := a.apply(root, path, opts)
-				if appliedFile == nil {
-					continue
-				}
+			for app := range apps {
+				a.apply(root, app, opts)
 
 				mutex.Lock()
-				if success {
-					successes = append(successes, *appliedFile)
-					log.Logger.Info(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.Output))
+				if app.Status.LastRun.Success {
+					log.Logger.Info(fmt.Sprintf("%v\n%v", app.Status.LastRun.Command, app.Status.LastRun.Output))
 				} else {
-					failures = append(failures, *appliedFile)
-					log.Logger.Warn(fmt.Sprintf("%v\n%v", appliedFile.Command, appliedFile.ErrorMessage))
+					log.Logger.Warn(fmt.Sprintf("%v\n%v", app.Status.LastRun.Command, app.Status.LastRun.ErrorMessage))
 				}
-				a.Metrics.UpdateNamespaceSuccess(path, success)
+				a.Metrics.UpdateNamespaceSuccess(app.Namespace, app.Status.LastRun.Success)
 				mutex.Unlock()
 			}
-		}(rootPath, paths, options)
+		}(rootPath, apps, options)
 	}
 
-	for _, path := range applyList {
-		paths <- path
+	for i := range appList {
+		apps <- &appList[i]
 	}
 
-	close(paths)
+	close(apps)
 	wg.Wait()
 
-	sortApplyAttemptSlice(successes)
-	sortApplyAttemptSlice(failures)
-
-	return successes, failures
+	sort.Slice(appList, func(i, j int) bool {
+		return appList[i].Spec.RepositoryPath < appList[j].Spec.RepositoryPath
+	})
 }
 
-func (a *BatchApplier) apply(rootPath, subPath string, options *ApplyOptions) (*ApplyAttempt, bool) {
+func (a *BatchApplier) apply(rootPath string, app *kubeapplierv1alpha1.Application, options *ApplyOptions) {
 	start := a.Clock.Now()
-	path := filepath.Join(rootPath, subPath)
-	ns := subPath
+	path := filepath.Join(rootPath, app.Spec.RepositoryPath)
 	log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
 
-	kaa, err := a.KubeClient.NamespaceAnnotations(ns)
-	if err != nil {
-		log.Logger.Error("Error while getting namespace annotations, defaulting to kube-applier.io/enabled=false", "error", err)
-		return nil, false
-	}
-
-	enabled, err := strconv.ParseBool(kaa.Enabled)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/enabled", "error", err)
-		return nil, false
-	} else if !enabled {
-		log.Logger.Info("Skipping namespace", "kube-applier.io/enabled", enabled)
-		return nil, false
-	}
-
-	dryRun, err := strconv.ParseBool(kaa.DryRun)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/dry-run", "error", err)
-		dryRun = false
-	}
-
-	prune, err := strconv.ParseBool(kaa.Prune)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/prune", "error", err)
-		prune = true
-	}
-
-	serverSide, err := strconv.ParseBool(kaa.ServerSide)
-	if err != nil {
-		log.Logger.Info("Could not get value for kube-applier.io/server-side", "error", err)
-		serverSide = false
-	}
-
 	var pruneWhitelist []string
-	if prune {
+	if app.Spec.Prune {
 		pruneWhitelist = append(pruneWhitelist, options.NamespacedResources...)
 
-		pruneClusterResources, err := strconv.ParseBool(kaa.PruneClusterResources)
-		if err != nil {
-			log.Logger.Info("Could not get value for kube-applier.io/prune-cluster-resources", "error", err)
-			pruneClusterResources = false
-		}
-		if pruneClusterResources {
+		if app.Spec.PruneClusterResources {
 			pruneWhitelist = append(pruneWhitelist, options.ClusterResources...)
 		}
 
 		// Trim blacklisted items out of the whitelist
-		for _, b := range a.PruneBlacklist {
+		pruneBlacklist := uniqueStrings(append(a.PruneBlacklist, app.Spec.PruneBlacklist...))
+		for _, b := range pruneBlacklist {
 			for i, w := range pruneWhitelist {
 				if b == w {
 					pruneWhitelist = append(pruneWhitelist[:i], pruneWhitelist[i+1:]...)
+					break
 				}
 			}
 		}
 	}
 
 	dryRunStrategy := "none"
-	if a.DryRun || dryRun {
+	if a.DryRun || app.Spec.DryRun {
 		dryRunStrategy = "server"
 	}
 
 	cmd, output, err := a.KubectlClient.Apply(path, kubectl.ApplyFlags{
-		Namespace:      ns,
+		Namespace:      app.Namespace,
 		DryRunStrategy: dryRunStrategy,
 		PruneWhitelist: pruneWhitelist,
-		ServerSide:     serverSide,
+		ServerSide:     app.Spec.ServerSideApply,
 	})
 	finish := a.Clock.Now()
 
-	appliedFile := ApplyAttempt{
-		FilePath:     subPath,
+	app.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
 		Command:      cmd,
 		Output:       output,
 		ErrorMessage: "",
-		Start:        start,
-		Finish:       finish,
+		Finished:     metav1.NewTime(finish),
+		Started:      metav1.NewTime(start),
 	}
 	if err != nil {
-		appliedFile.ErrorMessage = err.Error()
+		app.Status.LastRun.ErrorMessage = err.Error()
+	} else {
+		app.Status.LastRun.Success = true
 	}
-	return &appliedFile, err == nil
 }
 
-func sortApplyAttemptSlice(attempts []ApplyAttempt) {
-	sort.Slice(attempts, func(i, j int) bool {
-		return attempts[i].FilePath < attempts[j].FilePath
-	})
+func uniqueStrings(in []string) []string {
+	m := make(map[string]bool)
+	for _, i := range in {
+		m[i] = true
+	}
+	out := make([]string, len(m))
+	i := 0
+	for v := range m {
+		out[i] = v
+		i++
+	}
+	return out
 }

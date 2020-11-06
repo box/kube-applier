@@ -6,11 +6,11 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
-
-	"github.com/gorilla/mux"
 )
 
 const serverTemplatePath = "templates/status.html"
@@ -123,7 +123,7 @@ func (ws *WebServer) Start() {
 
 	go func() {
 		for result := range ws.RunResults {
-			lastRun.Patch(result)
+			*lastRun = result
 		}
 	}()
 

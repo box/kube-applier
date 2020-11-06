@@ -5,6 +5,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/gorilla/mux"
+
 	"github.com/utilitywarehouse/go-operational/op"
 )
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
+
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 

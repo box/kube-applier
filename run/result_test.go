@@ -5,67 +5,129 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
-type latencyTestCase struct {
-	Start    time.Time
-	Finish   time.Time
-	Expected string
+type formattingTestCases struct {
+	Start                   time.Time
+	Finish                  time.Time
+	ExpectedLatency         string
+	ExpectedFormattedFinish string
+	ExpectedFinished        bool
 }
 
-var latencyTestCases = []latencyTestCase{
+var formattingTestCasess = []formattingTestCases{
+	// Unfinished
+	{time.Time{}, time.Time{}, "0.000 sec", "0001-01-01 00:00:00 +0000 UTC", false},
 	// Zero
-	{time.Unix(0, 0), time.Unix(0, 0), "0.000 sec"},
+	{time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(), "0.000 sec", "1970-01-01 00:00:00 +0000 UTC", true},
 	// Integer
-	{time.Unix(0, 0), time.Unix(5, 0), "5.000 sec"},
+	{time.Unix(0, 0).UTC(), time.Unix(5, 0).UTC(), "5.000 sec", "1970-01-01 00:00:05 +0000 UTC", true},
 	// Simple float
-	{time.Unix(0, 0), time.Unix(2, 500000000), "2.500 sec"},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 500000000).UTC(), "2.500 sec", "1970-01-01 00:00:02 +0000 UTC", true},
 	// Complex float - round down
-	{time.Unix(0, 0), time.Unix(2, 137454234), "2.137 sec"},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 137454234).UTC(), "2.137 sec", "1970-01-01 00:00:02 +0000 UTC", true},
 	// Complex float - round up
-	{time.Unix(0, 0), time.Unix(2, 137554234), "2.138 sec"},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 137554234).UTC(), "2.138 sec", "1970-01-01 00:00:02 +0000 UTC", true},
+}
+
+func TestResultFormattedTime(t *testing.T) {
+	assert := assert.New(t)
+	for _, tc := range formattingTestCasess {
+		r := Result{
+			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
+				Started:  metav1.NewTime(tc.Start),
+				Finished: metav1.NewTime(tc.Finish),
+			},
+		}
+		assert.Equal(tc.ExpectedFormattedFinish, r.FormattedTime(r.LastRun.Finished))
+	}
 }
 
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
-	for _, tc := range latencyTestCases {
-		r := Result{LastRun: Info{Start: tc.Start, Finish: tc.Finish}}
-		assert.Equal(tc.Expected, r.LastRun.Latency())
+	for _, tc := range formattingTestCasess {
+		r := Result{
+			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
+				Started:  metav1.NewTime(tc.Start),
+				Finished: metav1.NewTime(tc.Finish),
+			},
+		}
+		assert.Equal(tc.ExpectedLatency, r.Latency(r.LastRun.Started, r.LastRun.Finished))
+	}
+}
+
+func TestResultFinished(t *testing.T) {
+	assert := assert.New(t)
+	for _, tc := range formattingTestCasess {
+		r := Result{
+			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
+				Started:  metav1.NewTime(tc.Start),
+				Finished: metav1.NewTime(tc.Finish),
+			},
+		}
+		assert.Equal(tc.ExpectedFinished, r.Finished())
 	}
 }
 
 type totalFilesTestCase struct {
-	Successes []ApplyAttempt
-	Failures  []ApplyAttempt
-	Expected  int
+	Applications []kubeapplierv1alpha1.Application
+	Failures     []kubeapplierv1alpha1.Application
+	Successes    []kubeapplierv1alpha1.Application
 }
 
 var totalFilesTestCases = []totalFilesTestCase{
-	// Both nil
-	{nil, nil, 0},
-	// One empty, one nil
-	{[]ApplyAttempt{}, nil, 0},
-	// Both empty
-	{[]ApplyAttempt{}, []ApplyAttempt{}, 0},
-	// Single apply attempt, other nil
-	{[]ApplyAttempt{ApplyAttempt{}}, nil, 1},
-	// Single apply attempt, other empty
-	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{}, 1},
-	// Both single apply attempt
-	{[]ApplyAttempt{ApplyAttempt{}}, []ApplyAttempt{ApplyAttempt{}}, 2},
-	// Both multiple apply attempts
+	{nil, nil, nil},
 	{
-		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}, ApplyAttempt{}},
-		[]ApplyAttempt{ApplyAttempt{}, ApplyAttempt{}},
-		5,
+		[]kubeapplierv1alpha1.Application{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-a"},
+				Status: kubeapplierv1alpha1.ApplicationStatus{
+					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+						Success: true,
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-b"},
+				Status: kubeapplierv1alpha1.ApplicationStatus{
+					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+						Success: false,
+					},
+				},
+			},
+		},
+		[]kubeapplierv1alpha1.Application{
+			kubeapplierv1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-b"},
+				Status: kubeapplierv1alpha1.ApplicationStatus{
+					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+						Success: false,
+					},
+				},
+			},
+		},
+		[]kubeapplierv1alpha1.Application{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-a"},
+				Status: kubeapplierv1alpha1.ApplicationStatus{
+					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+						Success: true,
+					},
+				},
+			},
+		},
 	},
 }
 
-func TestResultTotalFiles(t *testing.T) {
+func TestResultSuccessesAndFailures(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
-		r := Result{Successes: tc.Successes, Failures: tc.Failures}
-		assert.Equal(tc.Expected, r.TotalFiles())
+		r := Result{Applications: tc.Applications}
+		assert.Equal(tc.Successes, r.Successes())
+		assert.Equal(tc.Failures, r.Failures())
 	}
 }
 
@@ -97,66 +159,42 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{LastRun: Info{CommitHash: tc.CommitHash, DiffURLFormat: tc.DiffURLFormat}}
-		assert.Equal(tc.ExpectedLink, r.LastRun.LastCommitLink())
+		r := Result{LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: tc.CommitHash}, DiffURLFormat: tc.DiffURLFormat}
+		assert.Equal(tc.ExpectedLink, r.CommitLink(r.LastRun.Commit))
 	}
 }
 
-func TestResultPatch(t *testing.T) {
-	tNow := time.Now()
-	tLater := tNow.Add(time.Second)
-	infoA := Info{tNow, tNow, "foo", "bar", "", 0}
-	infoB := Info{tLater, tLater, "foo", "bar", "", 0}
-	testCases := []struct {
-		a        Result
-		b        Result
-		expected Result
-	}{
-		{
-			Result{},
-			Result{infoA, "", nil, nil},
-			Result{infoA, "", nil, nil},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-			Result{infoB, "", nil, nil},
-			Result{infoB, "", []ApplyAttempt{{"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-			Result{infoB, "", []ApplyAttempt{{"/foo", "bar", "", "", infoB, tNow, tNow}}, nil},
-			Result{infoB, "", []ApplyAttempt{{"/foo", "bar", "", "", infoB, tNow, tNow}}, nil},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-			Result{infoB, "", []ApplyAttempt{{"/bar", "bar", "", "", infoB, tNow, tNow}}, nil},
-			Result{infoB, "", []ApplyAttempt{{"/bar", "bar", "", "", infoB, tNow, tNow}, {"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/foo", "foo", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/bar", "bar", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/bar", "bar", "", "", infoB, tNow, tNow}}, nil},
-			Result{infoB, "", []ApplyAttempt{{"/bar", "bar", "", "", infoB, tNow, tNow}, {"/foo", "foo", "", "", infoA, tNow, tNow}}, nil},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/0", "", "", "", infoA, tNow, tNow}, {"/1", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/2", "", "", "", infoA, tNow, tNow}, {"/3", "", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/2", "", "", "", infoB, tNow, tNow}}, []ApplyAttempt{{"/3", "", "", "", infoB, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/2", "", "", "", infoB, tNow, tNow}, {"/0", "", "", "", infoA, tNow, tNow}, {"/1", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/3", "", "", "", infoB, tNow, tNow}}},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/0", "", "", "", infoA, tNow, tNow}, {"/1", "", "", "", infoA, tNow, tNow}, {"/2", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/3", "", "", "", infoA, tNow, tNow}, {"/4", "", "", "", infoA, tNow, tNow}, {"/5", "", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/4", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/1", "", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/4", "", "", "", infoA, tNow, tNow}, {"/0", "", "", "", infoA, tNow, tNow}, {"/2", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/1", "", "", "", infoA, tNow, tNow}, {"/3", "", "", "", infoA, tNow, tNow}, {"/5", "", "", "", infoA, tNow, tNow}}},
-		},
-		{
-			Result{infoA, "", []ApplyAttempt{{"/4", "", "", "", infoA, tNow, tNow}, {"/0", "", "", "", infoA, tNow, tNow}, {"/2", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/1", "", "", "", infoA, tNow, tNow}, {"/5", "", "", "", infoA, tNow, tNow}, {"/3", "", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/1", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/0", "", "", "", infoA, tNow, tNow}}},
-			Result{infoB, "", []ApplyAttempt{{"/1", "", "", "", infoA, tNow, tNow}, {"/2", "", "", "", infoA, tNow, tNow}, {"/4", "", "", "", infoA, tNow, tNow}}, []ApplyAttempt{{"/0", "", "", "", infoA, tNow, tNow}, {"/3", "", "", "", infoA, tNow, tNow}, {"/5", "", "", "", infoA, tNow, tNow}}},
-		},
-	}
+func TestResultAppliedDuringLastRun(t *testing.T) {
 	assert := assert.New(t)
 
+	runA := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "abc"}
+	runB := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "bar", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "abc"}
+	runC := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "def"}
+	runD := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(3, 0), Started: metav1.Unix(1, 0), Type: "abc"}
+	runE := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(2, 0), Type: "abc"}
+	runF := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 1), Started: metav1.Unix(1, 1), Type: "abc"}
+
+	appA := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runA}}}
+	appB := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runB}}}
+	appC := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runC}}}
+	appD := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runD}}}
+	appE := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runE}}}
+	appF := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runF}}}
+
+	r := Result{LastRun: runA}
+
+	testCases := []struct {
+		App      kubeapplierv1alpha1.Application
+		Expected bool
+	}{
+		{appA, true},
+		{appB, false},
+		{appC, false},
+		{appD, false},
+		{appE, false},
+		{appF, true},
+	}
 	for _, tc := range testCases {
-		tc.a.Patch(tc.b)
-		assert.Equal(tc.expected, tc.a)
+		assert.Equal(tc.Expected, r.AppliedDuringLastRun(tc.App))
 	}
 }

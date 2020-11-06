@@ -8,19 +8,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 
 var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
-
-// PrometheusInterface allows for mocking out the functionality of Prometheus when testing the full process of an apply run.
-type PrometheusInterface interface {
-	UpdateKubectlExitCodeCount(string, int)
-	UpdateNamespaceSuccess(string, bool)
-	UpdateRunLatency(float64, bool)
-	UpdateResultSummary(map[string]string)
-	UpdateLastRunTimestamp(time.Time)
-}
 
 // Prometheus implements instrumentation of metrics for kube-applier.
 // kubectlExitCodeCount is a Counter vector to increment the number of exit codes for each kubectl execution
