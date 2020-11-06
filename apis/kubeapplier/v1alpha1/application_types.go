@@ -41,6 +41,12 @@ type ApplicationSpec struct {
 	// +optional
 	// +kubebuilder:default=false
 	ServerSideApply bool `json:"serverSideApply,omitempty"`
+
+	// StrongboxKeyringSecretRef reference a Secret in the same namespace as the
+	// Application that contains a single item, named '.strongbox_keyring' with
+	// any strongbox keys required to decrypt the files before applying.
+	// +optional
+	StrongboxKeyringSecretRef string `json:"StrongboxKeyringSecretRef,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application

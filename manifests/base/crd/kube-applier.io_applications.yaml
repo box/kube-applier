@@ -41,6 +41,12 @@ spec:
           spec:
             description: ApplicationSpec defines the desired state of Application
             properties:
+              StrongboxKeyringSecretRef:
+                description: StrongboxKeyringSecretRef reference a Secret in the same
+                  namespace as the Application that contains a single item, named
+                  '.strongbox_keyring' with any strongbox keys required to decrypt
+                  the files before applying.
+                type: string
               dryRun:
                 default: false
                 description: DryRun enables the dry-run flag when applying this application.
