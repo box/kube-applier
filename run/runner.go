@@ -102,16 +102,16 @@ func (r *Runner) run(t Request) (*Result, error) {
 	start := r.Clock.Now()
 	log.Logger.Info("Started apply run", "start-time", start)
 
-	gitUtil, cleanupTemp, err := r.copyRepository()
-	if err != nil {
-		return nil, err
-	}
-	defer cleanupTemp()
-
 	apps, err := r.KubeClient.ListApplications(context.TODO())
 	if err != nil {
 		log.Logger.Error("Could not list Applications: %v", err)
 	}
+
+	gitUtil, cleanupTemp, err := r.copyRepository(apps)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanupTemp()
 
 	var appList []kubeapplierv1alpha1.Application
 	if t.Type == ScheduledFullRun || t.Type == ForcedFullRun {
@@ -248,7 +248,7 @@ func (r *Runner) pruneUnchangedDirs(gitUtil *git.Util, apps []kubeapplierv1alpha
 	return prunedApps
 }
 
-func (r *Runner) copyRepository() (*git.Util, func(), error) {
+func (r *Runner) copyRepository(apps []kubeapplierv1alpha1.Application) (*git.Util, func(), error) {
 	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
 	if err != nil {
 		return nil, nil, err
@@ -257,7 +257,11 @@ func (r *Runner) copyRepository() (*git.Util, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := git.CloneRepository(root, tmpDir); err != nil {
+	var paths []string
+	for _, a := range apps {
+		paths = append(paths, fmt.Sprintf("%s/%s", sub, a.Spec.RepositoryPath))
+	}
+	if err := git.CloneRepository(root, tmpDir, paths...); err != nil {
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: path.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil

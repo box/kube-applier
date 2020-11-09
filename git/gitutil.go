@@ -64,10 +64,22 @@ func (g *Util) SplitPath() (string, string, error) {
 	return strings.Trim(root, "\n"), strings.Trim(sub, "\n"), nil
 }
 
-// CloneRepository clones a local repository to a new location on disk.
-func CloneRepository(src, dst string) error {
-	_, err := runGitCmd("/", "clone", src, dst)
-	return err
+// CloneRepository clones a repository to a new location on disk. If paths are
+// provided then only those paths are checked out in the clone.
+func CloneRepository(src, dst string, paths ...string) error {
+	args := []string{"clone", src, dst}
+	if len(paths) > 0 {
+		args = append(args, "--no-checkout")
+	}
+	if _, err := runGitCmd("/", args...); err != nil {
+		return err
+	}
+	if len(paths) > 0 {
+		if _, err := runGitCmd(dst, append([]string{"checkout", "HEAD", "--"}, paths...)...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func runGitCmd(dir string, args ...string) (string, error) {
