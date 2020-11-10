@@ -12,9 +12,9 @@ import (
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 )
 
-var _ = Describe("BatchApplier", func() {
+var _ = Describe("Runner", func() {
 	var (
-		testBatchApplier BatchApplier
+		testRunner       Runner
 		testApplyOptions = &ApplyOptions{
 			ClusterResources:    []string{"core/v1/Namespace"},
 			NamespacedResources: []string{"core/v1/Pod", "apps/v1/Deployment"},
@@ -22,7 +22,7 @@ var _ = Describe("BatchApplier", func() {
 	)
 
 	BeforeEach(func() {
-		testBatchApplier = BatchApplier{
+		testRunner = Runner{
 			KubectlClient: &kubectl.Client{
 				Host:    testConfig.Host,
 				Metrics: testMetricsClient,
@@ -40,7 +40,7 @@ var _ = Describe("BatchApplier", func() {
 			appList := []kubeapplierv1alpha1.Application{}
 			appListExpected := []kubeapplierv1alpha1.Application{}
 
-			testBatchApplier.Apply("../testdata/manifests", appList, testApplyOptions)
+			testRunner.Apply("../testdata/manifests", appList, testApplyOptions)
 
 			Expect(appList).Should(Equal(appListExpected))
 		})
@@ -88,7 +88,7 @@ var _ = Describe("BatchApplier", func() {
 			}
 			expectedStatusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{}
 
-			kubectlPath, err := testBatchApplier.KubectlClient.Path()
+			kubectlPath, err := testRunner.KubectlClient.Path()
 			Expect(err).Should(BeNil())
 			Expect(kubectlPath).ShouldNot(BeEmpty())
 
@@ -129,7 +129,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			}
 
 			By("Applying all the Applications and populating their Status subresource with the results")
-			testBatchApplier.Apply("../testdata/manifests", appList, testApplyOptions)
+			testRunner.Apply("../testdata/manifests", appList, testApplyOptions)
 
 			for i := range appList {
 				Expect(appList[i].Status.LastRun).ShouldNot(BeNil())

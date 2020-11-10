@@ -38,7 +38,7 @@ var (
 	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
 	workerCount   = os.Getenv("WORKER_COUNT")
 
-	batchApplierWorkerCount int
+	runnerWorkerCount int
 )
 
 func validate() {
@@ -119,7 +119,7 @@ func validate() {
 		fmt.Printf("Cannot parse WORKER_COUNT: %v\n", err)
 		os.Exit(1)
 	}
-	batchApplierWorkerCount = i
+	runnerWorkerCount = i
 }
 
 func main() {
@@ -165,14 +165,6 @@ func main() {
 		pruneBlacklistSlice = append(pruneBlacklistSlice, strings.Split(pruneBlacklist, ",")...)
 	}
 	dr, _ := strconv.ParseBool(dryRun)
-	batchApplier := &run.BatchApplier{
-		PruneBlacklist: pruneBlacklistSlice,
-		KubectlClient:  kubectlClient,
-		Clock:          clock,
-		DryRun:         dr,
-		Metrics:        metrics,
-		WorkerCount:    batchApplierWorkerCount,
-	}
 
 	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
 	// Only 1 pending request may sit in the queue at a time.
@@ -187,15 +179,18 @@ func main() {
 	errors := make(chan error)
 
 	runner := &run.Runner{
-		RepoPath:      repoPath,
-		BatchApplier:  batchApplier,
-		Clock:         clock,
-		Metrics:       metrics,
-		KubeClient:    kubeClient,
-		DiffURLFormat: diffURLFormat,
-		RunQueue:      runQueue,
-		RunResults:    runResults,
-		Errors:        errors,
+		Clock:          clock,
+		DiffURLFormat:  diffURLFormat,
+		DryRun:         dr,
+		Errors:         errors,
+		KubeClient:     kubeClient,
+		KubectlClient:  kubectlClient,
+		Metrics:        metrics,
+		PruneBlacklist: pruneBlacklistSlice,
+		RepoPath:       repoPath,
+		RunQueue:       runQueue,
+		RunResults:     runResults,
+		WorkerCount:    runnerWorkerCount,
 	}
 
 	pi, _ := strconv.Atoi(pollInterval)
