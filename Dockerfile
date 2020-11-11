@@ -13,7 +13,7 @@ RUN apk --no-cache -X https://uk.alpinelinux.org/alpine/edge/testing add git gcc
 
 FROM alpine:3.12
 ENV KUBECTL_VERSION v1.19.2
-ENV KUSTOMIZE_VERSION v3.8.4
+ENV KUSTOMIZE_VERSION v3.8.5
 COPY templates/ /templates/
 COPY static/ /static/
 RUN apk --no-cache add git openssh-client tini &&\
