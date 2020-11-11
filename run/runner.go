@@ -31,51 +31,6 @@ type Request struct {
 	Args interface{}
 }
 
-// Type defines what kind of apply run is performed.
-type Type int
-
-func typeFromString(s string) Type {
-	for i, v := range typeToString {
-		if s == v {
-			return Type(i)
-		}
-	}
-	return -1
-}
-
-func (t Type) String() string {
-	if int(t) >= len(typeToString) || int(t) < 0 {
-		return "Unknown run type"
-	}
-	return typeToString[int(t)]
-}
-
-const (
-	// ScheduledFullRun indicates a scheduled, full apply run across all
-	// directories.
-	ScheduledFullRun Type = iota
-	// ForcedFullRun indicates a forced (triggered on the UI), full apply run
-	// across all directories.
-	ForcedFullRun
-	// PartialRun indicates a partial apply run, considering only directories
-	// which have changed in the git repository since the last successful apply
-	// run.
-	PartialRun
-	// FailedOnlyRun indicates a partial apply run, considering only directories
-	// which failed to apply in the last run.
-	FailedOnlyRun
-	// SingleDirectoryRun indicates a partial apply run for a single directory.
-	SingleDirectoryRun
-)
-
-var typeToString = []string{
-	"Scheduled full run",      // ScheduledFullRun
-	"Forced full run",         // ForcedFullRun
-	"Git polling partial run", // PartialRun
-	"Failed-only run",         // FailedOnlyRun
-	"Single directory run",    // SingleDirectoryRun
-}
-
 // ApplyOptions contains global configuration for Apply
 type ApplyOptions struct {
 	ClusterResources    []string
