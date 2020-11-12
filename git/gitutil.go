@@ -82,6 +82,33 @@ func CloneRepository(src, dst string, paths ...string) error {
 	return nil
 }
 
+// CloneRepositoryPathShallow clones a shallow copy of local repository to a new
+// location on disk and only checkouts the specified path.
+func CloneRepositoryPathShallow(src, dst, path, commit string) error {
+	args := []string{"clone", "--no-checkout"}
+
+	// depth = $(git rev-list HEAD...commit | wc -l)
+	if commit != "" {
+		history, err := runGitCmd(src, "rev-list", fmt.Sprintf("HEAD...%s", commit))
+		if err != nil {
+			return err
+		}
+		depth := strings.Count(history, "\n")
+		args = append(args, fmt.Sprintf("--depth=%d", depth))
+	}
+
+	// git clone (--depth=$depth) --no-checkout file://src dst
+	args = append(args, fmt.Sprintf("file://%s", src), dst)
+	_, err := runGitCmd("/", args...)
+	if err != nil {
+		return err
+	}
+
+	// git checkout HEAD -- ./path
+	_, err = runGitCmd(dst, "checkout", "HEAD", "--", fmt.Sprintf("./%s", path))
+	return err
+}
+
 func runGitCmd(dir string, args ...string) (string, error) {
 	var cmd *exec.Cmd
 	cmd = exec.Command("git", args...)
