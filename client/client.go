@@ -84,9 +84,9 @@ func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Ap
 }
 
 // GetApplication returns the Application resource specified by the key.
-func (c *Client) GetApplication(ctx context.Context, key client.ObjectKey) (*kubeapplierv1alpha1.Application, error) {
+func (c *Client) GetApplication(ctx context.Context, namespace, name string) (*kubeapplierv1alpha1.Application, error) {
 	app := &kubeapplierv1alpha1.Application{}
-	if err := c.Get(ctx, key, app); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, app); err != nil {
 		return nil, err
 	}
 	return app, nil

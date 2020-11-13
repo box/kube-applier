@@ -2,36 +2,129 @@ package run
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 )
+
+func TestApplyOptions_PruneWhitelist(t *testing.T) {
+	assert := assert.New(t)
+
+	applyOptions := &ApplyOptions{
+		NamespacedResources: []string{"a", "b", "c"},
+		ClusterResources:    []string{"d", "e", "f"},
+	}
+
+	testCases := []struct {
+		options   *ApplyOptions
+		app       *kubeapplierv1alpha1.Application
+		blacklist []string
+		expected  []string
+	}{
+		{
+			&ApplyOptions{},
+			&kubeapplierv1alpha1.Application{},
+			[]string{},
+			nil,
+		},
+		{
+			&ApplyOptions{},
+			&kubeapplierv1alpha1.Application{
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune: true,
+				},
+			},
+			[]string{},
+			nil,
+		},
+		{
+			applyOptions,
+			&kubeapplierv1alpha1.Application{
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune: true,
+				},
+			},
+			[]string{},
+			[]string{"a", "b", "c"},
+		},
+		{
+			applyOptions,
+			&kubeapplierv1alpha1.Application{
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune:          true,
+					PruneBlacklist: []string{"b"},
+				},
+			},
+			[]string{"c"},
+			[]string{"a"},
+		},
+		{
+			applyOptions,
+			&kubeapplierv1alpha1.Application{
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune:                 true,
+					PruneBlacklist:        []string{"b"},
+					PruneClusterResources: true,
+				},
+			},
+			[]string{"c"},
+			[]string{"a", "d", "e", "f"},
+		},
+	}
+
+	for _, tc := range testCases {
+		assert.Equal(tc.options.PruneWhitelist(tc.app, tc.blacklist), tc.expected)
+	}
+}
 
 var _ = Describe("Runner", func() {
 	var (
 		testRunner       Runner
-		testApplyOptions = &ApplyOptions{
-			ClusterResources:    []string{"core/v1/Namespace"},
-			NamespacedResources: []string{"core/v1/Pod", "apps/v1/Deployment"},
-		}
+		testRunQueue     chan<- Request
+		testApplyOptions *ApplyOptions
+		testKubectlPath  string
 	)
 
 	BeforeEach(func() {
 		testRunner = Runner{
+			Clock:      &zeroClock{},
+			DryRun:     false,
+			KubeClient: testKubeClient,
 			KubectlClient: &kubectl.Client{
 				Host:    testConfig.Host,
 				Metrics: testMetricsClient,
 				Timeout: time.Duration(time.Minute),
 			},
 			Metrics:        testMetricsClient,
-			Clock:          &zeroClock{},
-			DryRun:         false,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
+			RepoPath:       "../testdata/manifests",
+			// This is just a buffer big enough to allow tests to push results.
+			// The RunResults channel is going to be removed in the near future.
+			RunResults: make(chan Result, 16),
+		}
+		testRunQueue = testRunner.Start()
+		kubectlPath, err := testRunner.KubectlClient.Path()
+		Expect(err).Should(BeNil())
+		Expect(kubectlPath).ShouldNot(BeEmpty())
+		testKubectlPath = kubectlPath
+
+		cr, nr, err := testRunner.KubeClient.PrunableResourceGVKs()
+		Expect(err).Should(BeNil())
+		testApplyOptions = &ApplyOptions{
+			ClusterResources:    cr,
+			NamespacedResources: nr,
 		}
 	})
 
@@ -40,7 +133,13 @@ var _ = Describe("Runner", func() {
 			appList := []kubeapplierv1alpha1.Application{}
 			appListExpected := []kubeapplierv1alpha1.Application{}
 
-			testRunner.Apply("../testdata/manifests", appList, testApplyOptions)
+			for i := range appList {
+				testRunQueue <- Request{
+					Type:        PollingRun,
+					Application: &appList[i],
+				}
+			}
+			testRunner.Stop()
 
 			Expect(appList).Should(Equal(appListExpected))
 		})
@@ -86,15 +185,16 @@ var _ = Describe("Runner", func() {
 					},
 				},
 			}
-			expectedStatusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{}
 
-			kubectlPath, err := testRunner.KubectlClient.Path()
-			Expect(err).Should(BeNil())
-			Expect(kubectlPath).ShouldNot(BeEmpty())
+			expectedStatusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{
+				Finished: metav1.Time{},
+				Started:  metav1.Time{},
+				Type:     PollingRun.String(),
+			}
 
 			expectedStatus := []*kubeapplierv1alpha1.ApplicationStatusRun{
 				{
-					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-a -R -n app-a --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment", kubectlPath, testConfig.Host),
+					Command:      "",
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
@@ -105,7 +205,7 @@ deployment.apps/test-deployment created
 					Success: true,
 				},
 				{
-					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-b -R -n app-b --dry-run=none --prune --all --prune-whitelist=core/v1/Pod --prune-whitelist=apps/v1/Deployment --prune-whitelist=core/v1/Namespace", kubectlPath, testConfig.Host),
+					Command:      "",
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
@@ -116,7 +216,7 @@ error: error validating "../testdata/manifests/app-b/deployment.yaml": error val
 					Success: false,
 				},
 				{
-					Command:      fmt.Sprintf("%s --server %s apply -f ../testdata/manifests/app-c -R -n app-c --dry-run=server --prune --all --prune-whitelist=apps/v1/Deployment", kubectlPath, testConfig.Host),
+					Command:      "",
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Info:         expectedStatusRunInfo,
@@ -128,13 +228,76 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 				},
 			}
 
+			// construct expected app list
+			expected := make([]kubeapplierv1alpha1.Application, len(appList))
+			for i := range appList {
+				expected[i] = appList[i]
+				expected[i].Status = kubeapplierv1alpha1.ApplicationStatus{LastRun: expectedStatus[i]}
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(".")
+				Expect(err).To(BeNil())
+				expected[i].Status.LastRun.Info.Commit = headCommitHash
+			}
+
 			By("Applying all the Applications and populating their Status subresource with the results")
-			testRunner.Apply("../testdata/manifests", appList, testApplyOptions)
 
 			for i := range appList {
-				Expect(appList[i].Status.LastRun).ShouldNot(BeNil())
-				Expect(appList[i].Status.LastRun).Should(Equal(expectedStatus[i]))
+				testRunQueue <- Request{
+					Type:        PollingRun,
+					Application: &appList[i],
+				}
+			}
+			testRunner.Stop()
+
+			for i := range appList {
+				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 		})
 	})
 })
+
+func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
+	commandExtraArgs := expected.Status.LastRun.Command
+	if expected.Spec.DryRun {
+		commandExtraArgs += " --dry-run=server"
+	} else {
+		commandExtraArgs += " --dry-run=none"
+	}
+	if expected.Spec.Prune {
+		commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
+	}
+	return MatchAllFields(Fields{
+		"TypeMeta":   Equal(expected.TypeMeta),
+		"ObjectMeta": Equal(expected.ObjectMeta),
+		"Spec":       Equal(expected.Spec),
+		"Status": MatchAllFields(Fields{
+			"LastRun": PointTo(MatchAllFields(Fields{
+				"Command": MatchRegexp(
+					"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
+					kubectlPath,
+					testConfig.Host,
+					expected.Spec.RepositoryPath,
+					expected.Namespace,
+					commandExtraArgs,
+				),
+				"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
+				"Finished": And(
+					Equal(expected.Status.LastRun.Finished),
+					// Ideally we would be comparing to actual's Started but since it
+					// should be equal to expected' Started, this is equivalent.
+					MatchAllFields(Fields{
+						"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
+					}),
+				),
+				"Info": Equal(expected.Status.LastRun.Info),
+				"Output": MatchRegexp(strings.Replace(
+					regexp.QuoteMeta(expected.Status.LastRun.Output),
+					regexp.QuoteMeta(repoPath),
+					"[^ ]+",
+					-1,
+				)),
+				"Started": Equal(expected.Status.LastRun.Started),
+				"Success": Equal(expected.Status.LastRun.Success),
+			})),
+		}),
+	})
+}
