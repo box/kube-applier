@@ -26,7 +26,7 @@ require (
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201017001424-6003fad69a88 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	k8s.io/api v0.19.3 // indirect
+	k8s.io/api v0.19.3
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/klog/v2 v2.4.0 // indirect

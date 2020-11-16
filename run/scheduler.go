@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -58,15 +59,18 @@ type Scheduler struct {
 	RepoPath                string
 	RunQueue                chan<- Request
 	applications            map[string]*kubeapplierv1alpha1.Application
+	applicationSchedulers   map[string]func()
 	applicationsMutex       sync.Mutex
 	gitUtil                 *git.Util
+	gitLastQueuedHash       string
 	stop                    chan bool
 	waitGroup               *sync.WaitGroup
 }
 
-// Start runs a continuous loop with two tickers for queueing runs.
-// One ticker queues a new run every X seconds, where X is the value from $FULL_RUN_INTERVAL_SECONDS.
-// The other ticker queues a new run upon every new Git commit, checking the repo every Y seconds where Y is the value from $POLL_INTERVAL_SECONDS.
+// Start runs two loops: one that keeps track of Applications on apiserver and
+// maintains loops for applying namespaces on a schedule, and one that watches
+// the git repository for changes and queues runs for applications that are
+// affected by commits.
 func (s *Scheduler) Start() {
 	if s.waitGroup != nil {
 		return
@@ -75,8 +79,11 @@ func (s *Scheduler) Start() {
 	s.waitGroup = &sync.WaitGroup{}
 	s.gitUtil = &git.Util{RepoPath: s.RepoPath}
 	s.applications = make(map[string]*kubeapplierv1alpha1.Application)
+	s.applicationSchedulers = make(map[string]func())
 
+	s.waitGroup.Add(1)
 	go s.updateApplicationsLoop()
+	s.waitGroup.Add(1)
 	go s.gitPollingLoop()
 }
 
@@ -84,12 +91,18 @@ func (s *Scheduler) Stop() {
 	close(s.stop)
 	s.waitGroup.Wait()
 	s.waitGroup = nil
+	s.applicationsMutex.Lock()
+	for _, cancel := range s.applicationSchedulers {
+		cancel()
+	}
+	s.applicationSchedulers = nil
+	s.applications = nil
+	s.applicationsMutex.Unlock()
 }
 
 func (s *Scheduler) updateApplicationsLoop() {
 	ticker := time.NewTicker(s.ApplicationPollInterval)
 	defer ticker.Stop()
-	s.waitGroup.Add(1)
 	defer s.waitGroup.Done()
 	for {
 		select {
@@ -100,16 +113,33 @@ func (s *Scheduler) updateApplicationsLoop() {
 				break
 			}
 			s.applicationsMutex.Lock()
-			for _, app := range apps {
-				if _, ok := s.applications[app.Namespace]; ok {
-					// TODO: check polling interval has changed and update accordingly
-					s.applications[app.Namespace] = &app
+			for i := range apps {
+				app := &apps[i]
+				if v, ok := s.applications[app.Namespace]; ok {
+					if !reflect.DeepEqual(v.Spec, app.Spec) {
+						s.applicationSchedulers[app.Namespace]()
+						s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
+						s.applications[app.Namespace] = app
+					}
 				} else {
-					// TODO: setup new loops
+					s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
+					s.applications[app.Namespace] = app
 				}
-				// TODO: cancel deleted
 			}
-			// TODO: setup all the scheduled run tickers
+			for ns := range s.applications {
+				found := false
+				for _, app := range apps {
+					if ns == app.Namespace {
+						found = true
+						break
+					}
+				}
+				if !found {
+					s.applicationSchedulers[ns]()
+					delete(s.applicationSchedulers, ns)
+					delete(s.applications, ns)
+				}
+			}
 			s.applicationsMutex.Unlock()
 		case <-s.stop:
 			return
@@ -120,24 +150,26 @@ func (s *Scheduler) updateApplicationsLoop() {
 func (s *Scheduler) gitPollingLoop() {
 	ticker := time.NewTicker(s.GitPollInterval)
 	defer ticker.Stop()
-	s.waitGroup.Add(1)
 	defer s.waitGroup.Done()
 	for {
 		select {
 		case <-ticker.C:
-			newHeadHash, err := s.gitUtil.HeadHashForPaths(".")
+			hash, err := s.gitUtil.HeadHashForPaths(".")
 			if err != nil {
 				log.Logger.Warn(fmt.Sprintf("Could not get HEAD hash: %v", err))
 				break
 			}
+			if hash == s.gitLastQueuedHash {
+				break
+			}
 			s.applicationsMutex.Lock()
-			// TODO: this needs to be updated or we might apply again and again
 			for i := range s.applications {
 				if s.applications[i].Status.LastRun != nil &&
-					s.applications[i].Status.LastRun.Info.Commit != newHeadHash {
+					s.applications[i].Status.LastRun.Info.Commit != hash {
 					s.enqueue(PollingRun, s.applications[i])
 				}
 			}
+			s.gitLastQueuedHash = hash
 			s.applicationsMutex.Unlock()
 		case <-s.stop:
 			return
@@ -146,17 +178,28 @@ func (s *Scheduler) gitPollingLoop() {
 }
 
 func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) func() {
-	ticker := time.NewTicker(time.Duration(app.Spec.RunInterval) * time.Second)
+	stop := make(chan bool)
+	stopped := make(chan bool)
 	go func() {
+		ticker := time.NewTicker(time.Duration(app.Spec.RunInterval) * time.Second)
+		defer ticker.Stop()
+		defer close(stopped)
+		if app.Status.LastRun == nil || time.Since(app.Status.LastRun.Started.Time) > time.Duration(app.Spec.RunInterval)*time.Second {
+			s.enqueue(ScheduledRun, app)
+		}
 		for {
 			select {
 			case <-ticker.C:
 				s.enqueue(ScheduledRun, app)
+			case <-stop:
+				return
 			}
 		}
 	}()
-	// TODO: does this cause it to queue one last time when we cancel?
-	return ticker.Stop
+	return func() {
+		close(stop)
+		<-stopped
+	}
 }
 
 // enqueue attempts to add a run to the queue, logging the result of the request.
