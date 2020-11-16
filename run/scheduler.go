@@ -209,7 +209,7 @@ func (s *Scheduler) enqueue(t Type, app *kubeapplierv1alpha1.Application) {
 	select {
 	case s.RunQueue <- Request{Type: t, Application: app}:
 		log.Logger.Debug(fmt.Sprintf("%s queued for %s/%s", t, app.Namespace, app.Name))
-	default:
+	case <-time.After(5 * time.Second):
 		log.Logger.Info("Run queue is already full")
 	}
 }
