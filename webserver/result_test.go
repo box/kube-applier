@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ var formattingTestCasess = []formattingTestCases{
 
 func TestResultFormattedTime(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{}
+	r := Result{Mutex: &sync.Mutex{}}
 	for _, tc := range formattingTestCasess {
 		status := kubeapplierv1alpha1.ApplicationStatusRun{
 			Started:  metav1.NewTime(tc.Start),
@@ -47,7 +48,7 @@ func TestResultFormattedTime(t *testing.T) {
 
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{}
+	r := Result{Mutex: &sync.Mutex{}}
 	for _, tc := range formattingTestCasess {
 		status := kubeapplierv1alpha1.ApplicationStatusRun{
 			Started:  metav1.NewTime(tc.Start),
@@ -110,7 +111,7 @@ var totalFilesTestCases = []totalFilesTestCase{
 func TestResultSuccessesAndFailures(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
-		r := Result{Applications: tc.Applications}
+		r := Result{Mutex: &sync.Mutex{}, Applications: tc.Applications}
 		assert.Equal(tc.Successes, r.Successes())
 		assert.Equal(tc.Failures, r.Failures())
 	}
@@ -144,20 +145,20 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{DiffURLFormat: tc.DiffURLFormat}
+		r := Result{Mutex: &sync.Mutex{}, DiffURLFormat: tc.DiffURLFormat}
 		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
 	}
 }
 
 func TestResultFinished(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{}
+	r := Result{Mutex: &sync.Mutex{}}
 	assert.Equal(r.Finished(), false)
 	r.Applications = []kubeapplierv1alpha1.Application{{}}
 	assert.Equal(r.Finished(), true)
 
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{DiffURLFormat: tc.DiffURLFormat}
+		r := Result{Mutex: &sync.Mutex{}, DiffURLFormat: tc.DiffURLFormat}
 		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
 	}
 }
@@ -204,7 +205,7 @@ func TestResultAppliedRecently(t *testing.T) {
 		},
 	}
 
-	r := Result{}
+	r := Result{Mutex: &sync.Mutex{}}
 
 	assert.Equal(false, r.AppliedRecently(kubeapplierv1alpha1.Application{}))
 

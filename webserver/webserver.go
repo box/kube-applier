@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -27,17 +28,16 @@ type WebServer struct {
 	DiffURLFormat           string
 	KubeClient              *client.Client
 	RunQueue                chan<- run.Request
-	// TODO: how do we prevent races here? mutex?
-	result        *Result
-	server        *http.Server
-	stop, stopped chan bool
+	result                  *Result
+	server                  *http.Server
+	stop, stopped           chan bool
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
 type StatusPageHandler struct {
-	Template *template.Template
-	Data     interface{}
 	Clock    sysutil.ClockInterface
+	Result   *Result
+	Template *template.Template
 }
 
 // ServeHTTP populates the status page template with data and serves it when there is a request.
@@ -48,7 +48,7 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger.Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
 		return
 	}
-	if err := s.Template.Execute(w, s.Data); err != nil {
+	if err := s.Template.Execute(w, s.Result); err != nil {
 		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
 		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
@@ -159,12 +159,17 @@ func (ws *WebServer) Start() error {
 		return err
 	}
 
+	ws.result = &Result{
+		Mutex:         &sync.Mutex{},
+		DiffURLFormat: ws.DiffURLFormat,
+	}
+
 	m := mux.NewRouter()
 	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{
-		template,
-		ws.result,
 		ws.Clock,
+		ws.result,
+		template,
 	}
 	forceRunHandler := &ForceRunHandler{
 		ws.KubeClient,
@@ -216,9 +221,8 @@ func (ws *WebServer) updateResult() error {
 	if err != nil {
 		return fmt.Errorf("Could not list Application resources: %v", err)
 	}
-	ws.result = &Result{
-		Applications:  apps,
-		DiffURLFormat: ws.DiffURLFormat,
-	}
+	ws.result.Lock()
+	ws.result.Applications = apps
+	ws.result.Unlock()
 	return nil
 }

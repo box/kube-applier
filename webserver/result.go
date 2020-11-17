@@ -3,6 +3,7 @@ package webserver
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,7 @@ import (
 // Result stores the data from a single run of the apply loop.
 // The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
 type Result struct {
+	*sync.Mutex
 	Applications  []kubeapplierv1alpha1.Application
 	DiffURLFormat string
 }
@@ -20,6 +22,8 @@ type Result struct {
 // Successes returns all the Applications that applied successfully.
 func (r Result) Successes() []kubeapplierv1alpha1.Application {
 	var ret []kubeapplierv1alpha1.Application
+	r.Lock()
+	defer r.Unlock()
 	for _, app := range r.Applications {
 		if app.Status.LastRun.Success {
 			ret = append(ret, app)
@@ -31,6 +35,8 @@ func (r Result) Successes() []kubeapplierv1alpha1.Application {
 // Failures returns all the Applications that failed applying.
 func (r Result) Failures() []kubeapplierv1alpha1.Application {
 	var ret []kubeapplierv1alpha1.Application
+	r.Lock()
+	defer r.Unlock()
 	for _, app := range r.Applications {
 		if !app.Status.LastRun.Success {
 			ret = append(ret, app)
@@ -61,6 +67,8 @@ func (r Result) CommitLink(commit string) string {
 
 // Finished returns true if the Result is from a finished apply run.
 func (r Result) Finished() bool {
+	r.Lock()
+	defer r.Unlock()
 	return len(r.Applications) > 0
 }
 
