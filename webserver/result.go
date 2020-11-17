@@ -15,8 +15,6 @@ import (
 type Result struct {
 	Applications  []kubeapplierv1alpha1.Application
 	DiffURLFormat string
-	FullCommit    string
-	RootPath      string
 }
 
 // Successes returns all the Applications that applied successfully.

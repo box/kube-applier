@@ -26,10 +26,9 @@ type WebServer struct {
 	Clock                   sysutil.ClockInterface
 	DiffURLFormat           string
 	KubeClient              *client.Client
-	RepoPath                string
 	RunQueue                chan<- run.Request
 	// TODO: how do we prevent races here? mutex?
-	result        Result
+	result        *Result
 	server        *http.Server
 	stop, stopped chan bool
 }
@@ -109,7 +108,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if app == nil {
 			data.Result = "error"
-			data.Message = fmt.Sprintf("Cannot find Applications in namespace %s", ns)
+			data.Message = fmt.Sprintf("Cannot find Applications in namespace '%s'", ns)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -127,11 +126,11 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Logger.Info("Run queue is already full")
 		}
 		data.Result = "success"
-		data.Message = "Run queued, will begin upon completion of current run."
+		data.Message = "Run queued"
 		w.WriteHeader(http.StatusOK)
 	default:
 		data.Result = "error"
-		data.Message = "Error: force rejected, must be a POST request."
+		data.Message = "Must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
 		log.Logger.Info(data.Message)
 	}
@@ -145,13 +144,19 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 2. Metrics
 // 3. Static content
 // 4. Endpoint for forcing a run
-func (ws *WebServer) Start() {
+func (ws *WebServer) Start() error {
+	if ws.server != nil {
+		return fmt.Errorf("WebServer already running")
+	}
+
+	ws.stop = make(chan bool)
+	ws.stopped = make(chan bool)
+
 	log.Logger.Info("Launching webserver")
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
 	if err != nil {
-		ws.Errors <- err
-		return
+		return err
 	}
 
 	m := mux.NewRouter()
@@ -161,27 +166,49 @@ func (ws *WebServer) Start() {
 		ws.result,
 		ws.Clock,
 	}
-	// TODO: why do we register this with http?
-	http.Handle("/", statusPageHandler)
-	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{
 		ws.KubeClient,
 		ws.RunQueue,
 	}
+	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
 	m.PathPrefix("/").Handler(statusPageHandler)
 
 	go func() {
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTicker(ws.ApplicationPollInterval)
 		defer ticker.Stop()
-		select {
-		case <-ticker.C:
-			ws.initialiseResultFromKubernetes()
+		defer close(ws.stopped)
+		for {
+			select {
+			case <-ticker.C:
+				ws.updateResult()
+			case <-ws.stop:
+				return
+			}
 		}
 	}()
 
-	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), m)
-	ws.Errors <- err
+	ws.server = &http.Server{
+		Addr:     fmt.Sprintf(":%v", ws.ListenPort),
+		Handler:  m,
+		ErrorLog: log.Logger.StandardLogger(nil),
+	}
+
+	go func() {
+		if err = ws.server.ListenAndServe(); err != nil {
+			log.Logger.Error(fmt.Sprintf("webserver error: %v", err))
+		}
+	}()
+
+	return nil
+}
+
+func (ws *WebServer) Shutdown() error {
+	close(ws.stop)
+	<-ws.stopped
+	err := ws.server.Shutdown(context.TODO())
+	ws.server = nil
+	return err
 }
 
 func (ws *WebServer) updateResult() error {
@@ -189,10 +216,9 @@ func (ws *WebServer) updateResult() error {
 	if err != nil {
 		return fmt.Errorf("Could not list Application resources: %v", err)
 	}
-	ws.result = Result{
+	ws.result = &Result{
 		Applications:  apps,
 		DiffURLFormat: ws.DiffURLFormat,
-		RootPath:      ws.RepoPath,
 	}
 	return nil
 }
