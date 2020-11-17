@@ -84,7 +84,6 @@ type Runner struct {
 	Metrics        *metrics.Prometheus
 	PruneBlacklist []string
 	RepoPath       string
-	RunResults     chan<- Result
 	WorkerCount    int
 	workerGroup    sync.WaitGroup
 	workerQueue    chan Request
@@ -99,8 +98,6 @@ func (r *Runner) Start() chan<- Request {
 	}
 
 	r.metricsMutex = sync.Mutex{}
-
-	r.RunResults <- r.initialiseResultFromKubernetes()
 
 	if r.WorkerCount == 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
@@ -131,12 +128,6 @@ func (r *Runner) applyWorker() {
 		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
 		if err != nil {
 			log.Logger.Error("Could not determine HEAD hash", "error", err)
-			continue
-		}
-		// TODO: is this relevant anymore?
-		commitLog, err := gitUtil.HeadCommitLogForPaths(".")
-		if err != nil {
-			log.Logger.Error("Could not determine HEAD commit log", "error", err)
 			continue
 		}
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
@@ -180,16 +171,6 @@ func (r *Runner) applyWorker() {
 		r.Metrics.UpdateLastRunTimestamp(request.Application.Status.LastRun.Finished.Time)
 		r.metricsMutex.Unlock()
 
-		// TODO: remove this, not relevant anymore
-		r.RunResults <- Result{
-			// TODO: merge with all the other apps
-			Applications:  []kubeapplierv1alpha1.Application{*request.Application},
-			DiffURLFormat: r.DiffURLFormat,
-			FullCommit:    commitLog,
-			LastRun:       request.Application.Status.LastRun.Info,
-			RootPath:      r.RepoPath,
-		}
-
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
 	}
 }
@@ -220,36 +201,6 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil
-}
-
-func (r *Runner) initialiseResultFromKubernetes() Result {
-	gitUtil := &git.Util{RepoPath: r.RepoPath}
-	res := Result{
-		DiffURLFormat: r.DiffURLFormat,
-		RootPath:      r.RepoPath,
-	}
-	apps, err := r.KubeClient.ListApplications(context.TODO())
-	if err != nil {
-		log.Logger.Warn(fmt.Sprintf("Could not list Application resources: %v", err))
-		return res
-	}
-	for _, app := range apps {
-		// TODO: what do we do with these, they should probably be added to the list?
-		if app.Status.LastRun != nil {
-			res.Applications = append(res.Applications, app)
-			if app.Status.LastRun.Info.Started.After(res.LastRun.Started.Time) {
-				res.LastRun = app.Status.LastRun.Info
-			}
-		}
-	}
-	if res.LastRun.Commit != "" {
-		commitLog, err := gitUtil.CommitLog(res.LastRun.Commit)
-		if err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", res.LastRun.Commit, err))
-		}
-		res.FullCommit = commitLog
-	}
-	return res
 }
 
 // Apply takes a list of files and attempts an apply command on each.

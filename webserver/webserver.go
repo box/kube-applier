@@ -1,13 +1,17 @@
 package webserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
+	"github.com/utilitywarehouse/kube-applier/client"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -17,11 +21,15 @@ const serverTemplatePath = "templates/status.html"
 
 // WebServer struct
 type WebServer struct {
-	ListenPort int
-	Clock      sysutil.ClockInterface
-	RunQueue   chan<- run.Request
-	RunResults <-chan run.Result
-	Errors     chan<- error
+	ListenPort    int
+	Clock         sysutil.ClockInterface
+	DiffURLFormat string
+	KubeClient    *client.Client
+	RepoPath      string
+	RunQueue      chan<- run.Request
+	Errors        chan<- error
+	// TODO: how do we prevent races here? mutex?
+	result Result
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
@@ -98,7 +106,6 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 4. Endpoint for forcing a run
 func (ws *WebServer) Start() {
 	log.Logger.Info("Launching webserver")
-	lastRun := &run.Result{}
 
 	template, err := sysutil.CreateTemplate(serverTemplatePath)
 	if err != nil {
@@ -110,9 +117,10 @@ func (ws *WebServer) Start() {
 	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{
 		template,
-		lastRun,
+		ws.result,
 		ws.Clock,
 	}
+	// TODO: why do we register this with http?
 	http.Handle("/", statusPageHandler)
 	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{
@@ -122,11 +130,44 @@ func (ws *WebServer) Start() {
 	m.PathPrefix("/").Handler(statusPageHandler)
 
 	go func() {
-		for result := range ws.RunResults {
-			*lastRun = result
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		select {
+		case <-ticker.C:
+			ws.initialiseResultFromKubernetes()
 		}
 	}()
 
 	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), m)
 	ws.Errors <- err
+}
+
+func (ws *WebServer) initialiseResultFromKubernetes() error {
+	gitUtil := &git.Util{RepoPath: ws.RepoPath}
+	res := Result{
+		DiffURLFormat: ws.DiffURLFormat,
+		RootPath:      ws.RepoPath,
+	}
+	apps, err := ws.KubeClient.ListApplications(context.TODO())
+	if err != nil {
+		return fmt.Errorf("Could not list Application resources: %v", err)
+	}
+	for _, app := range apps {
+		// TODO: what do we do with these, they should probably be added to the list?
+		if app.Status.LastRun != nil {
+			res.Applications = append(res.Applications, app)
+			if app.Status.LastRun.Info.Started.After(res.LastRun.Started.Time) {
+				res.LastRun = app.Status.LastRun.Info
+			}
+		}
+	}
+	if res.LastRun.Commit != "" {
+		commitLog, err := gitUtil.CommitLog(res.LastRun.Commit)
+		if err != nil {
+			log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", res.LastRun.Commit, err))
+		}
+		res.FullCommit = commitLog
+	}
+	ws.result = res
+	return nil
 }

@@ -110,9 +110,6 @@ var _ = Describe("Runner", func() {
 			Metrics:        testMetricsClient,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
 			RepoPath:       "../testdata/manifests",
-			// This is just a buffer big enough to allow tests to push results.
-			// The RunResults channel is going to be removed in the near future.
-			RunResults: make(chan Result, 16),
 		}
 		testRunQueue = testRunner.Start()
 		kubectlPath, err := testRunner.KubectlClient.Path()
