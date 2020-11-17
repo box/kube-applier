@@ -70,7 +70,7 @@
                                                 <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
@@ -112,7 +112,7 @@
                                                 <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">

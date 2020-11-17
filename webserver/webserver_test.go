@@ -1,5 +1,6 @@
 package webserver
 
+/*
 import (
 	"html/template"
 	"net/http"
@@ -150,3 +151,4 @@ func RequestAndExpect(t *testing.T, handler ForceRunHandler, expectedBody, reque
 	handler.ServeHTTP(w, req)
 	assert.Equal(expectedBody, w.Body.String())
 }
+*/

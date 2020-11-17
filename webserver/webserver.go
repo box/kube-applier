@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -57,7 +58,8 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- run.Request
+	KubeClient *client.Client
+	RunQueue   chan<- run.Request
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
@@ -70,19 +72,57 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		runRequest := run.Request{Type: run.ForcedFullRun}
 		if err := r.ParseForm(); err != nil {
-			log.Logger.Error("Could not parse form data, assuming full run.")
-		} else if r.FormValue("failed") == "true" {
-			runRequest.Type = run.FailedOnlyRun
-		} else if v := r.FormValue("path"); v != "" {
-			runRequest.Type = run.SingleDirectoryRun
-			runRequest.Args = v
+			data.Result = "error"
+			data.Message = "Could not parse form data"
+			log.Logger.Error(data.Message)
+			w.WriteHeader(http.StatusBadRequest)
+			break
 		}
+
+		ns := r.FormValue("namespace")
+		if ns == "" {
+			data.Result = "error"
+			data.Message = "Empty namespace value"
+			log.Logger.Error(data.Message)
+			w.WriteHeader(http.StatusBadRequest)
+			break
+		}
+
+		apps, err := f.KubeClient.ListApplications(context.TODO())
+		if err != nil {
+			data.Result = "error"
+			data.Message = "Cannot list Applications"
+			w.WriteHeader(http.StatusInternalServerError)
+			break
+		}
+
+		var app *kubeapplierv1alpha1.Application
+		for i := range apps {
+			if apps[i].Namespace == ns {
+				app = &apps[i]
+				// TODO: handle multiple applications in one namespace. The
+				// behaviour should match that of run.Scheduler, which can also
+				// queue requests.
+			}
+		}
+		if app == nil {
+			data.Result = "error"
+			data.Message = fmt.Sprintf("Cannot find Applications in namespace %s", ns)
+			w.WriteHeader(http.StatusBadRequest)
+			break
+		}
+
+		runRequest := run.Request{
+			Type:        run.ForcedRun,
+			Application: app,
+		}
+
 		select {
 		case f.RunQueue <- runRequest:
 			log.Logger.Info("Run queued")
-		default:
+			// TODO: remove timeout, we should not lose any requests
+		case <-time.After(5 * time.Second):
 			log.Logger.Info("Run queue is already full")
 		}
 		data.Result = "success"
@@ -124,6 +164,7 @@ func (ws *WebServer) Start() {
 	http.Handle("/", statusPageHandler)
 	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{
+		ws.KubeClient,
 		ws.RunQueue,
 	}
 	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
