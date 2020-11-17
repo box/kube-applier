@@ -18,7 +18,9 @@ import (
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
-const serverTemplatePath = "templates/status.html"
+const (
+	defaultServerTemplatePath = "templates/status.html"
+)
 
 // WebServer struct
 type WebServer struct {
@@ -28,6 +30,7 @@ type WebServer struct {
 	DiffURLFormat           string
 	KubeClient              *client.Client
 	RunQueue                chan<- run.Request
+	TemplatePath            string
 	result                  *Result
 	server                  *http.Server
 	stop, stopped           chan bool
@@ -154,7 +157,11 @@ func (ws *WebServer) Start() error {
 
 	log.Logger.Info("Launching webserver")
 
-	template, err := sysutil.CreateTemplate(serverTemplatePath)
+	templatePath := ws.TemplatePath
+	if templatePath == "" {
+		templatePath = defaultServerTemplatePath
+	}
+	template, err := sysutil.CreateTemplate(templatePath)
 	if err != nil {
 		return err
 	}
