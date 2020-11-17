@@ -13,35 +13,8 @@
     <h1 class="text-center">kube-applier</h1>
     {{ if .Finished }}
     <div class="row">
-        <div class="text-center">
-            <div class="force-button-group btn-group">
-                <button id="force-full-button" class="force-button btn btn-warning btn-s"><strong>Force full apply run</strong></button>
-                {{ if .Failures }}<button id="force-failed-button" class="force-button btn btn-warning btn-s"><strong>Force failed-only run</strong></button>{{ end }}
-            </div>
-        </div>
-    </div>
-    <div class="row">
         <div class="col-md-4"></div>
         <div id="force-alert-container" class="col-md-4"></div>
-    </div>
-    <div class="row">
-        <div class="col-md-2"></div>
-        <div class="col-md-8">
-            <div class="panel panel-default {{ if .Failures }}panel-danger{{ else }}panel-success{{ end }}">
-                <div class="panel-heading">
-                    <h3 class="panel-title">Last Run</h3>
-                </div>
-                <div class="panel-body">
-                    <strong>Root path: </strong>{{ .RootPath }}<br>
-                    <strong>Type: </strong>{{ .LastRun.Type }}<br>
-                    <strong>Started: </strong>{{ .FormattedTime .LastRun.Started }}<br>
-                    <strong>Finished: </strong>{{ .FormattedTime .LastRun.Finished }}<br>
-                    <strong>Latency: </strong>{{ .Latency .LastRun.Started .LastRun.Finished }}<br>
-                    <strong>Last Commit: </strong>{{ if .CommitLink .LastRun.Commit }}<a href="{{ .CommitLink .LastRun.Commit }}">{{ .LastRun.Commit }}</a>{{ end }}
-                    <p><pre class="commit">{{ .FullCommit }}</pre></p>
-                </div>
-            </div>
-        </div>
     </div>
     <div class="row">
         <div class="col-md-2"></div>
@@ -103,7 +76,7 @@
                                     <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.Spec.RepositoryPath }}</a>
                                 </div>
                             </div>
-                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedDuringLastRun $file }}in{{ end }}">
+                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $file }}in{{ end }}">
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">

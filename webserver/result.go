@@ -16,7 +16,6 @@ type Result struct {
 	Applications  []kubeapplierv1alpha1.Application
 	DiffURLFormat string
 	FullCommit    string
-	LastRun       kubeapplierv1alpha1.ApplicationStatusRunInfo
 	RootPath      string
 }
 
@@ -64,14 +63,12 @@ func (r Result) CommitLink(commit string) string {
 
 // Finished returns true if the Result is from a finished apply run.
 func (r Result) Finished() bool {
-	return !r.LastRun.Finished.Time.IsZero()
+	return len(r.Applications) > 0
 }
 
-// AppliedDuringLastRun checks whether the provided Application was applied
-// during the last run.
-func (r Result) AppliedDuringLastRun(app kubeapplierv1alpha1.Application) bool {
-	return r.LastRun.Commit == app.Status.LastRun.Info.Commit &&
-		r.LastRun.Finished.Time.Unix() == app.Status.LastRun.Info.Finished.Time.Unix() &&
-		r.LastRun.Started.Time.Unix() == app.Status.LastRun.Info.Started.Time.Unix() &&
-		r.LastRun.Type == app.Status.LastRun.Info.Type
+// AppliedRecently checks whether the provided Application was applied in the
+// last 15 minutes.
+func (r Result) AppliedRecently(app kubeapplierv1alpha1.Application) bool {
+	return app.Status.LastRun != nil &&
+		time.Since(app.Status.LastRun.Started.Time) < time.Minute*15
 }

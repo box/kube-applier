@@ -35,40 +35,25 @@ var formattingTestCasess = []formattingTestCases{
 
 func TestResultFormattedTime(t *testing.T) {
 	assert := assert.New(t)
+	r := Result{}
 	for _, tc := range formattingTestCasess {
-		r := Result{
-			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
-				Started:  metav1.NewTime(tc.Start),
-				Finished: metav1.NewTime(tc.Finish),
-			},
+		status := kubeapplierv1alpha1.ApplicationStatusRun{
+			Started:  metav1.NewTime(tc.Start),
+			Finished: metav1.NewTime(tc.Finish),
 		}
-		assert.Equal(tc.ExpectedFormattedFinish, r.FormattedTime(r.LastRun.Finished))
+		assert.Equal(tc.ExpectedFormattedFinish, r.FormattedTime(status.Finished))
 	}
 }
 
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
+	r := Result{}
 	for _, tc := range formattingTestCasess {
-		r := Result{
-			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
-				Started:  metav1.NewTime(tc.Start),
-				Finished: metav1.NewTime(tc.Finish),
-			},
+		status := kubeapplierv1alpha1.ApplicationStatusRun{
+			Started:  metav1.NewTime(tc.Start),
+			Finished: metav1.NewTime(tc.Finish),
 		}
-		assert.Equal(tc.ExpectedLatency, r.Latency(r.LastRun.Started, r.LastRun.Finished))
-	}
-}
-
-func TestResultFinished(t *testing.T) {
-	assert := assert.New(t)
-	for _, tc := range formattingTestCasess {
-		r := Result{
-			LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{
-				Started:  metav1.NewTime(tc.Start),
-				Finished: metav1.NewTime(tc.Finish),
-			},
-		}
-		assert.Equal(tc.ExpectedFinished, r.Finished())
+		assert.Equal(tc.ExpectedLatency, r.Latency(status.Started, status.Finished))
 	}
 }
 
@@ -159,42 +144,80 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{LastRun: kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: tc.CommitHash}, DiffURLFormat: tc.DiffURLFormat}
-		assert.Equal(tc.ExpectedLink, r.CommitLink(r.LastRun.Commit))
+		r := Result{DiffURLFormat: tc.DiffURLFormat}
+		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
 	}
 }
 
-func TestResultAppliedDuringLastRun(t *testing.T) {
+func TestResultFinished(t *testing.T) {
+	assert := assert.New(t)
+	r := Result{}
+	assert.Equal(r.Finished(), false)
+	r.Applications = []kubeapplierv1alpha1.Application{{}}
+	assert.Equal(r.Finished(), true)
+
+	for _, tc := range lastCommitLinkTestCases {
+		r := Result{DiffURLFormat: tc.DiffURLFormat}
+		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
+	}
+}
+
+func TestResultAppliedRecently(t *testing.T) {
 	assert := assert.New(t)
 
-	runA := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "abc"}
-	runB := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "bar", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "abc"}
-	runC := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(1, 0), Type: "def"}
-	runD := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(3, 0), Started: metav1.Unix(1, 0), Type: "abc"}
-	runE := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 0), Started: metav1.Unix(2, 0), Type: "abc"}
-	runF := kubeapplierv1alpha1.ApplicationStatusRunInfo{Commit: "foo", Finished: metav1.Unix(2, 1), Started: metav1.Unix(1, 1), Type: "abc"}
-
-	appA := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runA}}}
-	appB := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runB}}}
-	appC := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runC}}}
-	appD := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runD}}}
-	appE := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runE}}}
-	appF := kubeapplierv1alpha1.Application{Status: kubeapplierv1alpha1.ApplicationStatus{LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{Info: runF}}}
-
-	r := Result{LastRun: runA}
-
+	now := time.Now()
 	testCases := []struct {
-		App      kubeapplierv1alpha1.Application
-		Expected bool
+		t time.Time
+		e bool
 	}{
-		{appA, true},
-		{appB, false},
-		{appC, false},
-		{appD, false},
-		{appE, false},
-		{appF, true},
+		{
+			time.Time{},
+			false,
+		},
+		{
+			now,
+			true,
+		},
+		{
+			now.Add(-time.Minute),
+			true,
+		},
+		{
+			now.Add(-time.Minute * 15),
+			false,
+		},
+		{
+			now.Add(-time.Minute * 16),
+			false,
+		},
+		{
+			now.Add(time.Minute),
+			true,
+		},
+		{
+			now.Add(time.Minute * 15),
+			true,
+		},
+		{
+			now.Add(time.Minute * 16),
+			true,
+		},
 	}
+
+	r := Result{}
+
+	assert.Equal(false, r.AppliedRecently(kubeapplierv1alpha1.Application{}))
+
 	for _, tc := range testCases {
-		assert.Equal(tc.Expected, r.AppliedDuringLastRun(tc.App))
+		assert.Equal(
+			tc.e,
+			r.AppliedRecently(kubeapplierv1alpha1.Application{
+				Status: kubeapplierv1alpha1.ApplicationStatus{
+					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+						Started: metav1.NewTime(tc.t),
+					},
+				},
+			}),
+		)
 	}
 }

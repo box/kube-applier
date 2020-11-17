@@ -12,7 +12,6 @@ import (
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
-	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
@@ -22,15 +21,17 @@ const serverTemplatePath = "templates/status.html"
 
 // WebServer struct
 type WebServer struct {
-	ListenPort    int
-	Clock         sysutil.ClockInterface
-	DiffURLFormat string
-	KubeClient    *client.Client
-	RepoPath      string
-	RunQueue      chan<- run.Request
-	Errors        chan<- error
+	ApplicationPollInterval time.Duration
+	ListenPort              int
+	Clock                   sysutil.ClockInterface
+	DiffURLFormat           string
+	KubeClient              *client.Client
+	RepoPath                string
+	RunQueue                chan<- run.Request
 	// TODO: how do we prevent races here? mutex?
-	result Result
+	result        Result
+	server        *http.Server
+	stop, stopped chan bool
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
@@ -183,32 +184,15 @@ func (ws *WebServer) Start() {
 	ws.Errors <- err
 }
 
-func (ws *WebServer) initialiseResultFromKubernetes() error {
-	gitUtil := &git.Util{RepoPath: ws.RepoPath}
-	res := Result{
-		DiffURLFormat: ws.DiffURLFormat,
-		RootPath:      ws.RepoPath,
-	}
+func (ws *WebServer) updateResult() error {
 	apps, err := ws.KubeClient.ListApplications(context.TODO())
 	if err != nil {
 		return fmt.Errorf("Could not list Application resources: %v", err)
 	}
-	for _, app := range apps {
-		// TODO: what do we do with these, they should probably be added to the list?
-		if app.Status.LastRun != nil {
-			res.Applications = append(res.Applications, app)
-			if app.Status.LastRun.Info.Started.After(res.LastRun.Started.Time) {
-				res.LastRun = app.Status.LastRun.Info
-			}
-		}
+	ws.result = Result{
+		Applications:  apps,
+		DiffURLFormat: ws.DiffURLFormat,
+		RootPath:      ws.RepoPath,
 	}
-	if res.LastRun.Commit != "" {
-		commitLog, err := gitUtil.CommitLog(res.LastRun.Commit)
-		if err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not get commit message for commit %s: %v", res.LastRun.Commit, err))
-		}
-		res.FullCommit = commitLog
-	}
-	ws.result = res
 	return nil
 }
