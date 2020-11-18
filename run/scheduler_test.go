@@ -15,23 +15,6 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
-func testSchedulerDrainErrors(errors <-chan error) func() []error {
-	ret := []error{}
-	finished := make(chan bool)
-
-	go func() {
-		for err := range errors {
-			ret = append(ret, err)
-		}
-		close(finished)
-	}()
-
-	return func() []error {
-		<-finished
-		return ret
-	}
-}
-
 func testSchedulerDrainRequests(requests <-chan Request) func() []Request {
 	ret := []Request{}
 	finished := make(chan bool)
@@ -52,20 +35,15 @@ func testSchedulerDrainRequests(requests <-chan Request) func() []Request {
 var _ = Describe("Scheduler", func() {
 	var (
 		testRunQueue          chan Request
-		testErrorChan         chan error
 		testScheduler         Scheduler
-		testSchedulerErrors   func() []error
 		testSchedulerRequests func() []Request
 	)
 
 	BeforeEach(func() {
 		testRunQueue = make(chan Request)
 		testSchedulerRequests = testSchedulerDrainRequests(testRunQueue)
-		testErrorChan = make(chan error)
-		testSchedulerErrors = testSchedulerDrainErrors(testErrorChan)
 		testScheduler = Scheduler{
 			ApplicationPollInterval: time.Second * 5,
-			Errors:                  testErrorChan,
 			GitPollInterval:         time.Second * 5,
 			KubeClient:              testKubeClient,
 			RepoPath:                "../testdata/manifests",
@@ -151,9 +129,6 @@ var _ = Describe("Scheduler", func() {
 			}
 
 			testScheduler.Stop()
-
-			close(testErrorChan)
-			Expect(testSchedulerErrors()).To(BeEmpty())
 
 			close(testRunQueue)
 			requestCount := map[string]map[Type]int{}

@@ -78,7 +78,6 @@ type Runner struct {
 	Clock          sysutil.ClockInterface
 	DiffURLFormat  string
 	DryRun         bool
-	Errors         chan<- error
 	KubeClient     *client.Client
 	KubectlClient  *kubectl.Client
 	Metrics        *metrics.Prometheus

@@ -53,7 +53,6 @@ const (
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
 	ApplicationPollInterval time.Duration
-	Errors                  chan<- error
 	GitPollInterval         time.Duration
 	KubeClient              *client.Client
 	RepoPath                string
