@@ -24,16 +24,16 @@ const (
 
 // WebServer struct
 type WebServer struct {
-	ApplicationPollInterval time.Duration
-	ListenPort              int
-	Clock                   sysutil.ClockInterface
-	DiffURLFormat           string
-	KubeClient              *client.Client
-	RunQueue                chan<- run.Request
-	TemplatePath            string
-	result                  *Result
-	server                  *http.Server
-	stop, stopped           chan bool
+	Clock                sysutil.ClockInterface
+	DiffURLFormat        string
+	KubeClient           *client.Client
+	ListenPort           int
+	RunQueue             chan<- run.Request
+	StatusUpdateInterval time.Duration
+	TemplatePath         string
+	result               *Result
+	server               *http.Server
+	stop, stopped        chan bool
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
@@ -187,7 +187,7 @@ func (ws *WebServer) Start() error {
 	m.PathPrefix("/").Handler(statusPageHandler)
 
 	go func() {
-		ticker := time.NewTicker(ws.ApplicationPollInterval)
+		ticker := time.NewTicker(ws.StatusUpdateInterval)
 		defer ticker.Stop()
 		defer close(ws.stopped)
 		for {
