@@ -62,15 +62,15 @@ type ApplicationStatusRun struct {
 	// Command is the command used during the apply run.
 	Command string `json:"command"`
 
+	// Commit is the git commit hash on which this apply run operated.
+	Commit string `json:"commit"`
+
 	// ErrorMessage describes any errors that occured during the apply run.
 	ErrorMessage string `json:"errorMessage"`
 
 	// Finished is the time that the apply run finished applying this
 	// Application.
 	Finished metav1.Time `json:"finished"`
-
-	// Info is the information on the overall apply run.
-	Info ApplicationStatusRunInfo `json:"info"`
 
 	// Output is the stdout of the Command.
 	Output string `json:"output"`
@@ -80,19 +80,6 @@ type ApplicationStatusRun struct {
 
 	// Success denotes whether the apply run was successful or not.
 	Success bool `json:"success"`
-}
-
-// ApplicationStatusRunInfo encapsulates information about the overall apply
-// run.
-type ApplicationStatusRunInfo struct {
-	// Commit is the git commit hash on which this apply run operated.
-	Commit string `json:"commit"`
-
-	// Finished is the time that the apply run finished.
-	Finished metav1.Time `json:"finished"`
-
-	// Started is the time that the apply run started.
-	Started metav1.Time `json:"started"`
 
 	// Type is a short description of the kind of apply run that was attempted.
 	// +kubebuilder:default="unknown"
