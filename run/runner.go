@@ -196,7 +196,7 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 	if app.Status.LastRun != nil {
 		sinceCommit = app.Status.LastRun.Info.Commit
 	}
-	if err := git.CloneRepositoryPathShallow(root, tmpDir, path, sinceCommit); err != nil {
+	if err := git.CloneRepository(root, tmpDir, path, sinceCommit); err != nil {
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil
