@@ -164,7 +164,7 @@ func (s *Scheduler) gitPollingLoop() {
 			s.applicationsMutex.Lock()
 			for i := range s.applications {
 				if s.applications[i].Status.LastRun != nil &&
-					s.applications[i].Status.LastRun.Info.Commit != hash {
+					s.applications[i].Status.LastRun.Commit != hash {
 					s.enqueue(PollingRun, s.applications[i])
 				}
 			}

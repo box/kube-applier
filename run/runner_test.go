@@ -183,45 +183,39 @@ var _ = Describe("Runner", func() {
 				},
 			}
 
-			expectedStatusRunInfo := kubeapplierv1alpha1.ApplicationStatusRunInfo{
-				Finished: metav1.Time{},
-				Started:  metav1.Time{},
-				Type:     PollingRun.String(),
-			}
-
 			expectedStatus := []*kubeapplierv1alpha1.ApplicationStatusRun{
 				{
 					Command:      "",
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
-					Info:         expectedStatusRunInfo,
 					Output: `namespace/app-a created
 deployment.apps/test-deployment created
 `,
 					Started: metav1.Time{},
 					Success: true,
+					Type:    PollingRun.String(),
 				},
 				{
 					Command:      "",
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Info:         expectedStatusRunInfo,
 					Output: `namespace/app-b created
 error: error validating "../testdata/manifests/app-b/deployment.yaml": error validating data: ValidationError(Deployment.spec.template.spec): missing required field "containers" in io.k8s.api.core.v1.PodSpec; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
 					Success: false,
+					Type:    PollingRun.String(),
 				},
 				{
 					Command:      "",
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Info:         expectedStatusRunInfo,
 					Output: `namespace/app-c created (server dry run)
 Error from server (NotFound): error when creating "../testdata/manifests/app-c/deployment.yaml": namespaces "app-c" not found
 `,
 					Started: metav1.Time{},
 					Success: false,
+					Type:    PollingRun.String(),
 				},
 			}
 
@@ -232,7 +226,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 				expected[i].Status = kubeapplierv1alpha1.ApplicationStatus{LastRun: expectedStatus[i]}
 				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(".")
 				Expect(err).To(BeNil())
-				expected[i].Status.LastRun.Info.Commit = headCommitHash
+				expected[i].Status.LastRun.Commit = headCommitHash
 			}
 
 			By("Applying all the Applications and populating their Status subresource with the results")
@@ -276,6 +270,7 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, rep
 					expected.Namespace,
 					commandExtraArgs,
 				),
+				"Commit":       Equal(expected.Status.LastRun.Commit),
 				"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
 				"Finished": And(
 					Equal(expected.Status.LastRun.Finished),
@@ -285,7 +280,6 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, rep
 						"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
 					}),
 				),
-				"Info": Equal(expected.Status.LastRun.Info),
 				"Output": MatchRegexp(strings.Replace(
 					regexp.QuoteMeta(expected.Status.LastRun.Output),
 					regexp.QuoteMeta(repoPath),
@@ -294,6 +288,7 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, rep
 				)),
 				"Started": Equal(expected.Status.LastRun.Started),
 				"Success": Equal(expected.Status.LastRun.Success),
+				"Type":    Equal(expected.Status.LastRun.Type),
 			})),
 		}),
 	})

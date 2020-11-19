@@ -39,8 +39,8 @@
                                     <li class="list-group-item">
                                         <div class="row">
                                             <div class="col-md-10">
-                                                <strong>Applied by: </strong>{{ $file.Status.LastRun.Info.Type }} (started at {{ $.FormattedTime $file.Status.LastRun.Info.Started }})<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
+                                                <strong>Applied by: </strong>{{ $file.Status.LastRun.Type }} (started at {{ $.FormattedTime $file.Status.LastRun.Started }})<br/>
+                                                <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Commit }}">{{ $file.Status.LastRun.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
                                             <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
@@ -81,8 +81,8 @@
                                     <li class="list-group-item">
                                         <div class="row">
                                             <div class="col-md-10">
-                                                <strong>Applied by: </strong>{{ $file.Status.LastRun.Info.Type }} (started at {{ $.FormattedTime $file.Status.LastRun.Info.Started }})<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
+                                                <strong>Applied by: </strong>{{ $file.Status.LastRun.Type }} (started at {{ $.FormattedTime $file.Status.LastRun.Started }})<br/>
+                                                <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Commit }}">{{ $file.Status.LastRun.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
                                             <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
