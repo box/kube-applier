@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,10 +52,15 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger.Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
 		return
 	}
-	if err := s.Template.Execute(w, s.Result); err != nil {
+	rendered := &bytes.Buffer{}
+	if err := s.Template.Execute(rendered, s.Result); err != nil {
 		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
 		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if _, err := rendered.WriteTo(w); err != nil {
+		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 	}
 	log.Logger.Info("Request completed successfully", "time", s.Clock.Now().String())
 }
@@ -171,21 +177,6 @@ func (ws *WebServer) Start() error {
 		DiffURLFormat: ws.DiffURLFormat,
 	}
 
-	m := mux.NewRouter()
-	addStatusEndpoints(m)
-	statusPageHandler := &StatusPageHandler{
-		ws.Clock,
-		ws.result,
-		template,
-	}
-	forceRunHandler := &ForceRunHandler{
-		ws.KubeClient,
-		ws.RunQueue,
-	}
-	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
-	m.PathPrefix("/").Handler(statusPageHandler)
-
 	go func() {
 		ticker := time.NewTicker(ws.StatusUpdateInterval)
 		defer ticker.Stop()
@@ -200,6 +191,21 @@ func (ws *WebServer) Start() error {
 			}
 		}
 	}()
+
+	m := mux.NewRouter()
+	addStatusEndpoints(m)
+	statusPageHandler := &StatusPageHandler{
+		ws.Clock,
+		ws.result,
+		template,
+	}
+	forceRunHandler := &ForceRunHandler{
+		ws.KubeClient,
+		ws.RunQueue,
+	}
+	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
+	m.PathPrefix("/").Handler(statusPageHandler)
 
 	ws.server = &http.Server{
 		Addr:     fmt.Sprintf(":%v", ws.ListenPort),
