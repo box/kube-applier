@@ -25,7 +25,7 @@ func (r Result) Successes() []kubeapplierv1alpha1.Application {
 	r.Lock()
 	defer r.Unlock()
 	for _, app := range r.Applications {
-		if app.Status.LastRun.Success {
+		if app.Status.LastRun != nil && app.Status.LastRun.Success {
 			ret = append(ret, app)
 		}
 	}
@@ -38,7 +38,7 @@ func (r Result) Failures() []kubeapplierv1alpha1.Application {
 	r.Lock()
 	defer r.Unlock()
 	for _, app := range r.Applications {
-		if !app.Status.LastRun.Success {
+		if app.Status.LastRun != nil && !app.Status.LastRun.Success {
 			ret = append(ret, app)
 		}
 	}
