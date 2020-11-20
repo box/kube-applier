@@ -66,22 +66,9 @@ func (g *Util) SplitPath() (string, string, error) {
 
 // CloneRepository clones a shallow copy of local repository to a new location
 // on disk and only checkouts the specified path.
-func CloneRepository(src, dst, path, commit string) error {
-	args := []string{"clone", "--no-checkout"}
-
-	// depth = $(git rev-list HEAD...commit | wc -l)
-	if commit != "" {
-		history, err := runGitCmd(src, "rev-list", fmt.Sprintf("HEAD...%s", commit))
-		if err != nil {
-			return err
-		}
-		depth := strings.Count(history, "\n")
-		args = append(args, fmt.Sprintf("--depth=%d", depth))
-	}
-
-	// git clone (--depth=$depth) --no-checkout file://src dst
-	args = append(args, fmt.Sprintf("file://%s", src), dst)
-	if _, err := runGitCmd("/", args...); err != nil {
+func CloneRepository(src, dst, path string) error {
+	// git clone --no-checkout src dst
+	if _, err := runGitCmd("/", "clone", "--no-checkout", src, dst); err != nil {
 		return err
 	}
 
