@@ -190,6 +190,7 @@ func (ws *WebServer) Start() error {
 		ticker := time.NewTicker(ws.StatusUpdateInterval)
 		defer ticker.Stop()
 		defer close(ws.stopped)
+		ws.updateResult()
 		for {
 			select {
 			case <-ticker.C:
