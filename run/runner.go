@@ -123,15 +123,16 @@ func (r *Runner) applyWorker() {
 			log.Logger.Error("Could not create a repository copy", "error", err)
 			continue
 		}
-		defer cleanupTemp()
 		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
 		if err != nil {
 			log.Logger.Error("Could not determine HEAD hash", "error", err)
+			cleanupTemp()
 			continue
 		}
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
 			log.Logger.Error("Could not compute list of prunable resources", "error", err)
+			cleanupTemp()
 			continue
 		}
 		applyOptions := &ApplyOptions{
@@ -171,6 +172,7 @@ func (r *Runner) applyWorker() {
 		r.metricsMutex.Unlock()
 
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
+		cleanupTemp()
 	}
 }
 
@@ -191,15 +193,17 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 	if err != nil {
 		return nil, nil, err
 	}
+	cleanup := func() { os.RemoveAll(tmpDir) }
 	path := filepath.Join(sub, app.Spec.RepositoryPath)
 	sinceCommit := ""
 	if app.Status.LastRun != nil {
 		sinceCommit = app.Status.LastRun.Info.Commit
 	}
 	if err := git.CloneRepository(root, tmpDir, path, sinceCommit); err != nil {
+		cleanup()
 		return nil, nil, err
 	}
-	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, func() { os.RemoveAll(tmpDir) }, nil
+	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, cleanup, nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.
