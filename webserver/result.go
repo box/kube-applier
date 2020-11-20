@@ -20,7 +20,7 @@ type Result struct {
 }
 
 // Successes returns all the Applications that applied successfully.
-func (r Result) Successes() []kubeapplierv1alpha1.Application {
+func (r *Result) Successes() []kubeapplierv1alpha1.Application {
 	var ret []kubeapplierv1alpha1.Application
 	r.Lock()
 	defer r.Unlock()
@@ -33,7 +33,7 @@ func (r Result) Successes() []kubeapplierv1alpha1.Application {
 }
 
 // Failures returns all the Applications that failed applying.
-func (r Result) Failures() []kubeapplierv1alpha1.Application {
+func (r *Result) Failures() []kubeapplierv1alpha1.Application {
 	var ret []kubeapplierv1alpha1.Application
 	r.Lock()
 	defer r.Unlock()
@@ -46,19 +46,19 @@ func (r Result) Failures() []kubeapplierv1alpha1.Application {
 }
 
 // FormattedTime returns the Time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
-func (r Result) FormattedTime(t metav1.Time) string {
+func (r *Result) FormattedTime(t metav1.Time) string {
 	return t.Time.Truncate(time.Second).String()
 }
 
 // Latency returns the latency between the two Times in seconds, truncated to 3
 // decimal places.
-func (r Result) Latency(t1, t2 metav1.Time) string {
+func (r *Result) Latency(t1, t2 metav1.Time) string {
 	return fmt.Sprintf("%.3f sec", t2.Time.Sub(t1.Time).Seconds())
 }
 
 // CommitLink returns a URL for the commit most recently applied or it returns
 // an empty string if it cannot construct the URL.
-func (r Result) CommitLink(commit string) string {
+func (r *Result) CommitLink(commit string) string {
 	if commit == "" || r.DiffURLFormat == "" || !strings.Contains(r.DiffURLFormat, "%s") {
 		return ""
 	}
@@ -66,7 +66,7 @@ func (r Result) CommitLink(commit string) string {
 }
 
 // Finished returns true if the Result is from a finished apply run.
-func (r Result) Finished() bool {
+func (r *Result) Finished() bool {
 	r.Lock()
 	defer r.Unlock()
 	return len(r.Applications) > 0
@@ -74,7 +74,7 @@ func (r Result) Finished() bool {
 
 // AppliedRecently checks whether the provided Application was applied in the
 // last 15 minutes.
-func (r Result) AppliedRecently(app kubeapplierv1alpha1.Application) bool {
+func (r *Result) AppliedRecently(app kubeapplierv1alpha1.Application) bool {
 	return app.Status.LastRun != nil &&
 		time.Since(app.Status.LastRun.Started.Time) < time.Minute*15
 }
