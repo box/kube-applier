@@ -85,7 +85,7 @@ kube-applier serves a [status page](#status-ui) and provides
 - `EXEC_TIMEOUT` - (duration) Commands executed by kube-applier will be killed
   if they exceed this duration. Default is `3m`.
 
-- `WORKER_COUNT` - (int) The number of apply workers to run in paraller. The
+- `WORKER_COUNT` - (int) The number of apply workers to run in parallel. The
   higher this number, the more namespaces can be applied at the same time but
   at the same time, more resources will be used under high load (default 2).
 
