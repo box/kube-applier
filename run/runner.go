@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -21,6 +22,7 @@ import (
 
 const (
 	defaultRunnerWorkerCount = 2
+	defaultWorkerQueueSize   = 512
 )
 
 // Request defines an apply run request
@@ -101,8 +103,7 @@ func (r *Runner) Start() chan<- Request {
 	if r.WorkerCount == 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
 	}
-	// TODO: should this channel be buffered or not?
-	r.workerQueue = make(chan Request, r.WorkerCount)
+	r.workerQueue = make(chan Request, defaultWorkerQueueSize)
 	r.workerGroup = sync.WaitGroup{}
 	r.workerGroup.Add(r.WorkerCount)
 	for i := 0; i < r.WorkerCount; i++ {
@@ -229,5 +230,16 @@ func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, op
 		app.Status.LastRun.ErrorMessage = err.Error()
 	} else {
 		app.Status.LastRun.Success = true
+	}
+}
+
+// Enqueue attempts to add a run request to the queue, timing out after 5
+// seconds.
+func Enqueue(queue chan<- Request, t Type, app *kubeapplierv1alpha1.Application) {
+	select {
+	case queue <- Request{Type: t, Application: app}:
+		log.Logger.Debug(fmt.Sprintf("%s queued for %s/%s", t, app.Namespace, app.Name))
+	case <-time.After(5 * time.Second):
+		log.Logger.Error("Timed out trying to queue a %s for %s/%s, run queue is full", t, app.Namespace, app.Name)
 	}
 }

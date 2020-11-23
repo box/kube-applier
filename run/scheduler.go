@@ -165,7 +165,7 @@ func (s *Scheduler) gitPollingLoop() {
 			for i := range s.applications {
 				if s.applications[i].Status.LastRun != nil &&
 					s.applications[i].Status.LastRun.Commit != hash {
-					s.enqueue(PollingRun, s.applications[i])
+					Enqueue(s.RunQueue, PollingRun, s.applications[i])
 				}
 			}
 			s.gitLastQueuedHash = hash
@@ -184,12 +184,12 @@ func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) fun
 		defer ticker.Stop()
 		defer close(stopped)
 		if app.Status.LastRun == nil || time.Since(app.Status.LastRun.Started.Time) > time.Duration(app.Spec.RunInterval)*time.Second {
-			s.enqueue(ScheduledRun, app)
+			Enqueue(s.RunQueue, ScheduledRun, app)
 		}
 		for {
 			select {
 			case <-ticker.C:
-				s.enqueue(ScheduledRun, app)
+				Enqueue(s.RunQueue, ScheduledRun, app)
 			case <-stop:
 				return
 			}
@@ -198,17 +198,5 @@ func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) fun
 	return func() {
 		close(stop)
 		<-stopped
-	}
-}
-
-// enqueue attempts to add a run to the queue, logging the result of the request.
-func (s *Scheduler) enqueue(t Type, app *kubeapplierv1alpha1.Application) {
-	// TODO: how big of a channel buffer do we need here to avoid locking?
-	// we should not ever drop requests
-	select {
-	case s.RunQueue <- Request{Type: t, Application: app}:
-		log.Logger.Debug(fmt.Sprintf("%s queued for %s/%s", t, app.Namespace, app.Name))
-	case <-time.After(5 * time.Second):
-		log.Logger.Info("Run queue is already full")
 	}
 }
