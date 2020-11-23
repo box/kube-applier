@@ -76,7 +76,7 @@ func validate() {
 	}
 
 	if gitPollInterval == "" {
-		gitPollInterval = "15"
+		gitPollInterval = "5"
 	} else {
 		_, err := strconv.Atoi(gitPollInterval)
 		if err != nil {

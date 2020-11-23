@@ -4,20 +4,17 @@
 
 # Table of Contents
 
-- [kube-applier](#kube-applier)
-- [Table of Contents](#table-of-contents)
-  - [Usage](#usage)
-    - [Environment variables](#environment-variables)
-    - [Annotations](#annotations)
-    - [Mounting the Git Repository](#mounting-the-git-repository)
-  - [Deploying](#deploying)
-  - [Monitoring](#monitoring)
-    - [Status UI](#status-ui)
-    - [Metrics](#metrics)
-  - [Running locally](#running-locally)
-  - [Copyright and License](#copyright-and-license)
-
-Created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
+* [Usage](#usage)
+    * [Environment variables](#environment-variables)
+    * [Application CRD](#application-crd)
+    * [Mounting the Git Repository](#mounting-the-git-repository)
+    * [Resource pruning](#resource-pruning)
+* [Deploying](#deploying)
+* [Monitoring](#monitoring)
+    * [Status UI](#status-ui)
+    * [Metrics](#metrics)
+* [Running locally](#running-locally)
+* [Copyright and License](#copyright-and-license)
 
 Forked from: https://github.com/box/kube-applier
 
@@ -30,12 +27,14 @@ kube-applier runs as a Deployment in your cluster and watches the [Git
 repo](#mounting-the-git-repository) to ensure that the cluster objects are
 up-to-date with their associated spec files (JSON or YAML) in the repo.
 
+Configuration is done through the `kube-applier.io/Application` CRD. Each
+namespace in a cluster defines an Application CRD which defines the source of
+truth for the namespace inside the repository. // XXX: link to App
+
 Whenever a new commit to the repo occurs, or at a [specified
 interval](#run-interval), kube-applier performs a "run", issuing [kubectl
 apply](https://kubernetes.io/docs/user-guide/kubectl/v1.6/#apply) commands at
-namespace level. The convention is that level 1 subdirs of REPO_PATH represent
-k8s namespaces: the name of the dir is the same as the namespace and the dir
-contains manifests for the given namespace.
+namespace level.
 
 kube-applier serves a [status page](#status-ui) and provides
 [metrics](#metrics) for monitoring.
@@ -47,8 +46,8 @@ kube-applier serves a [status page](#status-ui) and provides
 **Required:**
 
 - `REPO_PATH` - (string) Absolute path to the directory containing
-  configuration files to be applied. It must be a Git repository or a path within
-  one. Level 1 subdirs of this directory represent kubernetes namespaces.
+  configuration files to be applied. It must be a Git repository or a path
+  within one.
 
 **Optional:**
 
@@ -60,50 +59,58 @@ kube-applier serves a [status page](#status-ui) and provides
 - `LISTEN_PORT` - (int) Port for the container. This should be the same port
   specified in the container spec. Default is 8080.
 
-- `REPO_PATH_FILTERS` - (string) A comma separated list of sub directories to
-  be applied. Supports [shell file name
-  patterns](https://golang.org/pkg/path/filepath/#Match).
-
 - `REPO_TIMEOUT_SECONDS` - (int) Number of seconds to wait for the directory
   indicated by `REPO_PATH` to exist (default is 120).
 
-- `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check
-  for new commits to the repo (default is 5).
+- `GIT_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
+  check for new commits to the repo (default is 5).
 
-- <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of
-  seconds between automatic full runs (default is 3600). Set to 0 to disable.
+- `APP_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
+  poll of Application resources on the apiserver (default is 60).
+
+- `STATUS_UPDATE_INTERVAL_SECONDS` - (int) Number of seconds to wait between
+  each update of the status page data which is essentially done by polling the
+  apiserver (default is 60).
 
 - `DRY_RUN` - (bool) If true, kubectl command will be run with --dry-run=server
   flag. This means live configuration of the cluster is not changed.
 
-- `LOG_LEVEL` - (string) trace|debug|info|warn|error case insensitive
+- `LOG_LEVEL` - (string) trace|debug|info|warn|error|off case insensitive
 
 - `PRUNE_BLACKLIST` - (string) A comma separated list of resources in the format
-  `<group>/<version>/<kind>` that will be exempted from pruning
+  `<group>/<version>/<kind>` that will be exempted from pruning. The blacklist
+  always contains `apps/v1/ControllerRevision`.
 
 - `EXEC_TIMEOUT` - (duration) Commands executed by kube-applier will be killed
   if they exceed this duration. Default is `3m`.
+
+- `WORKER_COUNT` - (int) The number of apply workers to run in paraller. The
+  higher this number, the more namespaces can be applied at the same time but
+  at the same time, more resources will be used under high load (default 2).
 
 Additionally `KUBECONFIG` can be set as [described
 here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
 to configure cluster access.
 
-### Annotations
+### Application CRD
 
-kube-applier behaviour is controlled through annotations on the Namespace
-resource.
+kube-applier behaviour is controlled through the Application CRD. Refer to the
+code or CRD yaml definition for details, an example with the default values is
+shown below:
 
 ```yaml
-kind: Namespace
-apiVersion: v1
+apiVersion: kube-applier.io/v1alpha1
+kind: Application
 metadata:
-  name: team
-  annotations:
-    kube-applier.io/enabled: "true"
-    kube-applier.io/dry-run: "false"
-    kube-applier.io/prune: "true"
-    kube-applier.io/prune-cluster-resources: "false"
-    kube-applier.io/server-side: "false"
+  name: main
+spec:
+  dryRun: false
+  prune: true
+  pruneClusterResources: false
+  pruneBlacklist: []
+  repositoryPath: sys-kube-applier
+  runInterval: 3600
+  serverSideApply: false
 ```
 
 ### Mounting the Git Repository
@@ -115,40 +122,29 @@ git-sync and kube-applier containers.
 Reference the [git-sync](https://github.com/kubernetes/git-sync) repo for setup
 and usage.
 
-**What happens if the contents of the local Git repo change in the middle of a kube-applier run?**
+### Resource pruning
 
-If there are changes to files in the `$REPO_PATH` directory during a
-kube-applier run, those changes may or may not be reflected in that run,
-depending on the timing of the changes.
-
-Given that the `$REPO_PATH` directory is a Git repo or located within one, it
-is likely that the majority of changes will be associated with a Git commit.
-Thus, a change in the middle of a run will likely update the HEAD commit hash,
-which will immediately trigger another run upon completion of the current run
-(regardless of whether or not any of the changes were effective in the current
-run). However, changes that are not associated with a new Git commit will not
-trigger a run.
-
-**If I remove a configuration file, will kube-applier remove the associated Kubernetes object?**
-
-This is dependent on the value of `kube-applier.io/prune` (default `true`). If `true`,
-then kube applier will prune all namespaced resources.
+Resource pruning is enabled by default and controlled by the `prune` attribute
+of the Application spec. This means that if a file is removed from the git
+repository, the resources defined in it will be pruned in the next run.
 
 If you want kube applier to prune cluster resources, you can set
-`kube-applier.io/prune-cluster-resources` to `true`. Take care when using this
-feature as it will remove all cluster resources that have been created by
-kubectl and don't exist in the current namespace directory. Therefore, only use this feature if all
+`pruneClusterResources` to `true`. Take care when using this feature as it will
+remove all cluster resources that have been created by kubectl and don't exist
+in the current namespace directory. Therefore, only use this feature if all
 of your cluster resources are defined under one directory.
 
 Specific resource types can be exempted from pruning by adding them to the
-`PRUNE_BLACKLIST` environment variable:
+`pruneBlacklist` attribute:
 
 ```
-export PRUNE_BLACKLIST="core/v1/ConfigMap,core/v1/Namespace"
+  pruneBlacklist:
+    - core/v1/ConfigMap
+    - core/v1/Namespace
 ```
 
-The resource `apps/v1/ControllerRevision` is always exempted from pruning, regardless of the
-blacklist. This is because Kubernetes copies the
+The resource `apps/v1/ControllerRevision` is always exempted from pruning,
+regardless of the blacklist. This is because Kubernetes copies the
 `kubectl.kubernetes.io/last-applied-configuration` annotation to controller
 revisions from the corresponding StatefulSet, Deployment or Daemonset. This would
 result in kube-applier pruning revisions that it shouldn't be managing if it
@@ -163,7 +159,7 @@ namespace:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/base?ref=2.5.4
+- github.com/utilitywarehouse/kube-applier//manifests/base?ref=master
 ```
 
 and patch as per example:
@@ -178,20 +174,16 @@ assume they have been removed and start pruning.
 
 ### Status UI
 
-![screenshot](https://github.com/box/kube-applier/raw/master/static/img/status_page_screenshot.png "Status Page Screenshot")
+kube-applier serves an HTML status page on which displays information about the
+Applications managed by it and their most recent apply runs, including:
 
-kube-applier hosts a status page on a webserver, served at the service endpoint
-URL. The status page displays information about the most recent apply run,
-including:
-
-- Start and end times
-- Latency
+- Apply run type (reason)
+- Start times and latency
 - Most recent commit
-- Blacklisted files
-- Errors
-- Files applied successfully
+- Apply command, output and errors
 
-The HTML template for the status page lives in `templates/status.html`, and `static/` holds additional assets.
+The HTML template for the status page lives in `templates/status.html`, and
+`static/` holds additional assets.
 
 ### Metrics
 
@@ -241,9 +233,11 @@ export LOCAL_REPO_PATH="${HOME}/dev/work/kubernetes-manifests"
 export CLUSTER_DIR="exp-1-aws"
 
 export DIFF_URL_FORMAT="https://github.com/utilitywarehouse/kubernetes-manifests/commit/%s"
-export REPO_PATH_FILTERS="sys-*,kube-system,labs"
-export LOG_LEVEL="info"
+
+# export values for any other options that are configured through environment
+# variables (the rest have default values and are optional) eg.:
 export DRY_RUN="true"
+export LOG_LEVEL="info"
 ```
 
 ```

@@ -11,3 +11,16 @@ subjects:
 - kind: ServiceAccount
   name: kube-applier
   namespace: kube-applier-host-namespace
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier
+subjects:
+  - kind: ServiceAccount
+    name: kube-applier
+  namespace: kube-applier-host-namespace
+roleRef:
+  kind: ClusterRole
+  name: kube-applier
+  apiGroup: rbac.authorization.k8s.io
