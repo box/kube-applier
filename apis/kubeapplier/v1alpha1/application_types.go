@@ -27,11 +27,6 @@ type ApplicationSpec struct {
 	// +optional
 	PruneBlacklist []string `json:"pruneBlacklist,omitempty"`
 
-	// RepositoryName defines a Repository resource from which configuration is
-	// pulled for this Application.
-	// +optional
-	RepositoryName string `json:"repositoryName,omitempty"`
-
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Application is stored.
 	RepositoryPath string `json:"repositoryPath"`

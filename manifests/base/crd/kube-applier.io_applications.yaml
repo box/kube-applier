@@ -61,10 +61,6 @@ spec:
                 description: PruneClusterResources determines whether pruning is enabled
                   for cluster resources, as part of this Application.
                 type: boolean
-              repositoryName:
-                description: RepositoryName defines a Repository resource from which
-                  configuration is pulled for this Application.
-                type: string
               repositoryPath:
                 description: RepositoryPath defines the relative path inside the Repository
                   where the configuration for this Application is stored.
