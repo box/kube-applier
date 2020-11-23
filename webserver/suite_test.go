@@ -1,4 +1,4 @@
-package run
+package webserver
 
 import (
 	"path/filepath"
@@ -69,7 +69,7 @@ var _ = AfterSuite(func() {
 })
 
 func init() {
-	log.InitLogger("off")
+	log.InitLogger("debug")
 
 	testMetricsClient.Init()
 }

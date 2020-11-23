@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
 	"github.com/utilitywarehouse/kube-applier/client"
-	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
@@ -18,27 +19,29 @@ import (
 )
 
 const (
-	// Number of seconds to wait in between attempts to locate the repo at the specified path.
-	// Git-sync atomically places the repo at the specified path once it is finished pulling, so it will not be present immediately.
+	// Number of seconds to wait in between attempts to locate the repo at the
+	// specified path. Git-sync atomically places the repo at the specified path
+	// once it is finished pulling, so it will not be present immediately.
 	waitForRepoInterval = 1 * time.Second
 )
 
 var (
-	repoPath        = os.Getenv("REPO_PATH")
-	repoTimeout     = os.Getenv("REPO_TIMEOUT_SECONDS")
-	listenPort      = os.Getenv("LISTEN_PORT")
-	pollInterval    = os.Getenv("POLL_INTERVAL_SECONDS")
-	fullRunInterval = os.Getenv("FULL_RUN_INTERVAL_SECONDS")
-	dryRun          = os.Getenv("DRY_RUN")
-	logLevel        = os.Getenv("LOG_LEVEL")
-	pruneBlacklist  = os.Getenv("PRUNE_BLACKLIST")
-	execTimeout     = os.Getenv("EXEC_TIMEOUT")
+	repoPath             = os.Getenv("REPO_PATH")
+	repoTimeout          = os.Getenv("REPO_TIMEOUT_SECONDS")
+	listenPort           = os.Getenv("LISTEN_PORT")
+	gitPollInterval      = os.Getenv("GIT_POLL_INTERVAL_SECONDS")
+	appPollInterval      = os.Getenv("APP_POLL_INTERVAL_SECONDS")
+	statusUpdateInterval = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
+	dryRun               = os.Getenv("DRY_RUN")
+	logLevel             = os.Getenv("LOG_LEVEL")
+	pruneBlacklist       = os.Getenv("PRUNE_BLACKLIST")
+	execTimeout          = os.Getenv("EXEC_TIMEOUT")
 
 	// Github commit diff url
 	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
 	workerCount   = os.Getenv("WORKER_COUNT")
 
-	batchApplierWorkerCount int
+	runnerWorkerCount int
 )
 
 func validate() {
@@ -72,22 +75,32 @@ func validate() {
 		os.Exit(1)
 	}
 
-	if pollInterval == "" {
-		pollInterval = "5"
+	if gitPollInterval == "" {
+		gitPollInterval = "15"
 	} else {
-		_, err := strconv.Atoi(pollInterval)
+		_, err := strconv.Atoi(gitPollInterval)
 		if err != nil {
-			fmt.Println("POLL_INTERVAL_SECONDS must be an int")
+			fmt.Println("GIT_POLL_INTERVAL_SECONDS must be an int")
 			os.Exit(1)
 		}
 	}
 
-	if fullRunInterval == "" {
-		fullRunInterval = "3600"
+	if appPollInterval == "" {
+		appPollInterval = "60"
 	} else {
-		_, err := strconv.Atoi(fullRunInterval)
+		_, err := strconv.Atoi(appPollInterval)
 		if err != nil {
-			fmt.Println("FULL_RUN_INTERVAL_SECONDS must be an int")
+			fmt.Println("APP_POLL_INTERVAL_SECONDS must be an int")
+			os.Exit(1)
+		}
+	}
+
+	if statusUpdateInterval == "" {
+		statusUpdateInterval = "60"
+	} else {
+		_, err := strconv.Atoi(statusUpdateInterval)
+		if err != nil {
+			fmt.Println("STATUS_UPDATE_INTERVAL_SECONDS must be an int")
 			os.Exit(1)
 		}
 	}
@@ -119,7 +132,7 @@ func validate() {
 		fmt.Printf("Cannot parse WORKER_COUNT: %v\n", err)
 		os.Exit(1)
 	}
-	batchApplierWorkerCount = i
+	runnerWorkerCount = i
 }
 
 func main() {
@@ -165,63 +178,53 @@ func main() {
 		pruneBlacklistSlice = append(pruneBlacklistSlice, strings.Split(pruneBlacklist, ",")...)
 	}
 	dr, _ := strconv.ParseBool(dryRun)
-	batchApplier := &run.BatchApplier{
-		PruneBlacklist: pruneBlacklistSlice,
-		KubectlClient:  kubectlClient,
-		Clock:          clock,
-		DryRun:         dr,
-		Metrics:        metrics,
-		WorkerCount:    batchApplierWorkerCount,
-	}
-
-	// Webserver and scheduler send run requests to runQueue channel, runner receives the requests and initiates runs.
-	// Only 1 pending request may sit in the queue at a time.
-	runQueue := make(chan run.Request, 1)
-
-	// Runner sends run results to runResults channel, webserver receives the results and displays them.
-	// Limit of 5 is arbitrary - there is significant delay between sends, and receives are handled near instantaneously.
-	runResults := make(chan run.Result, 5)
-
-	// Runner, webserver, and scheduler all send fatal errors to errors channel, and main() exits upon receiving an error.
-	// No limit needed, as a single fatal error will exit the program anyway.
-	errors := make(chan error)
 
 	runner := &run.Runner{
-		RepoPath:      repoPath,
-		BatchApplier:  batchApplier,
-		Clock:         clock,
-		Metrics:       metrics,
-		KubeClient:    kubeClient,
-		DiffURLFormat: diffURLFormat,
-		RunQueue:      runQueue,
-		RunResults:    runResults,
-		Errors:        errors,
+		Clock:          clock,
+		DiffURLFormat:  diffURLFormat,
+		DryRun:         dr,
+		KubeClient:     kubeClient,
+		KubectlClient:  kubectlClient,
+		Metrics:        metrics,
+		PruneBlacklist: pruneBlacklistSlice,
+		RepoPath:       repoPath,
+		WorkerCount:    runnerWorkerCount,
 	}
 
-	pi, _ := strconv.Atoi(pollInterval)
-	fi, _ := strconv.Atoi(fullRunInterval)
+	runQueue := runner.Start()
+
+	gpi, _ := strconv.Atoi(gitPollInterval)
+	api, _ := strconv.Atoi(appPollInterval)
 	scheduler := &run.Scheduler{
-		GitUtil:         &git.Util{RepoPath: repoPath},
-		PollInterval:    time.Duration(pi) * time.Second,
-		FullRunInterval: time.Duration(fi) * time.Second,
-		RunQueue:        runQueue,
-		Errors:          errors,
+		ApplicationPollInterval: time.Duration(api) * time.Second,
+		GitPollInterval:         time.Duration(gpi) * time.Second,
+		KubeClient:              kubeClient,
+		RepoPath:                repoPath,
+		RunQueue:                runQueue,
 	}
+	scheduler.Start()
 
+	sui, _ := strconv.Atoi(statusUpdateInterval)
 	lp, _ := strconv.Atoi(listenPort)
 	webserver := &webserver.WebServer{
-		ListenPort: lp,
-		Clock:      clock,
-		RunQueue:   runQueue,
-		RunResults: runResults,
-		Errors:     errors,
+		Clock:                clock,
+		DiffURLFormat:        diffURLFormat,
+		KubeClient:           kubeClient,
+		ListenPort:           lp,
+		RunQueue:             runQueue,
+		StatusUpdateInterval: time.Duration(sui) * time.Second,
+	}
+	if err := webserver.Start(); err != nil {
+		log.Logger.Error(fmt.Sprintf("Cannot start webserver: %v", err))
+		os.Exit(1)
 	}
 
-	go scheduler.Start()
-	go runner.Start()
-	go webserver.Start()
-
-	err = <-errors
-	log.Logger.Error("Fatal error, exiting", "error", err)
-	os.Exit(1)
+	ctx := signals.SetupSignalHandler()
+	<-ctx.Done()
+	log.Logger.Info("Interrupted, shutting down...")
+	if err := webserver.Shutdown(); err != nil {
+		log.Logger.Error(fmt.Sprintf("Cannot shutdown webserver: %v", err))
+	}
+	scheduler.Stop()
+	runner.Stop()
 }

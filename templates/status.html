@@ -13,35 +13,8 @@
     <h1 class="text-center">kube-applier</h1>
     {{ if .Finished }}
     <div class="row">
-        <div class="text-center">
-            <div class="force-button-group btn-group">
-                <button id="force-full-button" class="force-button btn btn-warning btn-s"><strong>Force full apply run</strong></button>
-                {{ if .Failures }}<button id="force-failed-button" class="force-button btn btn-warning btn-s"><strong>Force failed-only run</strong></button>{{ end }}
-            </div>
-        </div>
-    </div>
-    <div class="row">
         <div class="col-md-4"></div>
         <div id="force-alert-container" class="col-md-4"></div>
-    </div>
-    <div class="row">
-        <div class="col-md-2"></div>
-        <div class="col-md-8">
-            <div class="panel panel-default {{ if .Failures }}panel-danger{{ else }}panel-success{{ end }}">
-                <div class="panel-heading">
-                    <h3 class="panel-title">Last Run</h3>
-                </div>
-                <div class="panel-body">
-                    <strong>Root path: </strong>{{ .RootPath }}<br>
-                    <strong>Type: </strong>{{ .LastRun.Type }}<br>
-                    <strong>Started: </strong>{{ .FormattedTime .LastRun.Started }}<br>
-                    <strong>Finished: </strong>{{ .FormattedTime .LastRun.Finished }}<br>
-                    <strong>Latency: </strong>{{ .Latency .LastRun.Started .LastRun.Finished }}<br>
-                    <strong>Last Commit: </strong>{{ if .CommitLink .LastRun.Commit }}<a href="{{ .CommitLink .LastRun.Commit }}">{{ .LastRun.Commit }}</a>{{ end }}
-                    <p><pre class="commit">{{ .FullCommit }}</pre></p>
-                </div>
-            </div>
-        </div>
     </div>
     <div class="row">
         <div class="col-md-2"></div>
@@ -70,7 +43,7 @@
                                                 <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
@@ -103,7 +76,7 @@
                                     <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.Spec.RepositoryPath }}</a>
                                 </div>
                             </div>
-                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedDuringLastRun $file }}in{{ end }}">
+                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $file }}in{{ end }}">
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
@@ -112,7 +85,7 @@
                                                 <strong>Commit: </strong> {{ if $.CommitLink $file.Status.LastRun.Info.Commit }}<a href="{{ $.CommitLink $file.Status.LastRun.Info.Commit }}">{{ $file.Status.LastRun.Info.Commit }}</a>{{ end }}<br/>
                                                 <strong>Finished: </strong>{{ $.FormattedTime $file.Status.LastRun.Finished }} (took {{ $.Latency $file.Status.LastRun.Started $file.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-path="{{ $file.Spec.RepositoryPath }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $file.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
@@ -128,7 +101,7 @@
         </div>
     </div>
     {{ else }}
-    <h3 class="text-center">Waiting for information about the first apply run...</h3>
+    <h3 class="text-center">Waiting for information to be collected...</h3>
     <h4 class="text-center">Refresh for updates and check the status and logs for the kube-applier container to make sure it is running properly.</h4>
     {{ end }}
 </body>

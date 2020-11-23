@@ -1,39 +1,23 @@
 // On button click, sends empty POST request to API endpoint for forcing a run and shows a relevant alert when a response is received.
 $(document).ready(function() {
-    $('#force-full-button').bind('click', function(){
-        // Disable the buttons and close existing alert
-        $('.force-button').each(function(){ $(this).prop('disabled', true); });
-        $('#force-alert').alert('close')
-
-        forceRun(false, '')
-    });
-
-    $('#force-failed-button').bind('click', function(){
-        // Disable the buttons and close existing alert
-        $('.force-button').each(function(){ $(this).prop('disabled', true); });
-        $('#force-alert').alert('close')
-
-        forceRun(true, '')
-    });
-
     $(".force-namespace-button").each(function(){
         $(this).bind('click', function(){
             // Disable the buttons and close existing alert
             $('.force-button').each(function(){ $(this).prop('disabled', true); });
             $('#force-alert').alert('close')
 
-            forceRun(false, $(this).data('path'))
+            forceRun($(this).data('namespace'))
         });
     });
 });
 
 // Send an XHR request to the server to force a run.
-function forceRun(failed, path) {
+function forceRun(namespace) {
     url =  window.location.href + 'api/v1/forceRun';
     $.ajax({
         type: 'POST',
         url: url,
-        data: {failed: failed, path: path},
+        data: {namespace: namespace},
         dataType: "json",
         success:function(data) {
             showForceAlert(true, data.message)

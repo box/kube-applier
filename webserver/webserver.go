@@ -1,34 +1,47 @@
 package webserver
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
-const serverTemplatePath = "templates/status.html"
+const (
+	defaultServerTemplatePath = "templates/status.html"
+)
 
 // WebServer struct
 type WebServer struct {
-	ListenPort int
-	Clock      sysutil.ClockInterface
-	RunQueue   chan<- run.Request
-	RunResults <-chan run.Result
-	Errors     chan<- error
+	Clock                sysutil.ClockInterface
+	DiffURLFormat        string
+	KubeClient           *client.Client
+	ListenPort           int
+	RunQueue             chan<- run.Request
+	StatusUpdateInterval time.Duration
+	TemplatePath         string
+	result               *Result
+	server               *http.Server
+	stop, stopped        chan bool
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
 type StatusPageHandler struct {
-	Template *template.Template
-	Data     interface{}
 	Clock    sysutil.ClockInterface
+	Result   *Result
+	Template *template.Template
 }
 
 // ServeHTTP populates the status page template with data and serves it when there is a request.
@@ -39,17 +52,23 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger.Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
 		return
 	}
-	if err := s.Template.Execute(w, s.Data); err != nil {
+	rendered := &bytes.Buffer{}
+	if err := s.Template.Execute(rendered, s.Result); err != nil {
 		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
 		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if _, err := rendered.WriteTo(w); err != nil {
+		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 	}
 	log.Logger.Info("Request completed successfully", "time", s.Clock.Now().String())
 }
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
 type ForceRunHandler struct {
-	RunQueue chan<- run.Request
+	KubeClient *client.Client
+	RunQueue   chan<- run.Request
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
@@ -62,27 +81,65 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		runRequest := run.Request{Type: run.ForcedFullRun}
 		if err := r.ParseForm(); err != nil {
-			log.Logger.Error("Could not parse form data, assuming full run.")
-		} else if r.FormValue("failed") == "true" {
-			runRequest.Type = run.FailedOnlyRun
-		} else if v := r.FormValue("path"); v != "" {
-			runRequest.Type = run.SingleDirectoryRun
-			runRequest.Args = v
+			data.Result = "error"
+			data.Message = "Could not parse form data"
+			log.Logger.Error(data.Message)
+			w.WriteHeader(http.StatusBadRequest)
+			break
 		}
+
+		ns := r.FormValue("namespace")
+		if ns == "" {
+			data.Result = "error"
+			data.Message = "Empty namespace value"
+			log.Logger.Error(data.Message)
+			w.WriteHeader(http.StatusBadRequest)
+			break
+		}
+
+		apps, err := f.KubeClient.ListApplications(context.TODO())
+		if err != nil {
+			data.Result = "error"
+			data.Message = "Cannot list Applications"
+			w.WriteHeader(http.StatusInternalServerError)
+			break
+		}
+
+		var app *kubeapplierv1alpha1.Application
+		for i := range apps {
+			if apps[i].Namespace == ns {
+				app = &apps[i]
+				// TODO: handle multiple applications in one namespace. The
+				// behaviour should match that of run.Scheduler, which can also
+				// queue requests.
+			}
+		}
+		if app == nil {
+			data.Result = "error"
+			data.Message = fmt.Sprintf("Cannot find Applications in namespace '%s'", ns)
+			w.WriteHeader(http.StatusBadRequest)
+			break
+		}
+
+		runRequest := run.Request{
+			Type:        run.ForcedRun,
+			Application: app,
+		}
+
 		select {
 		case f.RunQueue <- runRequest:
 			log.Logger.Info("Run queued")
-		default:
+			// TODO: remove timeout, we should not lose any requests
+		case <-time.After(5 * time.Second):
 			log.Logger.Info("Run queue is already full")
 		}
 		data.Result = "success"
-		data.Message = "Run queued, will begin upon completion of current run."
+		data.Message = "Run queued"
 		w.WriteHeader(http.StatusOK)
 	default:
 		data.Result = "error"
-		data.Message = "Error: force rejected, must be a POST request."
+		data.Message = "Must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
 		log.Logger.Info(data.Message)
 	}
@@ -96,37 +153,90 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 2. Metrics
 // 3. Static content
 // 4. Endpoint for forcing a run
-func (ws *WebServer) Start() {
-	log.Logger.Info("Launching webserver")
-	lastRun := &run.Result{}
-
-	template, err := sysutil.CreateTemplate(serverTemplatePath)
-	if err != nil {
-		ws.Errors <- err
-		return
+func (ws *WebServer) Start() error {
+	if ws.server != nil {
+		return fmt.Errorf("WebServer already running")
 	}
+
+	ws.stop = make(chan bool)
+	ws.stopped = make(chan bool)
+
+	log.Logger.Info("Launching webserver")
+
+	templatePath := ws.TemplatePath
+	if templatePath == "" {
+		templatePath = defaultServerTemplatePath
+	}
+	template, err := sysutil.CreateTemplate(templatePath)
+	if err != nil {
+		return err
+	}
+
+	ws.result = &Result{
+		Mutex:         &sync.Mutex{},
+		DiffURLFormat: ws.DiffURLFormat,
+	}
+
+	go func() {
+		ticker := time.NewTicker(ws.StatusUpdateInterval)
+		defer ticker.Stop()
+		defer close(ws.stopped)
+		ws.updateResult()
+		for {
+			select {
+			case <-ticker.C:
+				ws.updateResult()
+			case <-ws.stop:
+				return
+			}
+		}
+	}()
 
 	m := mux.NewRouter()
 	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{
-		template,
-		lastRun,
 		ws.Clock,
+		ws.result,
+		template,
 	}
-	http.Handle("/", statusPageHandler)
-	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	forceRunHandler := &ForceRunHandler{
+		ws.KubeClient,
 		ws.RunQueue,
 	}
+	m.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	m.PathPrefix("/api/v1/forceRun").Handler(forceRunHandler)
 	m.PathPrefix("/").Handler(statusPageHandler)
 
+	ws.server = &http.Server{
+		Addr:     fmt.Sprintf(":%v", ws.ListenPort),
+		Handler:  m,
+		ErrorLog: log.Logger.StandardLogger(nil),
+	}
+
 	go func() {
-		for result := range ws.RunResults {
-			*lastRun = result
+		if err = ws.server.ListenAndServe(); err != nil {
+			log.Logger.Error(fmt.Sprintf("webserver error: %v", err))
 		}
 	}()
 
-	err = http.ListenAndServe(fmt.Sprintf(":%v", ws.ListenPort), m)
-	ws.Errors <- err
+	return nil
+}
+
+func (ws *WebServer) Shutdown() error {
+	close(ws.stop)
+	<-ws.stopped
+	err := ws.server.Shutdown(context.TODO())
+	ws.server = nil
+	return err
+}
+
+func (ws *WebServer) updateResult() error {
+	apps, err := ws.KubeClient.ListApplications(context.TODO())
+	if err != nil {
+		return fmt.Errorf("Could not list Application resources: %v", err)
+	}
+	ws.result.Lock()
+	ws.result.Applications = apps
+	ws.result.Unlock()
+	return nil
 }
