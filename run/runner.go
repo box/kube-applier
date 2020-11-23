@@ -142,12 +142,9 @@ func (r *Runner) applyWorker() {
 
 		r.apply(gitUtil.RepoPath, request.Application, applyOptions)
 
-		request.Application.Status.LastRun.Info = kubeapplierv1alpha1.ApplicationStatusRunInfo{
-			Started:  request.Application.Status.LastRun.Started,
-			Finished: request.Application.Status.LastRun.Finished,
-			Commit:   hash,
-			Type:     request.Type.String(),
-		}
+		// TODO: move these in apply()
+		request.Application.Status.LastRun.Commit = hash
+		request.Application.Status.LastRun.Type = request.Type.String()
 
 		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), request.Application); err != nil {
 			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))

@@ -108,7 +108,6 @@ var _ = Describe("Scheduler", func() {
 				LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
 					Started:  metav1.NewTime(time.Now()), // this is to prevent an "initial" run to be queued
 					Finished: metav1.NewTime(time.Now()), // the rest is for the status subresource to pass validation
-					Info:     kubeapplierv1alpha1.ApplicationStatusRunInfo{Started: metav1.NewTime(time.Now()), Finished: metav1.NewTime(time.Now())},
 					Success:  true,
 				},
 			}
