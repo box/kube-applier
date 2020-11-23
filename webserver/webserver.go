@@ -122,18 +122,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		runRequest := run.Request{
-			Type:        run.ForcedRun,
-			Application: app,
-		}
+		run.Enqueue(f.RunQueue, run.ForcedRun, app)
 
-		select {
-		case f.RunQueue <- runRequest:
-			log.Logger.Info("Run queued")
-			// TODO: remove timeout, we should not lose any requests
-		case <-time.After(5 * time.Second):
-			log.Logger.Info("Run queue is already full")
-		}
 		data.Result = "success"
 		data.Message = "Run queued"
 		w.WriteHeader(http.StatusOK)
