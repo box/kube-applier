@@ -21,6 +21,7 @@ import (
 
 const (
 	defaultRunnerWorkerCount = 2
+	defaultWorkerQueueSize   = 512
 )
 
 // Request defines an apply run request
@@ -101,8 +102,7 @@ func (r *Runner) Start() chan<- Request {
 	if r.WorkerCount == 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
 	}
-	// TODO: should this channel be buffered or not?
-	r.workerQueue = make(chan Request, r.WorkerCount)
+	r.workerQueue = make(chan Request, defaultWorkerQueueSize)
 	r.workerGroup = sync.WaitGroup{}
 	r.workerGroup.Add(r.WorkerCount)
 	for i := 0; i < r.WorkerCount; i++ {
