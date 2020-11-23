@@ -14,6 +14,7 @@
     * [Status UI](#status-ui)
     * [Metrics](#metrics)
 * [Running locally](#running-locally)
+* [Running tests](#running-tests)
 * [Copyright and License](#copyright-and-license)
 
 Forked from: https://github.com/box/kube-applier
@@ -247,6 +248,18 @@ make run
 
 Note that `make run` will mount and use `${HOME}/.kube` for configuration, so
 ensure that your config files are using your intended context.
+
+## Running tests
+
+Tests are written primarily using the `envtest` package of the
+[controller-runtime](https://godoc.org/github.com/kubernetes-sigs/controller-runtime/)
+project. In order to be able to run the tests, you need to
+[install `kubebuilder`](https://book.kubebuilder.io/quick-start.html#installation).
+
+If you are writing tests, you might want to take a look at the
+[tutorial](https://book.kubebuilder.io/cronjob-tutorial/writing-tests.html),
+as well as the [`ginkgo`](http://onsi.github.io/ginkgo/) and
+[`gomega`](https://onsi.github.io/gomega/) documentation.
 
 ## Copyright and License
 
