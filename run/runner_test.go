@@ -224,7 +224,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			for i := range appList {
 				expected[i] = appList[i]
 				expected[i].Status = kubeapplierv1alpha1.ApplicationStatus{LastRun: expectedStatus[i]}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(".")
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
