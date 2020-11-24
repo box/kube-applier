@@ -183,6 +183,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util, func(), error) {
+	var env []string
 	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
 	if err != nil {
 		return nil, nil, err
@@ -191,13 +192,46 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 	if err != nil {
 		return nil, nil, err
 	}
-	cleanup := func() { os.RemoveAll(tmpDir) }
+	cleanupDirs := []string{tmpDir}
+	if app.Spec.StrongboxKeyringSecretRef != "" {
+		sbHome, err := r.setupStrongboxKeyring(app)
+		if err != nil {
+			return nil, nil, err
+		}
+		env = []string{fmt.Sprintf("STRONGBOX_HOME=%s", sbHome)}
+		cleanupDirs = append(cleanupDirs, sbHome)
+	}
+	cleanup := func() {
+		for _, v := range cleanupDirs {
+			os.RemoveAll(v)
+		}
+	}
 	path := filepath.Join(sub, app.Spec.RepositoryPath)
-	if err := git.CloneRepository(root, tmpDir, path, nil); err != nil {
+	if err := git.CloneRepository(root, tmpDir, path, env); err != nil {
 		cleanup()
 		return nil, nil, err
 	}
 	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, cleanup, nil
+}
+
+func (r *Runner) setupStrongboxKeyring(app *kubeapplierv1alpha1.Application) (string, error) {
+	secret, err := r.KubeClient.GetSecret(context.TODO(), app.Namespace, app.Spec.StrongboxKeyringSecretRef)
+	if err != nil {
+		return "", err
+	}
+	data, ok := secret.Data[".strongbox_keyring"]
+	if !ok {
+		return "", fmt.Errorf("Secret %s/%s does not contain key '.strongbox_keyring'", secret.Namespace, secret.Name)
+	}
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_strongbox", app.Namespace, app.Name, r.Clock.Now().Unix()))
+	if err != nil {
+		return "", err
+	}
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, ".strongbox_keyring"), data, 0400); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", err
+	}
+	return tmpDir, nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.
