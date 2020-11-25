@@ -119,26 +119,28 @@ func (r *Runner) applyWorker() {
 		// app := request.Application
 		log.Logger.Info("Started apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
 
-		gitUtil, cleanupTemp, err := r.copyRepository(request.Application)
-		if err != nil {
-			log.Logger.Error("Could not create a repository copy", "error", err)
-			continue
-		}
-		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
-		if err != nil {
-			log.Logger.Error("Could not determine HEAD hash", "error", err)
-			cleanupTemp()
-			continue
-		}
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
 			log.Logger.Error("Could not compute list of prunable resources", "error", err)
-			cleanupTemp()
+			r.setRequestFailure(request, err)
 			continue
 		}
 		applyOptions := &ApplyOptions{
 			ClusterResources:    clusterResources,
 			NamespacedResources: namespacedResources,
+		}
+		gitUtil, cleanupTemp, err := r.copyRepository(request.Application)
+		if err != nil {
+			log.Logger.Error("Could not create a repository copy", "error", err)
+			r.setRequestFailure(request, err)
+			continue
+		}
+		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
+		if err != nil {
+			log.Logger.Error("Could not determine HEAD hash", "error", err)
+			r.setRequestFailure(request, err)
+			cleanupTemp()
+			continue
 		}
 
 		r.apply(gitUtil.RepoPath, request.Application, applyOptions)
@@ -171,6 +173,24 @@ func (r *Runner) applyWorker() {
 
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
 		cleanupTemp()
+	}
+}
+
+// setRequestFailure is used to update the status of an Application when the
+// request failed to setup and before attempting to apply.
+// TODO: it might be preferrable to convert these to events
+func (r *Runner) setRequestFailure(req Request, err error) {
+	req.Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
+		Command:      "", // These fields are not available since the request
+		Commit:       "", // failed before even attempting an apply
+		Output:       "",
+		ErrorMessage: err.Error(),
+		// We don't need to provide accurate timestamps here, the request failed
+		// during setup, before attempting to apply
+		Finished: metav1.NewTime(r.Clock.Now()),
+		Started:  metav1.NewTime(r.Clock.Now()),
+		Success:  false,
+		Type:     req.Type.String(),
 	}
 }
 
