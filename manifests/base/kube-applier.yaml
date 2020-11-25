@@ -37,23 +37,6 @@ spec:
         app: kube-applier
     spec:
       serviceAccountName: kube-applier
-      initContainers:
-        - name: setup-strongbox
-          image: alpine
-          command:
-            - /bin/sh
-            - -c
-            - |
-              apk add --no-cache curl git openssl ca-certificates &&\
-              curl -L -o strongbox https://github.com/uw-labs/strongbox/releases/download/v0.2.0/strongbox_0.2.0_linux_amd64 &&\
-              chmod +x strongbox &&\
-              mv strongbox /usr/local/bin/ &&\
-              strongbox -git-config
-          volumeMounts:
-            - name: gs-sb-bin
-              mountPath: /usr/local/bin/
-            - name: gs-gitconfig
-              mountPath: /root/
       containers:
         - name: kube-applier
           image: quay.io/utilitywarehouse/kube-applier:2.5.4
@@ -70,15 +53,6 @@ spec:
             - name: git-repo
               mountPath: /src
               readOnly: true
-            - name: strongbox-secret
-              mountPath: /root/.strongbox_keyring
-              subPath: .strongbox_keyring
-            - name: gs-sb-bin
-              mountPath: /usr/local/bin/strongbox
-              subPath: strongbox
-            - name: gs-gitconfig
-              mountPath: /root/.gitconfig
-              subPath: .gitconfig
           resources:
             requests:
               cpu: 10m
@@ -107,15 +81,6 @@ spec:
               mountPath: /tmp/git
             - name: git-secret
               mountPath: /etc/git-secret
-            - name: strongbox-secret
-              mountPath: /tmp/.strongbox_keyring
-              subPath: .strongbox_keyring
-            - name: gs-sb-bin
-              mountPath: /usr/local/bin/strongbox
-              subPath: strongbox
-            - name: gs-gitconfig
-              mountPath: /tmp/.gitconfig
-              subPath: .gitconfig
           resources:
             requests:
               cpu: 40m
@@ -124,17 +89,9 @@ spec:
               cpu: 500m
               memory: 512Mi
       volumes:
-        - name: gs-sb-bin
-          emptyDir: {}
-        - name: gs-gitconfig
-          emptyDir: {}
         - name: git-repo
           emptyDir: {}
         - name: git-secret
           secret:
             secretName: ssh
-            defaultMode: 0440
-        - name: strongbox-secret
-          secret:
-            secretName: strongbox
             defaultMode: 0440
