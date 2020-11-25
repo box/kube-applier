@@ -30,7 +30,7 @@ up-to-date with their associated spec files (JSON or YAML) in the repo.
 
 Configuration is done through the `kube-applier.io/Application` CRD. Each
 namespace in a cluster defines an Application CRD which defines the source of
-truth for the namespace inside the repository. // XXX: link to App
+truth for the namespace inside the repository.
 
 Whenever a new commit to the repo occurs, or at a [specified
 interval](#run-interval), kube-applier performs a "run", issuing [kubectl
@@ -112,7 +112,28 @@ spec:
   repositoryPath: sys-kube-applier
   runInterval: 3600
   serverSideApply: false
+  strongboxKeyringSecretRef: ""
 ```
+
+See the documentation on the Application CRD
+[spec](https://godoc.org/github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1#ApplicationSpec)
+for more details.
+
+#### Integration with `strongbox`
+
+[strongbox](https://github.com/uw-labs/strongbox) is an encryption tool, geared
+towards git repositories and working as a git filter.
+
+If the Application spec contains a `strongboxKeyringSecretRef` value, the value
+should be the name of a Secret resource (in the namespace where the Application
+resides), which contains a key named `.strongbox_keyring` with its value being
+a valid strongbox keyring file. That keyring is subsequently used when applying
+the Application, allowing for decryption of files under the `repositoryPath`.
+
+The secret containing the strongbox keyring should itself be version controlled
+to prevent kube-applier from pruning it. However, since it is a secret itself
+and would need be encrypted as well in git, it must be created manually the
+first time (or after any changes to its contents).
 
 ### Mounting the Git Repository
 
