@@ -46,7 +46,7 @@ type ApplicationSpec struct {
 	// Application that contains a single item, named '.strongbox_keyring' with
 	// any strongbox keys required to decrypt the files before applying.
 	// +optional
-	StrongboxKeyringSecretRef string `json:"StrongboxKeyringSecretRef,omitempty"`
+	StrongboxKeyringSecretRef string `json:"strongboxKeyringSecretRef,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application
