@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -83,7 +84,8 @@ func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Ap
 	return apps.Items, nil
 }
 
-// GetApplication returns the Application resource specified by the key.
+// GetApplication returns the Application resource specified by the namespace
+// and name.
 func (c *Client) GetApplication(ctx context.Context, namespace, name string) (*kubeapplierv1alpha1.Application, error) {
 	app := &kubeapplierv1alpha1.Application{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, app); err != nil {
@@ -101,6 +103,15 @@ func (c *Client) UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1
 // provided.
 func (c *Client) UpdateApplicationStatus(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
 	return c.Status().Update(ctx, app, defaultUpdateOptions)
+}
+
+// GetSecret returns the Secret resource specified by the namespace and name.
+func (c *Client) GetSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
+		return nil, err
+	}
+	return secret, nil
 }
 
 // PrunableResourceGVKs returns cluster and namespaced resources as two slices of
