@@ -31,7 +31,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.Spec.RepositoryPath }}</a>
+                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $file.Namespace }}{{ if $file.Spec.DryRun }} (dry-run){{ end }}</a>
                                 </div>
                             </div>
                             <div id="failure-{{$i}}" class="panel-collapse collapse in">
@@ -73,7 +73,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.Spec.RepositoryPath }}</a>
+                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $file.Namespace }}{{ if $file.Spec.DryRun }} (dry-run){{ end }}</a>
                                 </div>
                             </div>
                             <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $file }}in{{ end }}">
