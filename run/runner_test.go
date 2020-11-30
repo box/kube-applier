@@ -251,8 +251,31 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 
 	Context("When operating on an Application that defines a strongbox keyring", func() {
 		It("Should be able to apply encrypted files, given a strongbox keyring secret", func() {
-			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-d"}}
-			Expect(testKubeClient.Create(context.TODO(), ns)).To(BeNil())
+			// Instead of creating the namespace using the test kube client, we
+			// instead use a "hack" here by requesting a run for an Application
+			// pointing to a single file that defines the namespace. This is to
+			// avoid kubectl apply warnings in the output below.
+			testRunQueue <- Request{
+				Type: PollingRun,
+				Application: &kubeapplierv1alpha1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foobar",
+						Namespace: "app-d",
+					},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						Prune:          false,
+						RepositoryPath: "app-d/00-namespace.yaml",
+					},
+				},
+			}
+			ns := &corev1.Namespace{}
+			Eventually(
+				func() bool {
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Name: "app-d"}, ns) == nil
+				},
+				time.Second*15,
+				time.Second,
+			).Should(BeTrue())
 
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -337,7 +360,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 					Commit:       headCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-d configured
+					Output: `namespace/app-d unchanged
 error: error validating "../testdata/manifests/app-d/deployment.yaml": error validating data: invalid object to validate; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
@@ -395,7 +418,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() bool {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment) == nil
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: ns.Name, Name: "test-deployment"}, deployment) == nil
 				},
 				time.Second*15,
 				time.Second,
@@ -448,7 +471,7 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, rep
 						"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
 					}),
 				),
-				"Output": MatchRegexp(strings.Replace(
+				"Output": MatchRegexp("^%s$", strings.Replace(
 					regexp.QuoteMeta(expected.Status.LastRun.Output),
 					regexp.QuoteMeta(repoPath),
 					"[^ ]+",
