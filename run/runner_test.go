@@ -116,12 +116,10 @@ var _ = Describe("Runner", func() {
 			RepoPath:       "../testdata/manifests",
 		}
 		testRunQueue = testRunner.Start()
-		kubectlPath, err := testRunner.KubectlClient.KubectlPath()
-		Expect(err).Should(BeNil())
+		kubectlPath := testRunner.KubectlClient.KubectlPath()
 		Expect(kubectlPath).ShouldNot(BeEmpty())
 		testKubectlPath = kubectlPath
-		kustomizePath, err := testRunner.KubectlClient.KustomizePath()
-		Expect(err).Should(BeNil())
+		kustomizePath := testRunner.KubectlClient.KustomizePath()
 		Expect(kustomizePath).ShouldNot(BeEmpty())
 		testKustomizePath = kustomizePath
 
