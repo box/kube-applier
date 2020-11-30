@@ -95,7 +95,7 @@ func (c *Client) KubectlPath() (string, error) {
 	return kubectlCmd.String(), nil
 }
 
-// KustomizePath returns the filesystem path to the kubectl binary
+// KustomizePath returns the filesystem path to the kustomize binary
 func (c *Client) KustomizePath() (string, error) {
 	kustomizeCmd := exec.Command("kustomize")
 	return kustomizeCmd.String(), nil
