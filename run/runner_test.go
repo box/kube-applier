@@ -95,10 +95,10 @@ func TestApplyOptions_PruneWhitelist(t *testing.T) {
 
 var _ = Describe("Runner", func() {
 	var (
-		testRunner       Runner
-		testRunQueue     chan<- Request
-		testApplyOptions *ApplyOptions
-		testKubectlPath  string
+		testRunner                         Runner
+		testRunQueue                       chan<- Request
+		testApplyOptions                   *ApplyOptions
+		testKubectlPath, testKustomizePath string
 	)
 
 	BeforeEach(func() {
@@ -116,10 +116,14 @@ var _ = Describe("Runner", func() {
 			RepoPath:       "../testdata/manifests",
 		}
 		testRunQueue = testRunner.Start()
-		kubectlPath, err := testRunner.KubectlClient.Path()
+		kubectlPath, err := testRunner.KubectlClient.KubectlPath()
 		Expect(err).Should(BeNil())
 		Expect(kubectlPath).ShouldNot(BeEmpty())
 		testKubectlPath = kubectlPath
+		kustomizePath, err := testRunner.KubectlClient.KustomizePath()
+		Expect(err).Should(BeNil())
+		Expect(kustomizePath).ShouldNot(BeEmpty())
+		testKustomizePath = kustomizePath
 
 		cr, nr, err := testRunner.KubeClient.PrunableResourceGVKs()
 		Expect(err).Should(BeNil())
@@ -244,8 +248,51 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			testRunner.Stop()
 
 			for i := range appList {
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
+		})
+	})
+
+	Context("When operating on an Application that uses kustomize", func() {
+		It("Should be able to build and apply", func() {
+			app := kubeapplierv1alpha1.Application{
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "appA",
+					Namespace: "app-a-kustomize",
+				},
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune:          true,
+					RepositoryPath: "app-a-kustomize",
+				},
+			}
+
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(app.Spec.RepositoryPath)
+			Expect(err).To(BeNil())
+			expected := app
+			expected.Status = kubeapplierv1alpha1.ApplicationStatus{
+				LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "exit status 1",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-a-kustomize created
+deployment.apps/test-deployment created
+Some error output has been omitted because it may contain sensitive data
+`,
+					Started: metav1.Time{},
+					Success: false,
+					Type:    PollingRun.String(),
+				},
+			}
+
+			testRunQueue <- Request{
+				Type:        PollingRun,
+				Application: &app,
+			}
+			testRunner.Stop()
+
+			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&app, testRunner.PruneBlacklist)))
 		})
 	})
 
@@ -427,13 +474,13 @@ deployment.apps/test-deployment created
 			testRunner.Stop()
 
 			for i := range appList {
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 		})
 	})
 })
 
-func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
+func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, kustomizePath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
 	commandMatcher := Ignore()
 	if expected.Status.LastRun.Command != "^.*$" {
 		commandExtraArgs := expected.Status.LastRun.Command
@@ -445,14 +492,26 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, rep
 		if expected.Spec.Prune {
 			commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
 		}
-		commandMatcher = MatchRegexp(
-			"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
-			kubectlPath,
-			testConfig.Host,
-			expected.Spec.RepositoryPath,
-			expected.Namespace,
-			commandExtraArgs,
-		)
+		if kustomizePath == "" {
+			commandMatcher = MatchRegexp(
+				"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
+				kubectlPath,
+				testConfig.Host,
+				expected.Spec.RepositoryPath,
+				expected.Namespace,
+				commandExtraArgs,
+			)
+		} else {
+			commandMatcher = MatchRegexp(
+				"^%s build [^ ]+/%s | %s --server %s apply -f - -R -n %s%s",
+				kustomizePath,
+				expected.Spec.RepositoryPath,
+				kubectlPath,
+				testConfig.Host,
+				expected.Namespace,
+				commandExtraArgs,
+			)
+		}
 	}
 	return MatchAllFields(Fields{
 		"TypeMeta":   Equal(expected.TypeMeta),

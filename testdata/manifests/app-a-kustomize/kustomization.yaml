@@ -1,0 +1,4 @@
+resources:
+  - 00-namespace.yaml
+  - deployment.yaml
+  - secret.yaml
