@@ -8,8 +8,13 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/utilitywarehouse/kube-applier/log"
+)
+
+const (
+	metricsNamespace = "kube_applier"
 )
 
 var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
@@ -28,9 +33,11 @@ type Prometheus struct {
 
 // Init creates and registers the custom metrics for kube-applier.
 func (p *Prometheus) Init() {
-	p.kubectlExitCodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "kubectl_exit_code_count",
-		Help: "Count of kubectl exit codes",
+	p.kubectlExitCodeCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "runner",
+		Name:      "kubectl_exit_code_count",
+		Help:      "Count of kubectl exit codes",
 	},
 		[]string{
 			// Path of the file that was applied
@@ -39,9 +46,11 @@ func (p *Prometheus) Init() {
 			"exit_code",
 		},
 	)
-	p.namespaceApplyCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "namespace_apply_count",
-		Help: "Success metric for every namespace applied",
+	p.namespaceApplyCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "runner",
+		Name:      "namespace_apply_count",
+		Help:      "Success metric for every namespace applied",
 	},
 		[]string{
 			// Path of the file that was applied
@@ -50,18 +59,22 @@ func (p *Prometheus) Init() {
 			"success",
 		},
 	)
-	p.runLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "run_latency_seconds",
-		Help: "Latency for completed apply runs",
+	p.runLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "runner",
+		Name:      "run_latency_seconds",
+		Help:      "Latency for completed apply runs",
 	},
 		[]string{
 			// Result: true if the run was successful, false otherwise
 			"success",
 		},
 	)
-	p.resultSummary = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "result_summary",
-		Help: "Result summary for every manifest",
+	p.resultSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "runner",
+		Name:      "result_summary",
+		Help:      "Result summary for every manifest",
 	},
 		[]string{
 			// The object namespace
@@ -74,16 +87,12 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
-	p.lastRunTimestamp = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "last_run_timestamp_seconds",
-		Help: "Timestamp of the last completed apply run",
+	p.lastRunTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "runner",
+		Name:      "last_run_timestamp_seconds",
+		Help:      "Timestamp of the last completed apply run",
 	})
-
-	prometheus.MustRegister(p.kubectlExitCodeCount)
-	prometheus.MustRegister(p.resultSummary)
-	prometheus.MustRegister(p.namespaceApplyCount)
-	prometheus.MustRegister(p.runLatency)
-	prometheus.MustRegister(p.lastRunTimestamp)
 }
 
 // UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
