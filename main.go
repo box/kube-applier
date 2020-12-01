@@ -199,6 +199,7 @@ func main() {
 		ApplicationPollInterval: time.Duration(api) * time.Second,
 		GitPollInterval:         time.Duration(gpi) * time.Second,
 		KubeClient:              kubeClient,
+		Metrics:                 metrics,
 		RepoPath:                repoPath,
 		RunQueue:                runQueue,
 	}

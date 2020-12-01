@@ -88,7 +88,6 @@ type Runner struct {
 	WorkerCount    int
 	workerGroup    sync.WaitGroup
 	workerQueue    chan Request
-	metricsMutex   sync.Mutex
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
@@ -97,8 +96,6 @@ func (r *Runner) Start() chan<- Request {
 		log.Logger.Info("Runner is already started, will not do anything")
 		return nil
 	}
-
-	r.metricsMutex = sync.Mutex{}
 
 	if r.WorkerCount == 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
@@ -160,19 +157,9 @@ func (r *Runner) applyWorker() {
 			// TODO: queue a retry here, with backoff, or better, have scheduler do it
 		}
 
-		// TODO: should we move the mutex to the metrics package?
-		r.metricsMutex.Lock()
-		// TODO: these should be redesigned, since we no longer have batch runs
-		r.Metrics.UpdateNamespaceSuccess(request.Application.Namespace, request.Application.Status.LastRun.Success)
-		r.Metrics.UpdateResultSummary(map[string]string{
-			request.Application.Spec.RepositoryPath: request.Application.Status.LastRun.Output,
-		})
-		r.Metrics.UpdateRunLatency(r.Clock.Since(request.Application.Status.LastRun.Started.Time).Seconds(), request.Application.Status.LastRun.Success)
-		r.Metrics.UpdateLastRunTimestamp(request.Application.Status.LastRun.Finished.Time)
-		r.metricsMutex.Unlock()
+		r.Metrics.UpdateFromLastRun(request.Application)
 
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
-		cleanupTemp()
 	}
 }
 

@@ -1,15 +1,14 @@
 package metrics
 
 import (
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/log"
 )
 
@@ -17,30 +16,34 @@ const (
 	metricsNamespace = "kube_applier"
 )
 
-var kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
+var (
+	kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
+)
 
-// Prometheus implements instrumentation of metrics for kube-applier.
-// kubectlExitCodeCount is a Counter vector to increment the number of exit codes for each kubectl execution
-// fileApplyCount is a Counter vector to increment the number of successful and failed apply attempts for each file in the repo.
-// runLatency is a Summary vector that keeps track of the duration for apply runs.
+// Prometheus implements instrumentation of metrics for kube-applier
 type Prometheus struct {
+	// kubectlExitCodeCount is a Counter vector of run exit codes
 	kubectlExitCodeCount *prometheus.CounterVec
-	namespaceApplyCount  *prometheus.CounterVec
-	runLatency           *prometheus.HistogramVec
-	resultSummary        *prometheus.GaugeVec
-	lastRunTimestamp     prometheus.Gauge
+	// namespaceApplyCount is a Counter vector of runs success status
+	namespaceApplyCount *prometheus.CounterVec
+	// runLatency is a Histogram vector that keeps track of run durations
+	runLatency *prometheus.HistogramVec
+	// resultSummary is a Gauge vector that captures information about objects
+	// applied during runs
+	resultSummary *prometheus.GaugeVec
+	// lastRunTimestamp is a Gauge vector of the last run timestamp
+	lastRunTimestamp *prometheus.GaugeVec
 }
 
 // Init creates and registers the custom metrics for kube-applier.
 func (p *Prometheus) Init() {
 	p.kubectlExitCodeCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "runner",
 		Name:      "kubectl_exit_code_count",
 		Help:      "Count of kubectl exit codes",
 	},
 		[]string{
-			// Path of the file that was applied
+			// Namespace of the Application applied
 			"namespace",
 			// Exit code
 			"exit_code",
@@ -48,31 +51,30 @@ func (p *Prometheus) Init() {
 	)
 	p.namespaceApplyCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "runner",
 		Name:      "namespace_apply_count",
 		Help:      "Success metric for every namespace applied",
 	},
 		[]string{
-			// Path of the file that was applied
+			// Namespace of the Application applied
 			"namespace",
-			// Result: true if the apply was successful, false otherwise
+			// Whether the apply was successful or not
 			"success",
 		},
 	)
 	p.runLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "runner",
 		Name:      "run_latency_seconds",
 		Help:      "Latency for completed apply runs",
 	},
 		[]string{
-			// Result: true if the run was successful, false otherwise
+			// Namespace of the Application applied
+			"namespace",
+			// Whether the apply was successful or not
 			"success",
 		},
 	)
 	p.resultSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "runner",
 		Name:      "result_summary",
 		Help:      "Result summary for every manifest",
 	},
@@ -87,45 +89,56 @@ func (p *Prometheus) Init() {
 			"action",
 		},
 	)
-	p.lastRunTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+	p.lastRunTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "runner",
 		Name:      "last_run_timestamp_seconds",
 		Help:      "Timestamp of the last completed apply run",
-	})
+	},
+		[]string{
+			// Namespace of the Application applied
+			"namespace",
+		},
+	)
+}
+
+// UpdateFromLastRun takes information from an Application's LastRun status and
+// updates all the relevant metrics
+func (p *Prometheus) UpdateFromLastRun(app *kubeapplierv1alpha1.Application) {
+	success := strconv.FormatBool(app.Status.LastRun.Success)
+	p.namespaceApplyCount.With(prometheus.Labels{
+		"namespace": app.Namespace,
+		"success":   success,
+	}).Inc()
+	p.runLatency.With(prometheus.Labels{
+		"namespace": app.Namespace,
+		"success":   success,
+	}).Observe(app.Status.LastRun.Finished.Sub(app.Status.LastRun.Started.Time).Seconds())
+	p.lastRunTimestamp.With(prometheus.Labels{
+		"namespace": app.Namespace,
+	}).Set(float64(app.Status.LastRun.Finished.Unix()))
 }
 
 // UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
-func (p *Prometheus) UpdateKubectlExitCodeCount(file string, code int) {
+func (p *Prometheus) UpdateKubectlExitCodeCount(namespace string, code int) {
 	p.kubectlExitCodeCount.With(prometheus.Labels{
-		"namespace": filepath.Base(file),
+		"namespace": namespace,
 		"exit_code": strconv.Itoa(code),
 	}).Inc()
 }
 
-// UpdateNamespaceSuccess increments the given namespace's Counter for either successful apply attempts or failed apply attempts.
-func (p *Prometheus) UpdateNamespaceSuccess(file string, success bool) {
-	p.namespaceApplyCount.With(prometheus.Labels{
-		"namespace": filepath.Base(file), "success": strconv.FormatBool(success),
-	}).Inc()
-}
-
-// UpdateRunLatency adds a data point (latency of the most recent run) to the run_latency_seconds Summary metric, with a tag indicating whether or not the run was successful.
-func (p *Prometheus) UpdateRunLatency(runLatency float64, success bool) {
-	p.runLatency.With(prometheus.Labels{
-		"success": strconv.FormatBool(success),
-	}).Observe(runLatency)
-}
-
-// UpdateResultSummary sets gauges for each deployment
-func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
+// UpdateResultSummary sets gauges for resources applied during the last run of
+// each Application
+func (p *Prometheus) UpdateResultSummary(apps []kubeapplierv1alpha1.Application) {
 	p.resultSummary.Reset()
 
-	for filePath, output := range failures {
-		res := parseKubectlOutput(output)
+	for _, app := range apps {
+		if app.Status.LastRun == nil {
+			continue
+		}
+		res := parseKubectlOutput(app.Status.LastRun.Output)
 		for _, r := range res {
 			p.resultSummary.With(prometheus.Labels{
-				"namespace": filepath.Base(filePath),
+				"namespace": app.Namespace,
 				"type":      r.Type,
 				"name":      r.Name,
 				"action":    r.Action,
@@ -134,20 +147,14 @@ func (p *Prometheus) UpdateResultSummary(failures map[string]string) {
 	}
 }
 
-// UpdateLastRunTimestamp records the last time a run finished
-func (p *Prometheus) UpdateLastRunTimestamp(t time.Time) {
-	p.lastRunTimestamp.Set(float64(t.UnixNano()) / 1e9)
-}
-
-// Result struct containing Type, Name and Action
-type Result struct {
+type applyObjectResult struct {
 	Type, Name, Action string
 }
 
-func parseKubectlOutput(output string) []Result {
+func parseKubectlOutput(output string) []applyObjectResult {
 	output = strings.TrimSpace(output)
 	lines := strings.Split(output, "\n")
-	var results []Result
+	var results []applyObjectResult
 	for _, line := range lines {
 		m := kubectlOutputPattern.FindAllStringSubmatch(line, -1)
 		// Should be only 1 match, and should contain 4 elements (0: whole match, 1: resource-type, 2: name, 3: action
@@ -155,7 +162,7 @@ func parseKubectlOutput(output string) []Result {
 			log.Logger.Warn("Expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
 			continue
 		}
-		results = append(results, Result{
+		results = append(results, applyObjectResult{
 			Type:   m[0][1],
 			Name:   m[0][2],
 			Action: m[0][3],

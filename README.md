@@ -210,35 +210,34 @@ The HTML template for the status page lives in `templates/status.html`, and
 ### Metrics
 
 kube-applier uses [Prometheus](https://github.com/prometheus/client_golang) for
-metrics. Metrics are hosted on the webserver at /metrics (status UI is the
-index page). In addition to the Prometheus default metrics, the following
-custom metrics are included:
+metrics. Metrics are hosted on the webserver at `/__/metrics`. In addition to
+the Prometheus default metrics, the following custom metrics are included:
 
-- **run_latency_seconds** - A
-  [Summary](https://godoc.org/github.com/prometheus/client_golang/prometheus#Summary)
-  that keeps track of the durations of each apply run, tagged with a boolean for
-  whether or not the run was a success (i.e. no failed apply attempts).
+- **kube_applier_run_latency_seconds** - A
+  [Histogram](https://godoc.org/github.com/prometheus/client_golang/prometheus#Histogram)
+  that keeps track of the durations of each apply run, labelled with the
+  namespace name and a boolean for whether or not the run was successful.
 
-- **namespace_apply_count** - A
+- **kube_applier_namespace_apply_count** - A
   [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter)
   for each namespace that has had an apply attempt over the lifetime of the
-  container, incremented with each apply attempt and tagged by the namespace and
-  the result of the attempt.
+  container, incremented with each apply attempt and labelled by the namespace
+  and the result of the attempt.
 
-- **result_summary** - A
+- **kube_applier_result_summary** - A
   [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
-  for each deployment, labelled with the namespace, action, status and type of
-  object applied
+  for each resource, labelled with the namespace, action, status and type of
+  object applied.
 
-- **kubectl_exit_code_count** - A
+- **kube_applier_kubectl_exit_code_count** - A
   [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter)
   for each exit code returned by executions of `kubectl`, labelled with the
   namespace and exit code.
 
-- **last_run_timestamp_seconds** - A
+- **kube_applier_last_run_timestamp_seconds** - A
   [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
-  that reports the last time a run finished, expressed in seconds
-  since the Unix Epoch.
+  that reports the last time a run finished, expressed in seconds since the Unix
+  Epoch and labelled with the namespace name.
 
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see
 the [Go
