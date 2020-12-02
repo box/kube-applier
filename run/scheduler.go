@@ -87,6 +87,7 @@ func (s *Scheduler) Start() {
 	go s.gitPollingLoop()
 }
 
+// Stop gracefully shuts down the Scheduler.
 func (s *Scheduler) Stop() {
 	close(s.stop)
 	s.waitGroup.Wait()

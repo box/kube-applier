@@ -37,7 +37,7 @@ type ApplyOptions struct {
 	NamespacedResources []string
 }
 
-func (o *ApplyOptions) PruneWhitelist(app *kubeapplierv1alpha1.Application, pruneBlacklist []string) []string {
+func (o *ApplyOptions) pruneWhitelist(app *kubeapplierv1alpha1.Application, pruneBlacklist []string) []string {
 	var pruneWhitelist []string
 	if app.Spec.Prune {
 		pruneWhitelist = append(pruneWhitelist, o.NamespacedResources...)
@@ -181,6 +181,7 @@ func (r *Runner) setRequestFailure(req Request, err error) {
 	}
 }
 
+// Stop gracefully shuts down the Runner.
 func (r *Runner) Stop() {
 	if r.workerQueue == nil {
 		return
@@ -255,7 +256,7 @@ func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, op
 	cmd, output, err := r.KubectlClient.Apply(path, kubectl.ApplyFlags{
 		Namespace:      app.Namespace,
 		DryRunStrategy: dryRunStrategy,
-		PruneWhitelist: options.PruneWhitelist(app, r.PruneBlacklist),
+		PruneWhitelist: options.pruneWhitelist(app, r.PruneBlacklist),
 		ServerSide:     app.Spec.ServerSideApply,
 	})
 	finish := r.Clock.Now()

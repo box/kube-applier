@@ -24,7 +24,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
-func TestApplyOptions_PruneWhitelist(t *testing.T) {
+func TestApplyOptions_pruneWhitelist(t *testing.T) {
 	assert := assert.New(t)
 
 	applyOptions := &ApplyOptions{
@@ -90,7 +90,7 @@ func TestApplyOptions_PruneWhitelist(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		assert.Equal(tc.options.PruneWhitelist(tc.app, tc.blacklist), tc.expected)
+		assert.Equal(tc.options.pruneWhitelist(tc.app, tc.blacklist), tc.expected)
 	}
 }
 
@@ -240,7 +240,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			testRunner.Stop()
 
 			for i := range appList {
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -297,7 +297,7 @@ Some error output has been omitted because it may contain sensitive data
 			Enqueue(testRunQueue, PollingRun, &app)
 			testRunner.Stop()
 
-			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&app, testRunner.PruneBlacklist)))
+			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(&app, testRunner.PruneBlacklist)))
 
 			testMetrics([]string{
 				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a-kustomize"} 1`,
@@ -482,7 +482,7 @@ deployment.apps/test-deployment created
 			testRunner.Stop()
 
 			for i := range appList {
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{

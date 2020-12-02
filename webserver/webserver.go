@@ -212,6 +212,7 @@ func (ws *WebServer) Start() error {
 	return nil
 }
 
+// Shutdown gracefully shuts the webserver down.
 func (ws *WebServer) Shutdown() error {
 	close(ws.stop)
 	<-ws.stopped
