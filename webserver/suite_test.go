@@ -17,7 +17,6 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/log"
-	"github.com/utilitywarehouse/kube-applier/metrics"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -27,7 +26,6 @@ import (
 var testConfig *rest.Config
 var testKubeClient *client.Client
 var testEnv *envtest.Environment
-var testMetricsClient = &metrics.Prometheus{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -70,8 +68,6 @@ var _ = AfterSuite(func() {
 
 func init() {
 	log.InitLogger("debug")
-
-	testMetricsClient.Init()
 }
 
 type zeroClock struct{}

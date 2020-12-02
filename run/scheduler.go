@@ -56,7 +56,6 @@ type Scheduler struct {
 	ApplicationPollInterval time.Duration
 	GitPollInterval         time.Duration
 	KubeClient              *client.Client
-	Metrics                 *metrics.Prometheus
 	RepoPath                string
 	RunQueue                chan<- Request
 	applications            map[string]*kubeapplierv1alpha1.Application
@@ -113,7 +112,7 @@ func (s *Scheduler) updateApplicationsLoop() {
 				log.Logger.Error("Could not list Applications: %v", err)
 				break
 			}
-			s.Metrics.UpdateResultSummary(apps)
+			metrics.UpdateResultSummary(apps)
 			s.applicationsMutex.Lock()
 			for i := range apps {
 				app := &apps[i]

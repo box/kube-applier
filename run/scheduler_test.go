@@ -46,7 +46,6 @@ var _ = Describe("Scheduler", func() {
 			ApplicationPollInterval: time.Second * 5,
 			GitPollInterval:         time.Second * 5,
 			KubeClient:              testKubeClient,
-			Metrics:                 testMetricsClient,
 			RepoPath:                "../testdata/manifests",
 			RunQueue:                testRunQueue,
 		}

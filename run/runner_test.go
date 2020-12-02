@@ -108,10 +108,8 @@ var _ = Describe("Runner", func() {
 			KubeClient: testKubeClient,
 			KubectlClient: &kubectl.Client{
 				Host:    testConfig.Host,
-				Metrics: testMetricsClient,
 				Timeout: time.Duration(time.Minute),
 			},
-			Metrics:        testMetricsClient,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
 			RepoPath:       "../testdata/manifests",
 		}

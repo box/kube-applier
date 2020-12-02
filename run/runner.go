@@ -82,7 +82,6 @@ type Runner struct {
 	DryRun         bool
 	KubeClient     *client.Client
 	KubectlClient  *kubectl.Client
-	Metrics        *metrics.Prometheus
 	PruneBlacklist []string
 	RepoPath       string
 	WorkerCount    int
@@ -157,7 +156,7 @@ func (r *Runner) applyWorker() {
 			// TODO: queue a retry here, with backoff, or better, have scheduler do it
 		}
 
-		r.Metrics.UpdateFromLastRun(request.Application)
+		metrics.UpdateFromLastRun(request.Application)
 
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
 	}

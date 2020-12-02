@@ -33,7 +33,6 @@ var (
 type Client struct {
 	Host    string
 	Label   string
-	Metrics *metrics.Prometheus
 	Timeout time.Duration
 }
 
@@ -227,14 +226,14 @@ func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, str
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
-			c.Metrics.UpdateKubectlExitCodeCount(flags.Namespace, e.ExitCode())
+			metrics.UpdateKubectlExitCodeCount(flags.Namespace, e.ExitCode())
 		}
 		if ctx.Err() == context.DeadlineExceeded {
 			err = errors.Wrap(ctx.Err(), err.Error())
 		}
 		return kubectlCmd.String(), string(out), err
 	}
-	c.Metrics.UpdateKubectlExitCodeCount(flags.Namespace, 0)
+	metrics.UpdateKubectlExitCodeCount(flags.Namespace, 0)
 
 	return kubectlCmd.String(), string(out), nil
 }
