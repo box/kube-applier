@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -205,7 +206,10 @@ func (ws *WebServer) Start() error {
 
 	go func() {
 		if err = ws.server.ListenAndServe(); err != nil {
-			log.Logger.Error(fmt.Sprintf("webserver error: %v", err))
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Logger.Error(fmt.Sprintf("webserver error: %v", err))
+			}
+			log.Logger.Info("webserver shut down")
 		}
 	}()
 
