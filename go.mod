@@ -6,7 +6,6 @@ require (
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/go-test/deep v1.0.5
-	github.com/golang/mock v1.4.4
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/gorilla/mux v1.8.0

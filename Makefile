@@ -7,10 +7,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: generate-mocks manifests generate controller-gen build run release
-
-generate-mocks:
-	mockgen -package=sysutil -source sysutil/clock.go -destination=sysutil/mock_clock.go 
+.PHONY: manifests generate controller-gen build run release
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
