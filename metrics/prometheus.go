@@ -31,6 +31,10 @@ var (
 	resultSummary *prometheus.GaugeVec
 	// lastRunTimestamp is a Gauge vector of the last run timestamp
 	lastRunTimestamp *prometheus.GaugeVec
+	// runQueue is a Gauge vector of active run requests
+	runQueue *prometheus.GaugeVec
+	// runQueueFailures is a Counter vector of failed queue attempts
+	runQueueFailures *prometheus.CounterVec
 )
 
 func init() {
@@ -96,6 +100,38 @@ func init() {
 			"namespace",
 		},
 	)
+	runQueue = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "run_queue",
+		Help:      "Number of run requests currently queued",
+	},
+		[]string{
+			// Namespace of the Application applied
+			"namespace",
+			// Type of the run requested
+			"type",
+		},
+	)
+	runQueueFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "run_queue_failures",
+		Help:      "Number of run requests queue failures",
+	},
+		[]string{
+			// Namespace of the Application applied
+			"namespace",
+			// Type of the run requested
+			"type",
+		},
+	)
+}
+
+// AddRunRequestQueueFailure increments the counter of failed queue attempts
+func AddRunRequestQueueFailure(t string, app *kubeapplierv1alpha1.Application) {
+	runQueueFailures.With(prometheus.Labels{
+		"namespace": app.Namespace,
+		"type":      t,
+	}).Inc()
 }
 
 // UpdateFromLastRun takes information from an Application's LastRun status and
@@ -144,6 +180,14 @@ func UpdateResultSummary(apps []kubeapplierv1alpha1.Application) {
 	}
 }
 
+// UpdateRunRequest modifies the gauge of currently queued run requests
+func UpdateRunRequest(t string, app *kubeapplierv1alpha1.Application, diff float64) {
+	runQueue.With(prometheus.Labels{
+		"namespace": app.Namespace,
+		"type":      t,
+	}).Add(diff)
+}
+
 // Reset deletes all metrics. This is exported for use in integration tests.
 func Reset() {
 	kubectlExitCodeCount.Reset()
@@ -151,6 +195,8 @@ func Reset() {
 	runLatency.Reset()
 	resultSummary.Reset()
 	lastRunTimestamp.Reset()
+	runQueue.Reset()
+	runQueueFailures.Reset()
 }
 
 type applyObjectResult struct {

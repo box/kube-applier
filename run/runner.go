@@ -114,6 +114,7 @@ func (r *Runner) applyWorker() {
 		// TODO: for brevity, we could do:
 		// app := request.Application
 		log.Logger.Info("Started apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
+		metrics.UpdateRunRequest(request.Type.String(), request.Application, -1)
 
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
@@ -279,7 +280,9 @@ func Enqueue(queue chan<- Request, t Type, app *kubeapplierv1alpha1.Application)
 	select {
 	case queue <- Request{Type: t, Application: app}:
 		log.Logger.Debug(fmt.Sprintf("%s queued for %s/%s", t, app.Namespace, app.Name))
+		metrics.UpdateRunRequest(t.String(), app, 1)
 	case <-time.After(5 * time.Second):
 		log.Logger.Error("Timed out trying to queue a %s for %s/%s, run queue is full", t, app.Namespace, app.Name)
+		metrics.AddRunRequestQueueFailure(t.String(), app)
 	}
 }
