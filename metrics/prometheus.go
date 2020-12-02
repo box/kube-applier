@@ -144,6 +144,15 @@ func UpdateResultSummary(apps []kubeapplierv1alpha1.Application) {
 	}
 }
 
+// Reset deletes all metrics. This is exported for use in integration tests.
+func Reset() {
+	kubectlExitCodeCount.Reset()
+	namespaceApplyCount.Reset()
+	runLatency.Reset()
+	resultSummary.Reset()
+	lastRunTimestamp.Reset()
+}
+
 type applyObjectResult struct {
 	Type, Name, Action string
 }

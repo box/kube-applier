@@ -8,11 +8,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 func testSchedulerDrainRequests(requests <-chan Request) func() []Request {
@@ -50,6 +52,8 @@ var _ = Describe("Scheduler", func() {
 			RunQueue:                testRunQueue,
 		}
 		testScheduler.Start()
+
+		metrics.Reset()
 	})
 
 	Context("When running", func() {
@@ -147,6 +151,59 @@ var _ = Describe("Scheduler", func() {
 					ScheduledRun: Equal(1),
 				}),
 			}))
+		})
+
+		It("Should export metrics about resources applied", func() {
+			By("Listing all the Applications in the cluster")
+			// The status sub-resource only contains the Output field and this
+			// is is only used to test that metrics are properly exported
+			appList := []*kubeapplierv1alpha1.Application{
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-foo"},
+					Status: kubeapplierv1alpha1.ApplicationStatus{
+						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+							Output: `namespace/metrics-foo created
+deployment.apps/test-a created (server dry run)
+deployment.apps/test-b unchanged
+deployment.apps/test-c configured
+error: error validating "../testdata/manifests/app-d/deployment.yaml": error validating data: invalid object to validate; if you choose to ignore these errors, turn validation off with --validate=false
+Some error output has been omitted because it may contain sensitive data
+`,
+						},
+					},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-bar"},
+				},
+			}
+			testEnsureApplications(appList)
+			// Since the apiserver will be running for the duration of the tests
+			// we only care that the test Scheduler has acknowledged the new
+			// Applications and that's why HaveKeyWithValue is used here.
+			matchers := make([]gomegatypes.GomegaMatcher, len(appList))
+			for i, app := range appList {
+				matchers[i] = HaveKeyWithValue(app.Namespace, app)
+			}
+			Eventually(
+				testSchedulerCopyApplicationsMap(&testScheduler),
+				time.Second*15,
+				time.Second,
+			).Should(And(matchers...))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+
+			By("Parsing the Output field in the Application status and exporting metrics about individual resources")
+			testMetrics([]string{
+				`kube_applier_result_summary{action="created",name="metrics-foo",namespace="metrics-foo",type="namespace"} 1`,
+				`kube_applier_result_summary{action="created",name="test-a",namespace="metrics-foo",type="deployment.apps"} 1`,
+				`kube_applier_result_summary{action="unchanged",name="test-b",namespace="metrics-foo",type="deployment.apps"} 1`,
+				`kube_applier_result_summary{action="configured",name="test-c",namespace="metrics-foo",type="deployment.apps"} 1`,
+			})
 		})
 	})
 })

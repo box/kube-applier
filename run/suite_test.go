@@ -1,12 +1,19 @@
 package run
 
 import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -75,3 +82,45 @@ type zeroClock struct{}
 func (c *zeroClock) Now() time.Time                  { return time.Time{} }
 func (c *zeroClock) Since(t time.Time) time.Duration { return time.Duration(0) }
 func (c *zeroClock) Sleep(d time.Duration)           {}
+
+// testMetrics spins up a temporary webserver that exports the metrics and
+// captures the response to be tested again regexes
+func testMetrics(regex []string) {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":12700"),
+		Handler: promhttp.Handler(),
+	}
+	go server.ListenAndServe()
+	defer server.Shutdown(context.TODO())
+	var output string
+	Eventually(
+		func() error {
+			res, err := http.Get(fmt.Sprintf("http://%s", server.Addr))
+			if err != nil {
+				return err
+			}
+			body, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				return err
+			}
+			output = string(body)
+			return nil
+		},
+		time.Second*15,
+		time.Second,
+	).Should(BeNil())
+	// remove any metrics that don't come from the metrics package to reduce
+	// output length in case of failures
+	metricsLines := []string{}
+	for _, s := range strings.Split(output, "\n") {
+		if strings.HasPrefix(s, "kube_applier") {
+			metricsLines = append(metricsLines, s)
+		}
+	}
+	output = strings.Join(metricsLines, "\n")
+	matchers := make([]gomegatypes.GomegaMatcher, len(regex))
+	for i, r := range regex {
+		matchers[i] = MatchRegexp(r)
+	}
+	Expect(output).To(And(matchers...))
+}
