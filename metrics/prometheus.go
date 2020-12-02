@@ -134,6 +134,20 @@ func AddRunRequestQueueFailure(t string, app *kubeapplierv1alpha1.Application) {
 	}).Inc()
 }
 
+// ReconcileLastRunTimestamps ensures that the last_run_timestamp metric
+// correctly represents the state in the cluster
+func ReconcileLastRunTimestamps(apps []kubeapplierv1alpha1.Application) {
+	lastRunTimestamp.Reset()
+	for _, app := range apps {
+		if app.Status.LastRun == nil {
+			continue
+		}
+		lastRunTimestamp.With(prometheus.Labels{
+			"namespace": app.Namespace,
+		}).Set(float64(app.Status.LastRun.Finished.Unix()))
+	}
+}
+
 // UpdateFromLastRun takes information from an Application's LastRun status and
 // updates all the relevant metrics
 func UpdateFromLastRun(app *kubeapplierv1alpha1.Application) {

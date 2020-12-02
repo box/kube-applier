@@ -112,6 +112,7 @@ func (s *Scheduler) updateApplicationsLoop() {
 				log.Logger.Error("Could not list Applications: %v", err)
 				break
 			}
+			metrics.ReconcileLastRunTimestamps(apps)
 			metrics.UpdateResultSummary(apps)
 			s.applicationsMutex.Lock()
 			for i := range apps {
