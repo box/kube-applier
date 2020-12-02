@@ -12,7 +12,6 @@ import (
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
-	"github.com/utilitywarehouse/kube-applier/metrics"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"github.com/utilitywarehouse/kube-applier/webserver"
@@ -140,9 +139,6 @@ func main() {
 
 	log.InitLogger(logLevel)
 
-	metrics := &metrics.Prometheus{}
-	metrics.Init()
-
 	clock := &sysutil.Clock{}
 
 	rt, _ := strconv.Atoi(repoTimeout)
@@ -163,7 +159,6 @@ func main() {
 		os.Exit(1)
 	}
 	kubectlClient := &kubectl.Client{
-		Metrics: metrics,
 		Timeout: execTimeoutDuration,
 	}
 
@@ -185,7 +180,6 @@ func main() {
 		DryRun:         dr,
 		KubeClient:     kubeClient,
 		KubectlClient:  kubectlClient,
-		Metrics:        metrics,
 		PruneBlacklist: pruneBlacklistSlice,
 		RepoPath:       repoPath,
 		WorkerCount:    runnerWorkerCount,

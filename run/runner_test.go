@@ -21,6 +21,7 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 func TestApplyOptions_PruneWhitelist(t *testing.T) {
@@ -108,10 +109,8 @@ var _ = Describe("Runner", func() {
 			KubeClient: testKubeClient,
 			KubectlClient: &kubectl.Client{
 				Host:    testConfig.Host,
-				Metrics: testMetricsClient,
 				Timeout: time.Duration(time.Minute),
 			},
-			Metrics:        testMetricsClient,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
 			RepoPath:       "../testdata/manifests",
 		}
@@ -129,6 +128,7 @@ var _ = Describe("Runner", func() {
 			ClusterResources:    cr,
 			NamespacedResources: nr,
 		}
+		metrics.Reset()
 	})
 
 	Context("When operating on an empty Application list", func() {
@@ -137,10 +137,7 @@ var _ = Describe("Runner", func() {
 			appListExpected := []kubeapplierv1alpha1.Application{}
 
 			for i := range appList {
-				testRunQueue <- Request{
-					Type:        PollingRun,
-					Application: &appList[i],
-				}
+				Enqueue(testRunQueue, PollingRun, &appList[i])
 			}
 			testRunner.Stop()
 
@@ -238,16 +235,29 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			By("Applying all the Applications and populating their Status subresource with the results")
 
 			for i := range appList {
-				testRunQueue <- Request{
-					Type:        PollingRun,
-					Application: &appList[i],
-				}
+				Enqueue(testRunQueue, PollingRun, &appList[i])
 			}
 			testRunner.Stop()
 
 			for i := range appList {
 				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
+
+			testMetrics([]string{
+				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a"} 1`,
+				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-b"} 1`,
+				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-c"} 1`,
+				`kube_applier_last_run_timestamp_seconds{namespace="app-a"}`,
+				`kube_applier_last_run_timestamp_seconds{namespace="app-b"}`,
+				`kube_applier_last_run_timestamp_seconds{namespace="app-c"}`,
+				`kube_applier_namespace_apply_count{namespace="app-a",success="true"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-b",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-c",success="false"} 1`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="app-a",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-b",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-c",type="Git polling run"} 0`,
+			})
 		})
 	})
 
@@ -284,13 +294,19 @@ Some error output has been omitted because it may contain sensitive data
 				},
 			}
 
-			testRunQueue <- Request{
-				Type:        PollingRun,
-				Application: &app,
-			}
+			Enqueue(testRunQueue, PollingRun, &app)
 			testRunner.Stop()
 
 			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.PruneWhitelist(&app, testRunner.PruneBlacklist)))
+
+			testMetrics([]string{
+				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a-kustomize"} 1`,
+				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-a-kustomize"} 1`,
+				`kube_applier_last_run_timestamp_seconds{namespace="app-a-kustomize"}`,
+				`kube_applier_namespace_apply_count{namespace="app-a-kustomize",success="false"} 1`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="app-a-kustomize",type="Git polling run"} 0`,
+			})
 		})
 	})
 
@@ -300,19 +316,16 @@ Some error output has been omitted because it may contain sensitive data
 			// instead use a "hack" here by requesting a run for an Application
 			// pointing to a single file that defines the namespace. This is to
 			// avoid kubectl apply warnings in the output below.
-			testRunQueue <- Request{
-				Type: PollingRun,
-				Application: &kubeapplierv1alpha1.Application{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foobar",
-						Namespace: "app-d",
-					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
-						Prune:          false,
-						RepositoryPath: "app-d/00-namespace.yaml",
-					},
+			Enqueue(testRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foobar",
+					Namespace: "app-d",
 				},
-			}
+				Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Prune:          false,
+					RepositoryPath: "app-d/00-namespace.yaml",
+				},
+			})
 			ns := &corev1.Namespace{}
 			Eventually(
 				func() bool {
@@ -454,10 +467,7 @@ deployment.apps/test-deployment created
 			}
 
 			for i := range appList {
-				testRunQueue <- Request{
-					Type:        PollingRun,
-					Application: &appList[i],
-				}
+				Enqueue(testRunQueue, PollingRun, &appList[i])
 			}
 
 			Eventually(
@@ -474,6 +484,39 @@ deployment.apps/test-deployment created
 			for i := range appList {
 				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.PruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
+
+			testMetrics([]string{
+				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-d"} 1`,
+				`kube_applier_last_run_timestamp_seconds{namespace="app-d"}`,
+				`kube_applier_namespace_apply_count{namespace="app-d",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-d",success="true"} 2`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="app-d",type="Git polling run"} 0`,
+			})
+		})
+	})
+
+	Context("When it fails to enqueue a run request", func() {
+		It("Should increase the respective metrics counter", func() {
+			smallRunQueue := make(chan Request, 1)
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "queued-ok"},
+			})
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
+			})
+			testMetrics([]string{
+				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 1`,
+			})
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
+			})
+			testMetrics([]string{
+				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 2`,
+			})
 		})
 	})
 })

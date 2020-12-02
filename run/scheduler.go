@@ -11,6 +11,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/client"
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
+	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
 // Type defines what kind of apply run is performed.
@@ -99,47 +100,54 @@ func (s *Scheduler) Stop() {
 	s.applicationsMutex.Unlock()
 }
 
+func (s *Scheduler) updateApplications() {
+	apps, err := s.KubeClient.ListApplications(context.TODO())
+	if err != nil {
+		log.Logger.Error("Could not list Applications: %v", err)
+		return
+	}
+	metrics.ReconcileFromApplicationList(apps)
+	metrics.UpdateResultSummary(apps)
+	s.applicationsMutex.Lock()
+	for i := range apps {
+		app := &apps[i]
+		if v, ok := s.applications[app.Namespace]; ok {
+			if !reflect.DeepEqual(v.Spec, app.Spec) {
+				s.applicationSchedulers[app.Namespace]()
+				s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
+				s.applications[app.Namespace] = app
+			}
+		} else {
+			s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
+			s.applications[app.Namespace] = app
+		}
+	}
+	for ns := range s.applications {
+		found := false
+		for _, app := range apps {
+			if ns == app.Namespace {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.applicationSchedulers[ns]()
+			delete(s.applicationSchedulers, ns)
+			delete(s.applications, ns)
+		}
+	}
+	s.applicationsMutex.Unlock()
+}
+
 func (s *Scheduler) updateApplicationsLoop() {
 	ticker := time.NewTicker(s.ApplicationPollInterval)
 	defer ticker.Stop()
 	defer s.waitGroup.Done()
+	s.updateApplications()
 	for {
 		select {
 		case <-ticker.C:
-			apps, err := s.KubeClient.ListApplications(context.TODO())
-			if err != nil {
-				log.Logger.Error("Could not list Applications: %v", err)
-				break
-			}
-			s.applicationsMutex.Lock()
-			for i := range apps {
-				app := &apps[i]
-				if v, ok := s.applications[app.Namespace]; ok {
-					if !reflect.DeepEqual(v.Spec, app.Spec) {
-						s.applicationSchedulers[app.Namespace]()
-						s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
-						s.applications[app.Namespace] = app
-					}
-				} else {
-					s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
-					s.applications[app.Namespace] = app
-				}
-			}
-			for ns := range s.applications {
-				found := false
-				for _, app := range apps {
-					if ns == app.Namespace {
-						found = true
-						break
-					}
-				}
-				if !found {
-					s.applicationSchedulers[ns]()
-					delete(s.applicationSchedulers, ns)
-					delete(s.applications, ns)
-				}
-			}
-			s.applicationsMutex.Unlock()
+			s.updateApplications()
 		case <-s.stop:
 			return
 		}

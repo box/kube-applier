@@ -26,7 +26,7 @@ service/serviceName unchanged
 deployment.apps/deploymentName unchanged
 `
 
-	want := []Result{
+	want := []applyObjectResult{
 		{"namespace", "namespaceName", "configured"},
 		{"limitrange", "limit-range", "configured"},
 		{"role.rbac.authorization.k8s.io", "auth", "unchanged"},
@@ -57,7 +57,7 @@ service/serviceName configured (server dry run)
 deployment.apps/deploymentName configured (server dry run)
 `
 
-	want := []Result{
+	want := []applyObjectResult{
 		{"namespace", "namespaceName", "configured"},
 		{"limitrange", "limit-range", "configured"},
 		{"role.rbac.authorization.k8s.io", "auth", "configured"},
@@ -85,7 +85,7 @@ clusterrole.rbac.authorization.k8s.io/system:metrics-server unchanged (server dr
 secret/k8s-auth-conf unchanged (server dry run)
 `
 
-	want := []Result{
+	want := []applyObjectResult{
 		{"namespace", "sys-auth", "configured"},
 		{"rolebinding.rbac.authorization.k8s.io", "vault-configmap-applier", "unchanged"},
 		{"configmap", "vault-tls", "configured"},
@@ -112,7 +112,7 @@ service/serviceName serverside-applied
 deployment.apps/deploymentName serverside-applied
 `
 
-	want := []Result{
+	want := []applyObjectResult{
 		{"namespace", "namespaceName", "serverside-applied"},
 		{"limitrange", "limit-range", "serverside-applied"},
 		{"role.rbac.authorization.k8s.io", "auth", "serverside-applied"},
