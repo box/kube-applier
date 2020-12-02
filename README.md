@@ -239,6 +239,16 @@ the Prometheus default metrics, the following custom metrics are included:
   that reports the last time a run finished, expressed in seconds since the Unix
   Epoch and labelled with the namespace name.
 
+- **kube_applier_run_queue** - A
+  [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
+  that reports the number of runs that are currently queued, labelled with the
+  namespace name and the run type.
+
+- **kube_applier_run_queue_failures** - A
+  [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter)
+  that observes the number of times a run failed to queue properly, labelled
+  with the namespace name and the run type.
+
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see
 the [Go
 library](https://github.com/prometheus/client_golang/tree/master/api/prometheus))
