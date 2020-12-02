@@ -205,6 +205,50 @@ Some error output has been omitted because it may contain sensitive data
 				`kube_applier_result_summary{action="configured",name="test-c",namespace="metrics-foo",type="deployment.apps"} 1`,
 			})
 		})
+
+		It("Should export Application spec metrics from the cluster state", func() {
+			appList := []*kubeapplierv1alpha1.Application{
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-foo"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "foo",
+						RunInterval:    5,
+					},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-bar"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "bar",
+						DryRun:         true,
+					},
+				},
+			}
+			testEnsureApplications(appList)
+			// Since the apiserver will be running for the duration of the tests
+			// we only care that the test Scheduler has acknowledged the new
+			// Applications and that's why HaveKeyWithValue is used here.
+			matchers := make([]gomegatypes.GomegaMatcher, len(appList))
+			for i, app := range appList {
+				matchers[i] = HaveKeyWithValue(app.Namespace, app)
+			}
+			Eventually(
+				testSchedulerCopyApplicationsMap(&testScheduler),
+				time.Second*15,
+				time.Second,
+			).Should(And(matchers...))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+
+			testMetrics([]string{
+				`kube_applier_application_spec_dry_run{namespace="spec-foo"} 0`,
+				`kube_applier_application_spec_run_interval{namespace="spec-foo"} 5`,
+				`kube_applier_application_spec_dry_run{namespace="spec-bar"} 1`,
+				`kube_applier_application_spec_run_interval{namespace="spec-bar"} 3600`,
+			})
+		})
 	})
 })
 

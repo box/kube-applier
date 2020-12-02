@@ -35,6 +35,12 @@ var (
 	runQueue *prometheus.GaugeVec
 	// runQueueFailures is a Counter vector of failed queue attempts
 	runQueueFailures *prometheus.CounterVec
+	// applicationSpecDryRun is a Gauge vector that captures an Application's
+	// dryRun attribute
+	applicationSpecDryRun *prometheus.GaugeVec
+	// applicationSpecRunInterval is a Gauge vector that captures an
+	// Application's runInterval attribute
+	applicationSpecRunInterval *prometheus.GaugeVec
 )
 
 func init() {
@@ -124,6 +130,28 @@ func init() {
 			"type",
 		},
 	)
+	applicationSpecDryRun = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "application_spec",
+		Name:      "dry_run",
+		Help:      "The value of dryRun in the Application spec",
+	},
+		[]string{
+			// Namespace of the Application
+			"namespace",
+		},
+	)
+	applicationSpecRunInterval = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "application_spec",
+		Name:      "run_interval",
+		Help:      "The value of runInterval in the Application spec",
+	},
+		[]string{
+			// Namespace of the Application
+			"namespace",
+		},
+	)
 }
 
 // AddRunRequestQueueFailure increments the counter of failed queue attempts
@@ -134,11 +162,23 @@ func AddRunRequestQueueFailure(t string, app *kubeapplierv1alpha1.Application) {
 	}).Inc()
 }
 
-// ReconcileLastRunTimestamps ensures that the last_run_timestamp metric
-// correctly represents the state in the cluster
-func ReconcileLastRunTimestamps(apps []kubeapplierv1alpha1.Application) {
+// ReconcileFromApplicationList ensures that the last_run_timestamp and
+// application_spec metrics correctly represent the state in the cluster
+func ReconcileFromApplicationList(apps []kubeapplierv1alpha1.Application) {
 	lastRunTimestamp.Reset()
+	applicationSpecDryRun.Reset()
+	applicationSpecRunInterval.Reset()
 	for _, app := range apps {
+		var dryRun float64
+		if app.Spec.DryRun {
+			dryRun = 1
+		}
+		applicationSpecDryRun.With(prometheus.Labels{
+			"namespace": app.Namespace,
+		}).Set(dryRun)
+		applicationSpecRunInterval.With(prometheus.Labels{
+			"namespace": app.Namespace,
+		}).Set(float64(app.Spec.RunInterval))
 		if app.Status.LastRun == nil {
 			continue
 		}
@@ -211,6 +251,8 @@ func Reset() {
 	lastRunTimestamp.Reset()
 	runQueue.Reset()
 	runQueueFailures.Reset()
+	applicationSpecDryRun.Reset()
+	applicationSpecRunInterval.Reset()
 }
 
 type applyObjectResult struct {

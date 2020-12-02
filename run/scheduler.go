@@ -106,7 +106,7 @@ func (s *Scheduler) updateApplications() {
 		log.Logger.Error("Could not list Applications: %v", err)
 		return
 	}
-	metrics.ReconcileLastRunTimestamps(apps)
+	metrics.ReconcileFromApplicationList(apps)
 	metrics.UpdateResultSummary(apps)
 	s.applicationsMutex.Lock()
 	for i := range apps {
