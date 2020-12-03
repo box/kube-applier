@@ -144,8 +144,20 @@ var _ = Describe("WebServer", func() {
 		})
 
 		It("Should render HTML on the root page", func() {
-			res, err := http.Get(fmt.Sprintf("http://localhost:%d/", testWebServer.ListenPort))
-			Expect(err).To(BeNil())
+			var res *http.Response
+			Eventually(
+				func() error {
+					r, err := http.Get(fmt.Sprintf("http://localhost:%d/", testWebServer.ListenPort))
+					if err != nil {
+						return err
+					}
+					res = r
+					return nil
+				},
+				time.Second*15,
+				time.Second,
+			).Should(BeNil())
+
 			body, err := ioutil.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
