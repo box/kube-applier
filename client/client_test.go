@@ -281,7 +281,7 @@ var _ = Describe("Client", func() {
 	})
 })
 
-func matchEvent(app kubeapplierv1alpha1.Application, eventtype, reason, message string) gomegatypes.GomegaMatcher {
+func matchEvent(app kubeapplierv1alpha1.Application, eventType, reason, message string) gomegatypes.GomegaMatcher {
 	return MatchFields(IgnoreExtras, Fields{
 		"TypeMeta": Ignore(),
 		"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -299,6 +299,6 @@ func matchEvent(app kubeapplierv1alpha1.Application, eventtype, reason, message 
 		"Source": MatchFields(IgnoreExtras, Fields{
 			"Component": Equal(clientName),
 		}),
-		"Type": Equal(eventtype),
+		"Type": Equal(eventType),
 	})
 }

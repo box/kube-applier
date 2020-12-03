@@ -90,8 +90,8 @@ func newClient(cfg *rest.Config) (*Client, error) {
 }
 
 // EmitApplicationEvent creates an Event for the provided Application.
-func (c *Client) EmitApplicationEvent(app *kubeapplierv1alpha1.Application, eventtype, reason, messageFmt string, args ...interface{}) {
-	c.recorder.Eventf(app, eventtype, reason, messageFmt, args...)
+func (c *Client) EmitApplicationEvent(app *kubeapplierv1alpha1.Application, eventType, reason, messageFmt string, args ...interface{}) {
+	c.recorder.Eventf(app, eventType, reason, messageFmt, args...)
 }
 
 // ListApplications returns a list of all the Application resources.
