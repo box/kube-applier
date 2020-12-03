@@ -1,3 +1,15 @@
+// Package metrics contains global structures for capturing kube-applier
+// metrics. The following metrics are implemented:
+//
+//   - kube_applier_kubectl_exit_code_count{"namespace", "exit_code"}
+//   - kube_applier_namespace_apply_count{"namespace"}
+//   - kube_applier_run_latency_seconds{"namespace", "success"}
+//   - kube_applier_result_summary{"namespace", "type", "name", "action"}
+//   - kube_applier_last_run_timestamp_seconds{"namespace"}
+//   - kube_applier_run_queue{"namespace", "type"}
+//   - kube_applier_run_queue_failures{"namespace", "type"}
+//   - kube_applier_application_spec_dry_run{"namespace"}
+//   - kube_applier_application_spec_run_interval{"namespace"}
 package metrics
 
 import (

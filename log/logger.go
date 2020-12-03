@@ -1,3 +1,4 @@
+// Package log provides the Logger struct for logging based on go-hclog.
 package log
 
 import (

@@ -1,3 +1,6 @@
+// Package run implements structs for scheduling and performing apply runs that
+// apply manifest files from a git repository source based on configuration
+// stored in Application CRDs and scheduling.
 package run
 
 import (

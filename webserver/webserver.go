@@ -1,3 +1,6 @@
+// Package webserver implements the Webserver struct which can serve the
+// kube-applier status page and prometheus metrics, as well as receive run
+// requests from users.
 package webserver
 
 import (

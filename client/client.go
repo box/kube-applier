@@ -1,3 +1,5 @@
+// Package client defines a custom kubernetes Client for use with kube-applier
+// and its custom resources.
 package client
 
 import (
