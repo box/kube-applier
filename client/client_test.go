@@ -1,11 +1,22 @@
 package client
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
 func TestPrunableResourceGVKs(t *testing.T) {
@@ -210,4 +221,84 @@ func TestPrunableNoDelete(t *testing.T) {
 	if prunable(resource) {
 		t.Errorf("Expected prunable to return false but got true for resource: %v", resource)
 	}
+}
+
+var _ = Describe("Client", func() {
+	Context("When listing applications", func() {
+		It("Should return only one Application per namespace and emit events for the others", func() {
+			appList := []kubeapplierv1alpha1.Application{
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "alpha", Namespace: "ns-0"},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "beta", Namespace: "ns-0"},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "ns-1"},
+				},
+			}
+
+			for i := range appList {
+				err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
+				if err != nil {
+					Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+				}
+				Expect(testKubeClient.Create(context.TODO(), &appList[i])).To(BeNil())
+			}
+
+			Eventually(
+				func() int {
+					apps, err := testKubeClient.ListApplications(context.TODO())
+					if err != nil {
+						return -1
+					}
+					return len(apps)
+				},
+				time.Second*15,
+				time.Second,
+			).Should(Equal(2))
+
+			events := &corev1.EventList{}
+			Eventually(
+				func() int {
+					if err := testKubeClient.List(context.TODO(), events); err != nil {
+						return -1
+					}
+					return len(events.Items)
+				},
+				time.Second*15,
+				time.Second,
+			).Should(Equal(1))
+			for _, e := range events.Items {
+				Expect(e).To(matchEvent(appList[1], corev1.EventTypeWarning, "MultipleApplicationsFound", fmt.Sprintf("^.*%s.*$", appList[0].Name)))
+			}
+
+			Expect(testKubeClient.Delete(context.TODO(), &events.Items[0])).To(BeNil())
+		})
+	})
+})
+
+func matchEvent(app kubeapplierv1alpha1.Application, eventtype, reason, message string) gomegatypes.GomegaMatcher {
+	return MatchFields(IgnoreExtras, Fields{
+		"TypeMeta": Ignore(),
+		"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+			"Namespace": Equal(app.ObjectMeta.Namespace),
+		}),
+		"InvolvedObject": MatchFields(IgnoreExtras, Fields{
+			"Kind":      Equal("Application"),
+			"Namespace": Equal(app.ObjectMeta.Namespace),
+			"Name":      Equal(app.ObjectMeta.Name),
+		}),
+		"Action":  BeEmpty(),
+		"Count":   BeNumerically(">", 0),
+		"Message": MatchRegexp(message),
+		"Reason":  Equal(reason),
+		"Source": MatchFields(IgnoreExtras, Fields{
+			"Component": Equal(clientName),
+		}),
+		"Type": Equal(eventtype),
+	})
 }

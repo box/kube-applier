@@ -111,9 +111,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for i := range apps {
 			if apps[i].Namespace == ns {
 				app = &apps[i]
-				// TODO: handle multiple applications in one namespace. The
-				// behaviour should match that of run.Scheduler, which can also
-				// queue requests.
+				break
 			}
 		}
 		if app == nil {
