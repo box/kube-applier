@@ -1,3 +1,5 @@
+// Package git provides methods for manipulating and querying git repositories
+// on disk.
 package git
 
 import (

@@ -1,3 +1,5 @@
+// Package kubectl provides a kubectl Client for interacting with the kubernetes
+// apiserver.
 package kubectl
 
 import (
