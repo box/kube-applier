@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -11,12 +12,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	clientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	kubeapplierlog "github.com/utilitywarehouse/kube-applier/log"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	clientName = "kube-applier"
 )
 
 var (
@@ -41,6 +49,7 @@ func init() {
 type Client struct {
 	client.Client
 	clientset kubernetes.Interface
+	recorder  record.EventRecorder
 }
 
 // New returns a new kubernetes client.
@@ -69,10 +78,20 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(func(format string, args ...interface{}) { kubeapplierlog.Logger.Debug(fmt.Sprintf(format, args...)) })
+	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: clientName})
 	return &Client{
 		Client:    c,
 		clientset: clientset,
+		recorder:  recorder,
 	}, nil
+}
+
+// EmitApplicationEvent creates an Event for the provided Application.
+func (c *Client) EmitApplicationEvent(app *kubeapplierv1alpha1.Application, eventType, reason, messageFmt string, args ...interface{}) {
+	c.recorder.Eventf(app, eventType, reason, messageFmt, args...)
 }
 
 // ListApplications returns a list of all the Application resources.
@@ -81,7 +100,30 @@ func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Ap
 	if err := c.List(ctx, apps); err != nil {
 		return nil, err
 	}
-	return apps.Items, nil
+	// ensure that the list of Applications is sorted alphabetically
+	sortedApps := make([]kubeapplierv1alpha1.Application, len(apps.Items))
+	for i, app := range apps.Items {
+		sortedApps[i] = app
+	}
+	sort.Slice(sortedApps, func(i, j int) bool {
+		return sortedApps[i].Namespace+sortedApps[i].Name < sortedApps[j].Namespace+sortedApps[j].Name
+	})
+
+	unique := map[string]kubeapplierv1alpha1.Application{}
+	for _, app := range sortedApps {
+		if v, ok := unique[app.Namespace]; ok {
+			c.EmitApplicationEvent(&app, corev1.EventTypeWarning, "MultipleApplicationsFound", "Application %s is already being used", v.Name)
+			continue
+		}
+		unique[app.Namespace] = app
+	}
+	ret := make([]kubeapplierv1alpha1.Application, len(unique))
+	i := 0
+	for _, app := range unique {
+		ret[i] = app
+		i++
+	}
+	return ret, nil
 }
 
 // GetApplication returns the Application resource specified by the namespace
