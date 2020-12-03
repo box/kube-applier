@@ -163,6 +163,7 @@ func (r *Runner) applyWorker() {
 		metrics.UpdateFromLastRun(request.Application)
 
 		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
+		cleanupTemp()
 	}
 }
 
