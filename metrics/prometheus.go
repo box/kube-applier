@@ -84,12 +84,15 @@ func init() {
 		Namespace: metricsNamespace,
 		Name:      "run_latency_seconds",
 		Help:      "Latency for completed apply runs",
+		Buckets:   []float64{1, 5, 10, 30, 60, 90, 120, 150, 300, 600},
 	},
 		[]string{
 			// Namespace of the Application applied
 			"namespace",
 			// Whether the apply was successful or not
 			"success",
+			// Whether the apply was a dry run
+			"dryrun",
 		},
 	)
 	resultSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -204,6 +207,7 @@ func ReconcileFromApplicationList(apps []kubeapplierv1alpha1.Application) {
 // updates all the relevant metrics
 func UpdateFromLastRun(app *kubeapplierv1alpha1.Application) {
 	success := strconv.FormatBool(app.Status.LastRun.Success)
+	dryRun := strconv.FormatBool(app.Spec.DryRun)
 	namespaceApplyCount.With(prometheus.Labels{
 		"namespace": app.Namespace,
 		"success":   success,
@@ -211,6 +215,7 @@ func UpdateFromLastRun(app *kubeapplierv1alpha1.Application) {
 	runLatency.With(prometheus.Labels{
 		"namespace": app.Namespace,
 		"success":   success,
+		"dryrun":    dryRun,
 	}).Observe(app.Status.LastRun.Finished.Sub(app.Status.LastRun.Started.Time).Seconds())
 	lastRunTimestamp.With(prometheus.Labels{
 		"namespace": app.Namespace,
