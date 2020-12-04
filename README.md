@@ -216,7 +216,7 @@ the Prometheus default metrics, the following custom metrics are included:
 - **kube_applier_run_latency_seconds** - A
   [Histogram](https://godoc.org/github.com/prometheus/client_golang/prometheus#Histogram)
   that keeps track of the durations of each apply run, labelled with the
-  namespace name and a boolean for whether or not the run was successful.
+  namespace name, a success and a dry run boolean.
 
 - **kube_applier_namespace_apply_count** - A
   [Counter](https://godoc.org/github.com/prometheus/client_golang/prometheus#Counter)
