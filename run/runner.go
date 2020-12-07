@@ -116,12 +116,13 @@ func (r *Runner) applyWorker() {
 	for request := range r.workerQueue {
 		// TODO: for brevity, we could do:
 		// app := request.Application
-		log.Logger.Info("Started apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
+		appId := fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name)
+		log.Logger.Info("Started apply run", "app", appId)
 		metrics.UpdateRunRequest(request.Type.String(), request.Application, -1)
 
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
-			log.Logger.Error("Could not compute list of prunable resources", "error", err)
+			log.Logger.Error("Could not compute list of prunable resources", "app", appId, "error", err)
 			r.setRequestFailure(request, err)
 			continue
 		}
@@ -131,13 +132,13 @@ func (r *Runner) applyWorker() {
 		}
 		gitUtil, cleanupTemp, err := r.copyRepository(request.Application)
 		if err != nil {
-			log.Logger.Error("Could not create a repository copy", "error", err)
+			log.Logger.Error("Could not create a repository copy", "app", appId, "error", err)
 			r.setRequestFailure(request, err)
 			continue
 		}
 		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
 		if err != nil {
-			log.Logger.Error("Could not determine HEAD hash", "error", err)
+			log.Logger.Error("Could not determine HEAD hash", "app", appId, "error", err)
 			r.setRequestFailure(request, err)
 			cleanupTemp()
 			continue
@@ -150,19 +151,18 @@ func (r *Runner) applyWorker() {
 		request.Application.Status.LastRun.Type = request.Type.String()
 
 		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), request.Application); err != nil {
-			log.Logger.Warn(fmt.Sprintf("Could not update Application run info: %v\n", err))
+			log.Logger.Warn("Could not update Application run info", "app", appId, "error", err)
 		}
 
 		if request.Application.Status.LastRun.Success {
-			log.Logger.Info(fmt.Sprintf("%v\n%v", request.Application.Status.LastRun.Command, request.Application.Status.LastRun.Output))
+			log.Logger.Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", appId, request.Application.Status.LastRun.Command, request.Application.Status.LastRun.Output))
 		} else {
-			log.Logger.Warn(fmt.Sprintf("%v\n%v", request.Application.Status.LastRun.Command, request.Application.Status.LastRun.ErrorMessage))
-			// TODO: queue a retry here, with backoff, or better, have scheduler do it
+			log.Logger.Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", request.Application.Status.LastRun.ErrorMessage))
 		}
 
 		metrics.UpdateFromLastRun(request.Application)
 
-		log.Logger.Info("Finished apply run", "app", fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name))
+		log.Logger.Info("Finished apply run", "app", appId)
 		cleanupTemp()
 	}
 }
@@ -250,7 +250,7 @@ func (r *Runner) setupStrongboxKeyring(app *kubeapplierv1alpha1.Application) (st
 func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, options *ApplyOptions) {
 	start := r.Clock.Now()
 	path := filepath.Join(rootPath, app.Spec.RepositoryPath)
-	log.Logger.Info(fmt.Sprintf("Applying dir %v", path))
+	log.Logger.Info("Applying files", "path", path)
 
 	dryRunStrategy := "none"
 	if r.DryRun || app.Spec.DryRun {
@@ -282,12 +282,13 @@ func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, op
 // Enqueue attempts to add a run request to the queue, timing out after 5
 // seconds.
 func Enqueue(queue chan<- Request, t Type, app *kubeapplierv1alpha1.Application) {
+	appId := fmt.Sprintf("%s/%s", t, app.Namespace, app.Name)
 	select {
 	case queue <- Request{Type: t, Application: app}:
-		log.Logger.Debug(fmt.Sprintf("%s queued for %s/%s", t, app.Namespace, app.Name))
+		log.Logger.Debug("Run queued", "app", appId)
 		metrics.UpdateRunRequest(t.String(), app, 1)
 	case <-time.After(5 * time.Second):
-		log.Logger.Error("Timed out trying to queue a %s for %s/%s, run queue is full", t, app.Namespace, app.Name)
+		log.Logger.Error("Timed out trying to queue a run, run queue is full", "app", appId)
 		metrics.AddRunRequestQueueFailure(t.String(), app)
 	}
 }
