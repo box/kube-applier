@@ -88,7 +88,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			data.Result = "error"
 			data.Message = "Could not parse form data"
-			log.Logger.Error(data.Message)
+			log.Logger.Error("Could not process force run request", "error", data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -97,7 +97,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ns == "" {
 			data.Result = "error"
 			data.Message = "Empty namespace value"
-			log.Logger.Error(data.Message)
+			log.Logger.Error("Could not process force run request", "error", data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -133,7 +133,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data.Result = "error"
 		data.Message = "Must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
-		log.Logger.Info(data.Message)
+		log.Logger.Error("Could not process force run request", "error", data.Message)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -208,9 +208,9 @@ func (ws *WebServer) Start() error {
 	go func() {
 		if err = ws.server.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				log.Logger.Error(fmt.Sprintf("webserver error: %v", err))
+				log.Logger.Error("Webserver shutdown", "error", err)
 			}
-			log.Logger.Info("webserver shut down")
+			log.Logger.Info("Webserver shut down")
 		}
 	}()
 

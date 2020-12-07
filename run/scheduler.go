@@ -104,7 +104,7 @@ func (s *Scheduler) Stop() {
 func (s *Scheduler) updateApplications() {
 	apps, err := s.KubeClient.ListApplications(context.TODO())
 	if err != nil {
-		log.Logger.Error("Could not list Applications: %v", err)
+		log.Logger.Error("Scheduler could not list Applications", "error", err)
 		return
 	}
 	metrics.ReconcileFromApplicationList(apps)
@@ -164,7 +164,7 @@ func (s *Scheduler) gitPollingLoop() {
 		case <-ticker.C:
 			hash, err := s.gitUtil.HeadHashForPaths(".")
 			if err != nil {
-				log.Logger.Warn(fmt.Sprintf("Could not get HEAD hash: %v", err))
+				log.Logger.Warn("Scheduler git polling could not get HEAD hash", "error", err)
 				break
 			}
 			if hash == s.gitLastQueuedHash {
