@@ -157,7 +157,7 @@ func (r *Runner) applyWorker() {
 		if request.Application.Status.LastRun.Success {
 			log.Logger.Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", appId, request.Application.Status.LastRun.Command, request.Application.Status.LastRun.Output))
 		} else {
-			log.Logger.Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", request.Application.Status.LastRun.ErrorMessage))
+			log.Logger.Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", appId, request.Application.Status.LastRun.ErrorMessage))
 		}
 
 		metrics.UpdateFromLastRun(request.Application)
@@ -282,13 +282,13 @@ func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, op
 // Enqueue attempts to add a run request to the queue, timing out after 5
 // seconds.
 func Enqueue(queue chan<- Request, t Type, app *kubeapplierv1alpha1.Application) {
-	appId := fmt.Sprintf("%s/%s", t, app.Namespace, app.Name)
+	appId := fmt.Sprintf("%s/%s", app.Namespace, app.Name)
 	select {
 	case queue <- Request{Type: t, Application: app}:
-		log.Logger.Debug("Run queued", "app", appId)
+		log.Logger.Debug("Run queued", "app", appId, "type", t)
 		metrics.UpdateRunRequest(t.String(), app, 1)
 	case <-time.After(5 * time.Second):
-		log.Logger.Error("Timed out trying to queue a run, run queue is full", "app", appId)
+		log.Logger.Error("Timed out trying to queue a run, run queue is full", "app", appId, "type", t)
 		metrics.AddRunRequestQueueFailure(t.String(), app)
 	}
 }
