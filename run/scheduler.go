@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -171,8 +172,20 @@ func (s *Scheduler) gitPollingLoop() {
 			}
 			s.applicationsMutex.Lock()
 			for i := range s.applications {
-				if s.applications[i].Status.LastRun != nil &&
-					s.applications[i].Status.LastRun.Commit != hash {
+				// If LastRun is nil, we don't trigger the Polling run at all
+				// and instead rely on the Scheduled run to kickstart things.
+				if s.applications[i].Status.LastRun != nil && s.applications[i].Status.LastRun.Commit != hash {
+					sinceHash := s.applications[i].Status.LastRun.Commit
+					path := s.applications[i].Spec.RepositoryPath
+					appId := fmt.Sprintf("%s/%s", s.applications[i].Namespace, s.applications[i].Name)
+					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
+					if err != nil {
+						log.Logger.Warn("Could not check path for changes, skipping polling run", "app", appId, "path", path, "since", sinceHash, "error", err)
+						continue
+					}
+					if !changed {
+						continue
+					}
 					Enqueue(s.RunQueue, PollingRun, s.applications[i])
 				}
 			}
