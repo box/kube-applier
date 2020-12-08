@@ -115,10 +115,11 @@ func (s *Scheduler) updateApplications() {
 	for i := range apps {
 		app := &apps[i]
 		if v, ok := s.applications[app.Namespace]; ok {
-			if !reflect.DeepEqual(v.Spec, app.Spec) {
+			if !reflect.DeepEqual(v, app) {
 				s.applicationSchedulers[app.Namespace]()
 				s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
 				s.applications[app.Namespace] = app
+				log.Logger.Debug("Application changed, updating schedulers", "app", fmt.Sprintf("%s/%s", apps[i].Namespace, apps[i].Name))
 			}
 		} else {
 			s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
