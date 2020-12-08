@@ -191,6 +191,7 @@ func main() {
 	api, _ := strconv.Atoi(appPollInterval)
 	scheduler := &run.Scheduler{
 		ApplicationPollInterval: time.Duration(api) * time.Second,
+		Clock:                   clock,
 		GitPollInterval:         time.Duration(gpi) * time.Second,
 		KubeClient:              kubeClient,
 		RepoPath:                repoPath,

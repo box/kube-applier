@@ -12,6 +12,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
 // Type defines what kind of apply run is performed.
@@ -54,6 +55,7 @@ const (
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
 	ApplicationPollInterval time.Duration
+	Clock                   sysutil.ClockInterface
 	GitPollInterval         time.Duration
 	KubeClient              *client.Client
 	RepoPath                string
@@ -201,12 +203,25 @@ func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) fun
 	stop := make(chan bool)
 	stopped := make(chan bool)
 	go func() {
+		defer close(stopped)
+
+		// Immediately trigger if there is no previous run recorded, otherwise
+		// wait for the proper amount of time in order to maintain the period.
+		// If it's been too long, it will still trigger immediately since the
+		// wait duration is going to be negative.
+		if app.Status.LastRun == nil {
+			Enqueue(s.RunQueue, ScheduledRun, app)
+		} else {
+			runAt := app.Status.LastRun.Started.Add(time.Duration(app.Spec.RunInterval) * time.Second)
+			select {
+			case <-time.After(runAt.Sub(s.Clock.Now())):
+				Enqueue(s.RunQueue, ScheduledRun, app)
+			case <-stop:
+				return
+			}
+		}
 		ticker := time.NewTicker(time.Duration(app.Spec.RunInterval) * time.Second)
 		defer ticker.Stop()
-		defer close(stopped)
-		if app.Status.LastRun == nil || time.Since(app.Status.LastRun.Started.Time) > time.Duration(app.Spec.RunInterval)*time.Second {
-			Enqueue(s.RunQueue, ScheduledRun, app)
-		}
 		for {
 			select {
 			case <-ticker.C:

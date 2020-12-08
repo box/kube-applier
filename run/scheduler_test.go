@@ -47,6 +47,7 @@ var _ = Describe("Scheduler", func() {
 		testSchedulerRequests = testSchedulerDrainRequests(testRunQueue)
 		testScheduler = Scheduler{
 			ApplicationPollInterval: time.Second * 5,
+			Clock:                   &zeroClock{},
 			GitPollInterval:         time.Second * 5,
 			KubeClient:              testKubeClient,
 			RepoPath:                "../testdata/manifests",
