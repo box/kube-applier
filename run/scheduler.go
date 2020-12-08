@@ -106,7 +106,7 @@ func (s *Scheduler) Stop() {
 func (s *Scheduler) updateApplications() {
 	apps, err := s.KubeClient.ListApplications(context.TODO())
 	if err != nil {
-		log.Logger.Error("Scheduler could not list Applications", "error", err)
+		log.Logger("scheduler").Error("Could not list Applications", "error", err)
 		return
 	}
 	metrics.ReconcileFromApplicationList(apps)
@@ -119,7 +119,7 @@ func (s *Scheduler) updateApplications() {
 				s.applicationSchedulers[app.Namespace]()
 				s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
 				s.applications[app.Namespace] = app
-				log.Logger.Debug("Application changed, updating schedulers", "app", fmt.Sprintf("%s/%s", apps[i].Namespace, apps[i].Name))
+				log.Logger("scheduler").Debug("Application changed, updating schedulers", "app", fmt.Sprintf("%s/%s", apps[i].Namespace, apps[i].Name))
 			}
 		} else {
 			s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
@@ -167,7 +167,7 @@ func (s *Scheduler) gitPollingLoop() {
 		case <-ticker.C:
 			hash, err := s.gitUtil.HeadHashForPaths(".")
 			if err != nil {
-				log.Logger.Warn("Scheduler git polling could not get HEAD hash", "error", err)
+				log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
 				break
 			}
 			if hash == s.gitLastQueuedHash {
@@ -183,7 +183,7 @@ func (s *Scheduler) gitPollingLoop() {
 					appId := fmt.Sprintf("%s/%s", s.applications[i].Namespace, s.applications[i].Name)
 					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
 					if err != nil {
-						log.Logger.Warn("Could not check path for changes, skipping polling run", "app", appId, "path", path, "since", sinceHash, "error", err)
+						log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "app", appId, "path", path, "since", sinceHash, "error", err)
 						continue
 					}
 					if !changed {

@@ -5,13 +5,28 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 )
 
-// Logger - Application wide logger obj
-var Logger hclog.Logger
+const (
+	defaultLogLevel = "warn"
+)
 
-// InitLogger - a logger for application wide use
-func InitLogger(logLevel string) {
-	Logger = hclog.New(&hclog.LoggerOptions{
-		Name:  "kube-applier",
-		Level: hclog.LevelFromString(logLevel),
+var (
+	level   = hclog.LevelFromString(defaultLogLevel)
+	loggers = map[string]hclog.Logger{}
+)
+
+// SetLevel sets the global logging level
+func SetLevel(logLevel string) {
+	level = hclog.LevelFromString(logLevel)
+}
+
+// Logger returns an hclog.Logger with the specified name
+func Logger(name string) hclog.Logger {
+	if l, ok := loggers[name]; ok {
+		return l
+	}
+	loggers[name] = hclog.New(&hclog.LoggerOptions{
+		Name:  name,
+		Level: level,
 	})
+	return loggers[name]
 }

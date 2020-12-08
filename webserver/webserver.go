@@ -50,23 +50,23 @@ type StatusPageHandler struct {
 
 // ServeHTTP populates the status page template with data and serves it when there is a request.
 func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Logger.Info("Applier status request", "time", s.Clock.Now().String())
+	log.Logger("webserver").Info("Applier status request", "time", s.Clock.Now().String())
 	if s.Template == nil {
 		http.Error(w, "Error: Unable to load HTML template", http.StatusInternalServerError)
-		log.Logger.Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
+		log.Logger("webserver").Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
 		return
 	}
 	rendered := &bytes.Buffer{}
 	if err := s.Template.Execute(rendered, s.Result); err != nil {
 		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
-		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
+		log.Logger("webserver").Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	if _, err := rendered.WriteTo(w); err != nil {
-		log.Logger.Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
+		log.Logger("webserver").Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 	}
-	log.Logger.Info("Request completed successfully", "time", s.Clock.Now().String())
+	log.Logger("webserver").Info("Request completed successfully", "time", s.Clock.Now().String())
 }
 
 // ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
@@ -77,7 +77,7 @@ type ForceRunHandler struct {
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
 func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Logger.Info("Force run requested")
+	log.Logger("webserver").Info("Force run requested")
 	var data struct {
 		Result  string `json:"result"`
 		Message string `json:"message"`
@@ -88,7 +88,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			data.Result = "error"
 			data.Message = "Could not parse form data"
-			log.Logger.Error("Could not process force run request", "error", data.Message)
+			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -97,7 +97,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ns == "" {
 			data.Result = "error"
 			data.Message = "Empty namespace value"
-			log.Logger.Error("Could not process force run request", "error", data.Message)
+			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -133,7 +133,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data.Result = "error"
 		data.Message = "Must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
-		log.Logger.Error("Could not process force run request", "error", data.Message)
+		log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -153,7 +153,7 @@ func (ws *WebServer) Start() error {
 	ws.stop = make(chan bool)
 	ws.stopped = make(chan bool)
 
-	log.Logger.Info("Launching webserver")
+	log.Logger("webserver").Info("Launching")
 
 	templatePath := ws.TemplatePath
 	if templatePath == "" {
@@ -202,15 +202,15 @@ func (ws *WebServer) Start() error {
 	ws.server = &http.Server{
 		Addr:     fmt.Sprintf(":%v", ws.ListenPort),
 		Handler:  m,
-		ErrorLog: log.Logger.StandardLogger(nil),
+		ErrorLog: log.Logger("http.Server").StandardLogger(nil),
 	}
 
 	go func() {
 		if err = ws.server.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				log.Logger.Error("Webserver shutdown", "error", err)
+				log.Logger("webserver").Error("Shutdown", "error", err)
 			}
-			log.Logger.Info("Webserver shut down")
+			log.Logger("webserver").Info("Shutdown")
 		}
 	}()
 

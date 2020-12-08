@@ -137,25 +137,25 @@ func validate() {
 func main() {
 	validate()
 
-	log.InitLogger(logLevel)
+	log.SetLevel(logLevel)
 
 	clock := &sysutil.Clock{}
 
 	rt, _ := strconv.Atoi(repoTimeout)
 	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, time.Duration(rt)*time.Second); err != nil {
-		log.Logger.Error("problem waiting for repo", "path", repoPath, "error", err)
+		log.Logger("kube-applier").Error("problem waiting for repo", "path", repoPath, "error", err)
 		os.Exit(1)
 	}
 
 	kubeClient, err := client.New()
 	if err != nil {
-		log.Logger.Error("error creating kubernetes API client", "error", err)
+		log.Logger("kube-applier").Error("error creating kubernetes API client", "error", err)
 		os.Exit(1)
 	}
 
 	execTimeoutDuration, err := time.ParseDuration(execTimeout)
 	if err != nil {
-		log.Logger.Error("error parsing command exec timeout duration", "timeout", execTimeout, "error", err)
+		log.Logger("kube-applier").Error("error parsing command exec timeout duration", "timeout", execTimeout, "error", err)
 		os.Exit(1)
 	}
 	kubectlClient := &kubectl.Client{
@@ -210,15 +210,15 @@ func main() {
 		StatusUpdateInterval: time.Duration(sui) * time.Second,
 	}
 	if err := webserver.Start(); err != nil {
-		log.Logger.Error(fmt.Sprintf("Cannot start webserver: %v", err))
+		log.Logger("kube-applier").Error(fmt.Sprintf("Cannot start webserver: %v", err))
 		os.Exit(1)
 	}
 
 	ctx := signals.SetupSignalHandler()
 	<-ctx.Done()
-	log.Logger.Info("Interrupted, shutting down...")
+	log.Logger("kube-applier").Info("Interrupted, shutting down...")
 	if err := webserver.Shutdown(); err != nil {
-		log.Logger.Error(fmt.Sprintf("Cannot shutdown webserver: %v", err))
+		log.Logger("kube-applier").Error(fmt.Sprintf("Cannot shutdown webserver: %v", err))
 	}
 	scheduler.Stop()
 	runner.Stop()
