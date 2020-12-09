@@ -17,6 +17,9 @@ var (
 // SetLevel sets the global logging level
 func SetLevel(logLevel string) {
 	level = hclog.LevelFromString(logLevel)
+	for _, l := range loggers {
+		l.SetLevel(level)
+	}
 }
 
 // Logger returns an hclog.Logger with the specified name
