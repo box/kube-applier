@@ -2,6 +2,8 @@
 package log
 
 import (
+	"sync"
+
 	hclog "github.com/hashicorp/go-hclog"
 )
 
@@ -12,6 +14,7 @@ const (
 var (
 	level   = hclog.LevelFromString(defaultLogLevel)
 	loggers = map[string]hclog.Logger{}
+	m       = sync.Mutex{}
 )
 
 // SetLevel sets the global logging level
@@ -24,8 +27,10 @@ func SetLevel(logLevel string) {
 
 // Logger returns an hclog.Logger with the specified name
 func Logger(name string) hclog.Logger {
-	if l, ok := loggers[name]; ok {
-		return l
+	m.Lock()
+	defer m.Unlock()
+	if _, ok := loggers[name]; ok {
+		return loggers[name]
 	}
 	loggers[name] = hclog.New(&hclog.LoggerOptions{
 		Name:  name,
