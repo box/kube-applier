@@ -10,7 +10,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	log.InitLogger("info")
+	log.SetLevel("off")
 	os.Exit(m.Run())
 }
 

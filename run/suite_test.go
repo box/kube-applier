@@ -74,7 +74,7 @@ var _ = AfterSuite(func() {
 })
 
 func init() {
-	log.InitLogger("off")
+	log.SetLevel("off")
 }
 
 type zeroClock struct{}

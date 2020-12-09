@@ -82,7 +82,7 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(func(format string, args ...interface{}) {
-		kubeapplierlog.Logger.Debug("eventBroadcaster", "msg", fmt.Sprintf(format, args...))
+		kubeapplierlog.Logger("eventBroadcaster").Debug(fmt.Sprintf(format, args...))
 	})
 	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: clientName})

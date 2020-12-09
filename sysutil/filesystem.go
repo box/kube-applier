@@ -27,7 +27,7 @@ func ListDirs(rootPath string) ([]string, error) {
 
 // WaitForDir returns when the specified directory is located in the filesystem, or if there is an error opening the directory once it is found.
 func WaitForDir(path string, interval, timeout time.Duration) error {
-	log.Logger.Info("Waiting for the source directory", "path", path, "timeout", timeout.String())
+	log.Logger("filesystem").Info("Waiting for the source directory", "path", path, "timeout", timeout.String())
 
 	to := time.After(timeout)
 
@@ -52,14 +52,14 @@ func WaitForDir(path string, interval, timeout time.Duration) error {
 						err,
 					)
 				}
-				log.Logger.Debug("Failed to get dir info", "path", path, "error", err)
+				log.Logger("filesystem").Debug("Failed to get dir info", "path", path, "error", err)
 			} else if !f.IsDir() {
 				return fmt.Errorf(
 					"%v is not a directory",
 					path,
 				)
 			} else {
-				log.Logger.Info("Found the source directory", "path", path)
+				log.Logger("filesystem").Info("Found the source directory", "path", path)
 				return nil
 			}
 		}
