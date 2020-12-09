@@ -127,6 +127,9 @@ func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Ap
 		ret[i] = app
 		i++
 	}
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Namespace < ret[j].Namespace
+	})
 	return ret, nil
 }
 

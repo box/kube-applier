@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
+	"github.com/utilitywarehouse/kube-applier/sysutil"
 )
 
 // Type defines what kind of apply run is performed.
@@ -53,6 +55,7 @@ const (
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
 	ApplicationPollInterval time.Duration
+	Clock                   sysutil.ClockInterface
 	GitPollInterval         time.Duration
 	KubeClient              *client.Client
 	RepoPath                string
@@ -112,10 +115,11 @@ func (s *Scheduler) updateApplications() {
 	for i := range apps {
 		app := &apps[i]
 		if v, ok := s.applications[app.Namespace]; ok {
-			if !reflect.DeepEqual(v.Spec, app.Spec) {
+			if !reflect.DeepEqual(v, app) {
 				s.applicationSchedulers[app.Namespace]()
 				s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
 				s.applications[app.Namespace] = app
+				log.Logger.Debug("Application changed, updating schedulers", "app", fmt.Sprintf("%s/%s", apps[i].Namespace, apps[i].Name))
 			}
 		} else {
 			s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
@@ -171,8 +175,20 @@ func (s *Scheduler) gitPollingLoop() {
 			}
 			s.applicationsMutex.Lock()
 			for i := range s.applications {
-				if s.applications[i].Status.LastRun != nil &&
-					s.applications[i].Status.LastRun.Commit != hash {
+				// If LastRun is nil, we don't trigger the Polling run at all
+				// and instead rely on the Scheduled run to kickstart things.
+				if s.applications[i].Status.LastRun != nil && s.applications[i].Status.LastRun.Commit != hash {
+					sinceHash := s.applications[i].Status.LastRun.Commit
+					path := s.applications[i].Spec.RepositoryPath
+					appId := fmt.Sprintf("%s/%s", s.applications[i].Namespace, s.applications[i].Name)
+					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
+					if err != nil {
+						log.Logger.Warn("Could not check path for changes, skipping polling run", "app", appId, "path", path, "since", sinceHash, "error", err)
+						continue
+					}
+					if !changed {
+						continue
+					}
 					Enqueue(s.RunQueue, PollingRun, s.applications[i])
 				}
 			}
@@ -188,12 +204,25 @@ func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) fun
 	stop := make(chan bool)
 	stopped := make(chan bool)
 	go func() {
+		defer close(stopped)
+
+		// Immediately trigger if there is no previous run recorded, otherwise
+		// wait for the proper amount of time in order to maintain the period.
+		// If it's been too long, it will still trigger immediately since the
+		// wait duration is going to be negative.
+		if app.Status.LastRun == nil {
+			Enqueue(s.RunQueue, ScheduledRun, app)
+		} else {
+			runAt := app.Status.LastRun.Started.Add(time.Duration(app.Spec.RunInterval) * time.Second)
+			select {
+			case <-time.After(runAt.Sub(s.Clock.Now())):
+				Enqueue(s.RunQueue, ScheduledRun, app)
+			case <-stop:
+				return
+			}
+		}
 		ticker := time.NewTicker(time.Duration(app.Spec.RunInterval) * time.Second)
 		defer ticker.Stop()
-		defer close(stopped)
-		if app.Status.LastRun == nil || time.Since(app.Status.LastRun.Started.Time) > time.Duration(app.Spec.RunInterval)*time.Second {
-			Enqueue(s.RunQueue, ScheduledRun, app)
-		}
 		for {
 			select {
 			case <-ticker.C:

@@ -3,6 +3,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,7 +48,11 @@ func (g *Util) CommitLog(commit string) (string, error) {
 func (g *Util) HasChangesForPath(path, sinceHash string) (bool, error) {
 	cmd := []string{"diff", "--quiet", sinceHash, "HEAD", "--", path}
 	_, err := runGitCmd(nil, g.RepoPath, cmd...)
-	if _, ok := err.(*exec.ExitError); ok {
+	if err == nil {
+		return false, nil
+	}
+	var e *exec.ExitError
+	if errors.As(err, &e) && e.ExitCode() == 1 {
 		return true, nil
 	}
 	return false, err
@@ -89,7 +94,7 @@ func runGitCmd(environment []string, dir string, args ...string) (string, error)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("Error running command %v: %v: %s", strings.Join(cmd.Args, " "), err, output)
+		return "", fmt.Errorf("Error running command '%v': %w. Output: %s", strings.Join(cmd.Args, " "), err, output)
 	}
 	return string(output), nil
 }

@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
@@ -46,6 +47,7 @@ var _ = Describe("Scheduler", func() {
 		testSchedulerRequests = testSchedulerDrainRequests(testRunQueue)
 		testScheduler = Scheduler{
 			ApplicationPollInterval: time.Second * 5,
+			Clock:                   &zeroClock{},
 			GitPollInterval:         time.Second * 5,
 			KubeClient:              testKubeClient,
 			RepoPath:                "../testdata/manifests",
@@ -132,8 +134,8 @@ var _ = Describe("Scheduler", func() {
 			}
 
 			testScheduler.Stop()
-
 			close(testRunQueue)
+
 			requestCount := map[string]map[Type]int{}
 			for _, req := range testSchedulerRequests() {
 				if _, ok := requestCount[req.Application.Namespace]; !ok {
@@ -149,6 +151,101 @@ var _ = Describe("Scheduler", func() {
 				"bar": MatchAllKeys(Keys{
 					// RunInterval is 3600s and then the Application is removed.
 					ScheduledRun: Equal(1),
+				}),
+			}))
+		})
+
+		It("Should trigger runs for Applications that have had their source change in git", func() {
+			gitUtil := &git.Util{RepoPath: "../testdata/manifests"}
+			headHash, err := gitUtil.HeadHashForPaths(".")
+			Expect(err).To(BeNil())
+			Expect(headHash).ToNot(BeEmpty())
+			appAHeadHash, err := gitUtil.HeadHashForPaths("app-a")
+			Expect(err).To(BeNil())
+			Expect(appAHeadHash).ToNot(BeEmpty())
+			appAKHeadHash, err := gitUtil.HeadHashForPaths("app-a-kustomize")
+			Expect(err).To(BeNil())
+			Expect(appAKHeadHash).ToNot(BeEmpty())
+
+			appList := []*kubeapplierv1alpha1.Application{
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "ignored"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "ignored",
+					},
+					Status: kubeapplierv1alpha1.ApplicationStatus{
+						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+						},
+					},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "up-to-date"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "up-to-date",
+					},
+					Status: kubeapplierv1alpha1.ApplicationStatus{
+						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+							Commit:   headHash,
+						},
+					},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "app-a",
+					},
+					Status: kubeapplierv1alpha1.ApplicationStatus{
+						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+							Commit:   appAHeadHash, // this is the app-a dir head hash, no changes since
+						},
+					},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a-kustomize"},
+					Spec: kubeapplierv1alpha1.ApplicationSpec{
+						RepositoryPath: "app-a-kustomize",
+					},
+					Status: kubeapplierv1alpha1.ApplicationStatus{
+						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+							Commit:   fmt.Sprintf("%s^1", appAKHeadHash), // this is a hack that should always return changes
+						},
+					},
+				},
+			}
+			testEnsureApplications(appList)
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
+
+			t := time.Second * 10
+			if t > 0 {
+				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
+				time.Sleep(t)
+			}
+
+			testScheduler.Stop()
+			close(testRunQueue)
+
+			requestCount := map[string]map[Type]int{}
+			for _, req := range testSchedulerRequests() {
+				if _, ok := requestCount[req.Application.Namespace]; !ok {
+					requestCount[req.Application.Namespace] = map[Type]int{}
+				}
+				requestCount[req.Application.Namespace][req.Type]++
+			}
+			Expect(requestCount).To(MatchAllKeys(Keys{
+				"app-a-kustomize": MatchAllKeys(Keys{
+					PollingRun: Equal(1),
 				}),
 			}))
 		})
@@ -181,18 +278,7 @@ Some error output has been omitted because it may contain sensitive data
 				},
 			}
 			testEnsureApplications(appList)
-			// Since the apiserver will be running for the duration of the tests
-			// we only care that the test Scheduler has acknowledged the new
-			// Applications and that's why HaveKeyWithValue is used here.
-			matchers := make([]gomegatypes.GomegaMatcher, len(appList))
-			for i, app := range appList {
-				matchers[i] = HaveKeyWithValue(app.Namespace, app)
-			}
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(And(matchers...))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			testScheduler.Stop()
 			close(testRunQueue)
@@ -226,18 +312,7 @@ Some error output has been omitted because it may contain sensitive data
 				},
 			}
 			testEnsureApplications(appList)
-			// Since the apiserver will be running for the duration of the tests
-			// we only care that the test Scheduler has acknowledged the new
-			// Applications and that's why HaveKeyWithValue is used here.
-			matchers := make([]gomegatypes.GomegaMatcher, len(appList))
-			for i, app := range appList {
-				matchers[i] = HaveKeyWithValue(app.Namespace, app)
-			}
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(And(matchers...))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			testScheduler.Stop()
 			close(testRunQueue)
@@ -274,6 +349,21 @@ func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
 		// Get and Create (which updates the struct) do not.
 		appList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"}
 	}
+}
+
+func testWaitForSchedulerToUpdate(s *Scheduler, appList []*kubeapplierv1alpha1.Application) {
+	// Since the apiserver will be running for the duration of the tests
+	// we only care that the test Scheduler has acknowledged the new
+	// Applications and that's why HaveKeyWithValue is used here.
+	matchers := make([]gomegatypes.GomegaMatcher, len(appList))
+	for i, app := range appList {
+		matchers[i] = HaveKeyWithValue(app.Namespace, app)
+	}
+	Eventually(
+		testSchedulerCopyApplicationsMap(s),
+		time.Second*15,
+		time.Second,
+	).Should(And(matchers...))
 }
 
 func testSchedulerExpectedApplicationsMap(appList []*kubeapplierv1alpha1.Application) map[string]*kubeapplierv1alpha1.Application {
