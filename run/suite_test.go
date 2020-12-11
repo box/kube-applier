@@ -14,9 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -130,47 +127,36 @@ func testMetrics(regex []string) {
 }
 
 func testCleanupNamespaces() {
-	testRemoveAllNamespaces()
+	// With the envtest package we cannot delete namespaces, however, deleting
+	// the CRs should be enough to avoid test pollution.
+	// See https://github.com/kubernetes-sigs/controller-runtime/issues/880
+	testRemoveAllApplications()
 }
 
-func testRemoveAllNamespaces() {
-	// Although we could in theory use DeleteAllOf() here, it returns with an
-	// error that has proven hard to debug. Instead, we can manually List and
-	// Delete Applications one by one. There should not be too many of them to
-	// significantly affect test duration.
-	namespaces := corev1.NamespaceList{}
+func testRemoveAllApplications() {
+	// Although we could in theory use DeleteAllOf() here, it returns with a
+	// NotFound error that has proven hard to debug. Instead, we can manually
+	// List and Delete Applications one by one. There should not be too many of
+	// them to significantly affect test duration.
+	apps := kubeapplierv1alpha1.ApplicationList{}
 	Expect(testKubeClient.List(
 		context.TODO(),
-		&namespaces,
-		&controllerruntimeclient.MatchingFieldsSelector{Selector: fields.AndSelectors(
-			fields.OneTermNotEqualSelector("metadata.name", "default"),
-			fields.OneTermNotEqualSelector("metadata.name", "kube-node-lease"),
-			fields.OneTermNotEqualSelector("metadata.name", "kube-public"),
-			fields.OneTermNotEqualSelector("metadata.name", "kube-system"),
-		)},
+		&apps,
 	)).To(BeNil())
-	for _, ns := range namespaces.Items {
+	for _, app := range apps.Items {
 		Expect(testKubeClient.Delete(
 			context.TODO(),
-			&ns,
+			&app,
 			controllerruntimeclient.GracePeriodSeconds(0),
-			controllerruntimeclient.PropagationPolicy(metav1.DeletePropagationForeground),
 		)).To(BeNil())
 	}
 	Eventually(
-		func() []string {
-			ns := corev1.NamespaceList{}
-			Expect(testKubeClient.List(
-				context.TODO(),
-				&ns,
-			)).To(BeNil())
-			ret := make([]string, len(ns.Items))
-			for i := range ns.Items {
-				ret[i] = ns.Items[i].Name
-			}
-			return ret
+		func() int {
+			apps := kubeapplierv1alpha1.ApplicationList{}
+			Expect(testKubeClient.List(context.TODO(), &apps)).To(BeNil())
+			return len(apps.Items)
 		},
 		time.Second*60,
 		time.Second,
-	).Should(Equal([]string{"default", "kube-node-lease", "kube-public", "kube-system"}))
+	).Should(Equal(0))
 }
