@@ -131,6 +131,10 @@ var _ = Describe("Runner", func() {
 		metrics.Reset()
 	})
 
+	AfterEach(func() {
+		testRunner.Stop()
+	})
+
 	Context("When operating on an empty Application list", func() {
 		It("Should be a no-op", func() {
 			appList := []kubeapplierv1alpha1.Application{}
