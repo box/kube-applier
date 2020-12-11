@@ -219,7 +219,7 @@ var _ = Describe("Scheduler", func() {
 			testEnsureApplications(appList)
 			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
-			t := time.Second * 10
+			t := time.Second * 15
 			if t > 0 {
 				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
 				time.Sleep(t)
