@@ -189,7 +189,7 @@ var _ = Describe("Scheduler", func() {
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
-					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a"},
 					Spec: kubeapplierv1alpha1.ApplicationSpec{
 						RepositoryPath: "app-a",
 					},
@@ -203,7 +203,7 @@ var _ = Describe("Scheduler", func() {
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
-					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a-kustomize"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize"},
 					Spec: kubeapplierv1alpha1.ApplicationSpec{
 						RepositoryPath: "app-a-kustomize",
 					},
@@ -236,7 +236,7 @@ var _ = Describe("Scheduler", func() {
 				requestCount[req.Application.Namespace][req.Type]++
 			}
 			Expect(requestCount).To(MatchAllKeys(Keys{
-				"app-a-kustomize": MatchAllKeys(Keys{
+				"scheduler-polling-app-a-kustomize": MatchAllKeys(Keys{
 					PollingRun: Equal(1),
 				}),
 			}))
