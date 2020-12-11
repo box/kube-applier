@@ -91,6 +91,10 @@ func (s *Scheduler) Start() {
 
 // Stop gracefully shuts down the Scheduler.
 func (s *Scheduler) Stop() {
+	if s.waitGroup == nil {
+		log.Logger("scheduler").Debug("already stopped or being stopped")
+		return
+	}
 	close(s.stop)
 	s.waitGroup.Wait()
 	s.waitGroup = nil

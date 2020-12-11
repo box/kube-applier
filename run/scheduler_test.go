@@ -58,6 +58,7 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	AfterEach(func() {
+		testScheduler.Stop()
 		testCleanupNamespaces()
 	})
 
