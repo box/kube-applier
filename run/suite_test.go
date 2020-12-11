@@ -14,8 +14,12 @@ import (
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -123,4 +127,50 @@ func testMetrics(regex []string) {
 		matchers[i] = MatchRegexp(r)
 	}
 	Expect(output).To(And(matchers...))
+}
+
+func testCleanupNamespaces() {
+	testRemoveAllNamespaces()
+}
+
+func testRemoveAllNamespaces() {
+	// Although we could in theory use DeleteAllOf() here, it returns with an
+	// error that has proven hard to debug. Instead, we can manually List and
+	// Delete Applications one by one. There should not be too many of them to
+	// significantly affect test duration.
+	namespaces := corev1.NamespaceList{}
+	Expect(testKubeClient.List(
+		context.TODO(),
+		&namespaces,
+		&controllerruntimeclient.MatchingFieldsSelector{Selector: fields.AndSelectors(
+			fields.OneTermNotEqualSelector("metadata.name", "default"),
+			fields.OneTermNotEqualSelector("metadata.name", "kube-node-lease"),
+			fields.OneTermNotEqualSelector("metadata.name", "kube-public"),
+			fields.OneTermNotEqualSelector("metadata.name", "kube-system"),
+		)},
+	)).To(BeNil())
+	for _, ns := range namespaces.Items {
+		Expect(testKubeClient.Delete(
+			context.TODO(),
+			&ns,
+			controllerruntimeclient.GracePeriodSeconds(0),
+			controllerruntimeclient.PropagationPolicy(metav1.DeletePropagationForeground),
+		)).To(BeNil())
+	}
+	Eventually(
+		func() []string {
+			ns := corev1.NamespaceList{}
+			Expect(testKubeClient.List(
+				context.TODO(),
+				&ns,
+			)).To(BeNil())
+			ret := make([]string, len(ns.Items))
+			for i := range ns.Items {
+				ret[i] = ns.Items[i].Name
+			}
+			return ret
+		},
+		time.Second*60,
+		time.Second,
+	).Should(Equal([]string{"default", "kube-node-lease", "kube-public", "kube-system"}))
 }

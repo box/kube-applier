@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +57,10 @@ var _ = Describe("Scheduler", func() {
 		metrics.Reset()
 	})
 
+	AfterEach(func() {
+		testCleanupNamespaces()
+	})
+
 	Context("When running", func() {
 		It("Should keep track of Application resources on the server", func() {
 			By("Listing all the Applications in the cluster initially")
@@ -75,11 +78,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			lastSyncedAt := time.Now()
 
@@ -95,11 +94,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			})
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			t := time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -121,11 +116,7 @@ var _ = Describe("Scheduler", func() {
 			testKubeClient.Delete(context.TODO(), appList[1])
 			appList = appList[:1]
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			t = time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -330,8 +321,8 @@ Some error output has been omitted because it may contain sensitive data
 func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
 	for i := range appList {
 		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
-		if err != nil {
-			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+		if err != nil && !errors.IsAlreadyExists(err) {
+			Expect(err).To(BeNil())
 		}
 		err = testKubeClient.Create(context.TODO(), appList[i])
 		if err != nil {
@@ -352,18 +343,11 @@ func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
 }
 
 func testWaitForSchedulerToUpdate(s *Scheduler, appList []*kubeapplierv1alpha1.Application) {
-	// Since the apiserver will be running for the duration of the tests
-	// we only care that the test Scheduler has acknowledged the new
-	// Applications and that's why HaveKeyWithValue is used here.
-	matchers := make([]gomegatypes.GomegaMatcher, len(appList))
-	for i, app := range appList {
-		matchers[i] = HaveKeyWithValue(app.Namespace, app)
-	}
 	Eventually(
 		testSchedulerCopyApplicationsMap(s),
 		time.Second*15,
 		time.Second,
-	).Should(And(matchers...))
+	).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
 }
 
 func testSchedulerExpectedApplicationsMap(appList []*kubeapplierv1alpha1.Application) map[string]*kubeapplierv1alpha1.Application {
