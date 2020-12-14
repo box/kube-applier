@@ -4,7 +4,6 @@ go 1.15
 
 require (
 	github.com/fatih/color v1.10.0 // indirect
-	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/go-test/deep v1.0.5
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.3 // indirect
@@ -30,7 +29,7 @@ require (
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/klog/v2 v2.4.0 // indirect
 	k8s.io/utils v0.0.0-20201104234853-8146046b121e // indirect
-	sigs.k8s.io/controller-runtime v0.7.0-alpha.6
+	sigs.k8s.io/controller-runtime v0.7.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
