@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -18,33 +19,44 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
-func testSchedulerDrainRequests(requests <-chan Request) func() []Request {
-	ret := []Request{}
+func testSchedulerDrainRequests(requests <-chan Request) (func() []Request, func()) {
+	m := sync.Mutex{}
+	reqs := []Request{}
 	finished := make(chan bool)
 
 	go func() {
 		for r := range requests {
-			ret = append(ret, r)
+			m.Lock()
+			reqs = append(reqs, r)
+			m.Unlock()
 		}
 		close(finished)
 	}()
 
 	return func() []Request {
-		<-finished
-		return ret
-	}
+			m.Lock()
+			defer m.Unlock()
+			ret := make([]Request, len(reqs))
+			for i := range reqs {
+				ret[i] = reqs[i]
+			}
+			return ret
+		}, func() {
+			<-finished
+		}
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		testRunQueue          chan Request
-		testScheduler         Scheduler
-		testSchedulerRequests func() []Request
+		testRunQueue              chan Request
+		testScheduler             Scheduler
+		testSchedulerRequests     func() []Request
+		testSchedulerRequestsWait func()
 	)
 
 	BeforeEach(func() {
 		testRunQueue = make(chan Request)
-		testSchedulerRequests = testSchedulerDrainRequests(testRunQueue)
+		testSchedulerRequests, testSchedulerRequestsWait = testSchedulerDrainRequests(testRunQueue)
 		testScheduler = Scheduler{
 			ApplicationPollInterval: time.Second * 5,
 			Clock:                   &zeroClock{},
@@ -56,6 +68,11 @@ var _ = Describe("Scheduler", func() {
 		testScheduler.Start()
 
 		metrics.Reset()
+	})
+
+	AfterEach(func() {
+		testScheduler.Stop()
+		testCleanupNamespaces()
 	})
 
 	Context("When running", func() {
@@ -75,11 +92,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			lastSyncedAt := time.Now()
 
@@ -95,11 +108,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			})
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			t := time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -121,11 +130,7 @@ var _ = Describe("Scheduler", func() {
 			testKubeClient.Delete(context.TODO(), appList[1])
 			appList = appList[:1]
 			testEnsureApplications(appList)
-			Eventually(
-				testSchedulerCopyApplicationsMap(&testScheduler),
-				time.Second*15,
-				time.Second,
-			).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
 			t = time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -133,17 +138,7 @@ var _ = Describe("Scheduler", func() {
 				time.Sleep(t)
 			}
 
-			testScheduler.Stop()
-			close(testRunQueue)
-
-			requestCount := map[string]map[Type]int{}
-			for _, req := range testSchedulerRequests() {
-				if _, ok := requestCount[req.Application.Namespace]; !ok {
-					requestCount[req.Application.Namespace] = map[Type]int{}
-				}
-				requestCount[req.Application.Namespace][req.Type]++
-			}
-			Expect(requestCount).To(MatchAllKeys(Keys{
+			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
 				"foo": MatchAllKeys(Keys{
 					// RunInterval is 5s and ~15s have elapsed until it is updated to 3600s.
 					ScheduledRun: BeNumerically(">=", 4),
@@ -153,6 +148,10 @@ var _ = Describe("Scheduler", func() {
 					ScheduledRun: Equal(1),
 				}),
 			}))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+			testSchedulerRequestsWait()
 		})
 
 		It("Should trigger runs for Applications that have had their source change in git", func() {
@@ -197,7 +196,7 @@ var _ = Describe("Scheduler", func() {
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
-					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a"},
 					Spec: kubeapplierv1alpha1.ApplicationSpec{
 						RepositoryPath: "app-a",
 					},
@@ -211,7 +210,7 @@ var _ = Describe("Scheduler", func() {
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
-					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "app-a-kustomize"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize"},
 					Spec: kubeapplierv1alpha1.ApplicationSpec{
 						RepositoryPath: "app-a-kustomize",
 					},
@@ -227,27 +226,21 @@ var _ = Describe("Scheduler", func() {
 			testEnsureApplications(appList)
 			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
-			t := time.Second * 10
-			if t > 0 {
-				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
-				time.Sleep(t)
-			}
+			// This is a hack to force the scheduler to re-check all
+			// Applications for this test. Otherwise, the test is sensitive to
+			// timing and can fail if the git polling check runs before the
+			// Scheduler has synced all Applications from the apiserver.
+			testScheduler.gitLastQueuedHash = ""
 
-			testScheduler.Stop()
-			close(testRunQueue)
-
-			requestCount := map[string]map[Type]int{}
-			for _, req := range testSchedulerRequests() {
-				if _, ok := requestCount[req.Application.Namespace]; !ok {
-					requestCount[req.Application.Namespace] = map[Type]int{}
-				}
-				requestCount[req.Application.Namespace][req.Type]++
-			}
-			Expect(requestCount).To(MatchAllKeys(Keys{
-				"app-a-kustomize": MatchAllKeys(Keys{
+			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
+				"scheduler-polling-app-a-kustomize": MatchAllKeys(Keys{
 					PollingRun: Equal(1),
 				}),
 			}))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+			testSchedulerRequestsWait()
 		})
 
 		It("Should export metrics about resources applied", func() {
@@ -330,8 +323,8 @@ Some error output has been omitted because it may contain sensitive data
 func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
 	for i := range appList {
 		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
-		if err != nil {
-			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+		if err != nil && !errors.IsAlreadyExists(err) {
+			Expect(err).To(BeNil())
 		}
 		err = testKubeClient.Create(context.TODO(), appList[i])
 		if err != nil {
@@ -352,18 +345,28 @@ func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
 }
 
 func testWaitForSchedulerToUpdate(s *Scheduler, appList []*kubeapplierv1alpha1.Application) {
-	// Since the apiserver will be running for the duration of the tests
-	// we only care that the test Scheduler has acknowledged the new
-	// Applications and that's why HaveKeyWithValue is used here.
-	matchers := make([]gomegatypes.GomegaMatcher, len(appList))
-	for i, app := range appList {
-		matchers[i] = HaveKeyWithValue(app.Namespace, app)
-	}
 	Eventually(
 		testSchedulerCopyApplicationsMap(s),
 		time.Second*15,
 		time.Second,
-	).Should(And(matchers...))
+	).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+}
+
+func testWaitForRequests(actual func() []Request, expected gomegatypes.GomegaMatcher) {
+	Eventually(
+		func() map[string]map[Type]int {
+			requestCount := map[string]map[Type]int{}
+			for _, req := range actual() {
+				if _, ok := requestCount[req.Application.Namespace]; !ok {
+					requestCount[req.Application.Namespace] = map[Type]int{}
+				}
+				requestCount[req.Application.Namespace][req.Type]++
+			}
+			return requestCount
+		},
+		time.Second*30,
+		time.Second,
+	).Should(expected)
 }
 
 func testSchedulerExpectedApplicationsMap(appList []*kubeapplierv1alpha1.Application) map[string]*kubeapplierv1alpha1.Application {

@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -123,4 +124,39 @@ func testMetrics(regex []string) {
 		matchers[i] = MatchRegexp(r)
 	}
 	Expect(output).To(And(matchers...))
+}
+
+func testCleanupNamespaces() {
+	// With the envtest package we cannot delete namespaces, however, deleting
+	// the CRs should be enough to avoid test pollution.
+	// See https://github.com/kubernetes-sigs/controller-runtime/issues/880
+	testRemoveAllApplications()
+}
+
+func testRemoveAllApplications() {
+	// Although we could in theory use DeleteAllOf() here, it returns with a
+	// NotFound error that has proven hard to debug. Instead, we can manually
+	// List and Delete Applications one by one. There should not be too many of
+	// them to significantly affect test duration.
+	apps := kubeapplierv1alpha1.ApplicationList{}
+	Expect(testKubeClient.List(
+		context.TODO(),
+		&apps,
+	)).To(BeNil())
+	for _, app := range apps.Items {
+		Expect(testKubeClient.Delete(
+			context.TODO(),
+			&app,
+			controllerruntimeclient.GracePeriodSeconds(0),
+		)).To(BeNil())
+	}
+	Eventually(
+		func() int {
+			apps := kubeapplierv1alpha1.ApplicationList{}
+			Expect(testKubeClient.List(context.TODO(), &apps)).To(BeNil())
+			return len(apps.Items)
+		},
+		time.Second*60,
+		time.Second,
+	).Should(Equal(0))
 }

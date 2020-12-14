@@ -88,22 +88,21 @@ type Runner struct {
 	PruneBlacklist []string
 	RepoPath       string
 	WorkerCount    int
-	workerGroup    sync.WaitGroup
+	workerGroup    *sync.WaitGroup
 	workerQueue    chan Request
 }
 
 // Start runs a continuous loop that starts a new run when a request comes into the queue channel.
 func (r *Runner) Start() chan<- Request {
-	if r.workerQueue != nil {
+	if r.workerGroup != nil {
 		log.Logger("runner").Info("Runner is already started, will not do anything")
 		return nil
 	}
-
 	if r.WorkerCount == 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
 	}
 	r.workerQueue = make(chan Request, defaultWorkerQueueSize)
-	r.workerGroup = sync.WaitGroup{}
+	r.workerGroup = &sync.WaitGroup{}
 	r.workerGroup.Add(r.WorkerCount)
 	for i := 0; i < r.WorkerCount; i++ {
 		go r.applyWorker()
@@ -187,11 +186,12 @@ func (r *Runner) setRequestFailure(req Request, err error) {
 
 // Stop gracefully shuts down the Runner.
 func (r *Runner) Stop() {
-	if r.workerQueue == nil {
+	if r.workerGroup == nil {
 		return
 	}
 	close(r.workerQueue)
 	r.workerGroup.Wait()
+	r.workerGroup = nil
 }
 
 func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util, func(), error) {

@@ -91,6 +91,10 @@ func (s *Scheduler) Start() {
 
 // Stop gracefully shuts down the Scheduler.
 func (s *Scheduler) Stop() {
+	if s.waitGroup == nil {
+		log.Logger("scheduler").Debug("already stopped or being stopped")
+		return
+	}
 	close(s.stop)
 	s.waitGroup.Wait()
 	s.waitGroup = nil
@@ -170,6 +174,14 @@ func (s *Scheduler) gitPollingLoop() {
 				log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
 				break
 			}
+			// This check prevents the Scheduler from queueing multiple runs for
+			// an Application; without this check, when a new commit appears it
+			// will be eligible for new a run until it finishes the run and its
+			// status is updated.
+			// Applications that are not in the Scheduler's cache when a new
+			// commit appears will not be retroactively checked against the
+			// latest commit when they are acknowledged. This is acceptable,
+			// since they will (eventually) trigger a scheduled run.
 			if hash == s.gitLastQueuedHash {
 				break
 			}
