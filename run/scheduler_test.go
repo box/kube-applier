@@ -226,6 +226,12 @@ var _ = Describe("Scheduler", func() {
 			testEnsureApplications(appList)
 			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
+			// This is a hack to force the scheduler to re-check all
+			// Applications for this test. Otherwise, the test is sensitive to
+			// timing and can fail if the git polling check runs before the
+			// Scheduler has synced all Applications from the apiserver.
+			testScheduler.gitLastQueuedHash = ""
+
 			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
 				"scheduler-polling-app-a-kustomize": MatchAllKeys(Keys{
 					PollingRun: Equal(1),
