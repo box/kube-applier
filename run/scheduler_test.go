@@ -3,11 +3,13 @@ package run
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,33 +19,44 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
-func testSchedulerDrainRequests(requests <-chan Request) func() []Request {
-	ret := []Request{}
+func testSchedulerDrainRequests(requests <-chan Request) (func() []Request, func()) {
+	m := sync.Mutex{}
+	reqs := []Request{}
 	finished := make(chan bool)
 
 	go func() {
 		for r := range requests {
-			ret = append(ret, r)
+			m.Lock()
+			reqs = append(reqs, r)
+			m.Unlock()
 		}
 		close(finished)
 	}()
 
 	return func() []Request {
-		<-finished
-		return ret
-	}
+			m.Lock()
+			defer m.Unlock()
+			ret := make([]Request, len(reqs))
+			for i := range reqs {
+				ret[i] = reqs[i]
+			}
+			return ret
+		}, func() {
+			<-finished
+		}
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		testRunQueue          chan Request
-		testScheduler         Scheduler
-		testSchedulerRequests func() []Request
+		testRunQueue              chan Request
+		testScheduler             Scheduler
+		testSchedulerRequests     func() []Request
+		testSchedulerRequestsWait func()
 	)
 
 	BeforeEach(func() {
 		testRunQueue = make(chan Request)
-		testSchedulerRequests = testSchedulerDrainRequests(testRunQueue)
+		testSchedulerRequests, testSchedulerRequestsWait = testSchedulerDrainRequests(testRunQueue)
 		testScheduler = Scheduler{
 			ApplicationPollInterval: time.Second * 5,
 			Clock:                   &zeroClock{},
@@ -125,17 +138,7 @@ var _ = Describe("Scheduler", func() {
 				time.Sleep(t)
 			}
 
-			testScheduler.Stop()
-			close(testRunQueue)
-
-			requestCount := map[string]map[Type]int{}
-			for _, req := range testSchedulerRequests() {
-				if _, ok := requestCount[req.Application.Namespace]; !ok {
-					requestCount[req.Application.Namespace] = map[Type]int{}
-				}
-				requestCount[req.Application.Namespace][req.Type]++
-			}
-			Expect(requestCount).To(MatchAllKeys(Keys{
+			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
 				"foo": MatchAllKeys(Keys{
 					// RunInterval is 5s and ~15s have elapsed until it is updated to 3600s.
 					ScheduledRun: BeNumerically(">=", 4),
@@ -145,6 +148,10 @@ var _ = Describe("Scheduler", func() {
 					ScheduledRun: Equal(1),
 				}),
 			}))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+			testSchedulerRequestsWait()
 		})
 
 		It("Should trigger runs for Applications that have had their source change in git", func() {
@@ -219,27 +226,15 @@ var _ = Describe("Scheduler", func() {
 			testEnsureApplications(appList)
 			testWaitForSchedulerToUpdate(&testScheduler, appList)
 
-			t := time.Second * 15
-			if t > 0 {
-				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
-				time.Sleep(t)
-			}
-
-			testScheduler.Stop()
-			close(testRunQueue)
-
-			requestCount := map[string]map[Type]int{}
-			for _, req := range testSchedulerRequests() {
-				if _, ok := requestCount[req.Application.Namespace]; !ok {
-					requestCount[req.Application.Namespace] = map[Type]int{}
-				}
-				requestCount[req.Application.Namespace][req.Type]++
-			}
-			Expect(requestCount).To(MatchAllKeys(Keys{
+			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
 				"scheduler-polling-app-a-kustomize": MatchAllKeys(Keys{
 					PollingRun: Equal(1),
 				}),
 			}))
+
+			testScheduler.Stop()
+			close(testRunQueue)
+			testSchedulerRequestsWait()
 		})
 
 		It("Should export metrics about resources applied", func() {
@@ -349,6 +344,23 @@ func testWaitForSchedulerToUpdate(s *Scheduler, appList []*kubeapplierv1alpha1.A
 		time.Second*15,
 		time.Second,
 	).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+}
+
+func testWaitForRequests(actual func() []Request, expected gomegatypes.GomegaMatcher) {
+	Eventually(
+		func() map[string]map[Type]int {
+			requestCount := map[string]map[Type]int{}
+			for _, req := range actual() {
+				if _, ok := requestCount[req.Application.Namespace]; !ok {
+					requestCount[req.Application.Namespace] = map[Type]int{}
+				}
+				requestCount[req.Application.Namespace][req.Type]++
+			}
+			return requestCount
+		},
+		time.Second*30,
+		time.Second,
+	).Should(expected)
 }
 
 func testSchedulerExpectedApplicationsMap(appList []*kubeapplierv1alpha1.Application) map[string]*kubeapplierv1alpha1.Application {
