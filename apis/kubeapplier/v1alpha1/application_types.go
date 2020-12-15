@@ -4,20 +4,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ApplicationSpec defines the desired state of Application
-type ApplicationSpec struct {
-	// DryRun enables the dry-run flag when applying this application.
+// WaybillSpec defines the desired state of Waybill
+type WaybillSpec struct {
+	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional
 	// +kubebuilder:default=false
 	DryRun bool `json:"dryRun,omitempty"`
 
-	// Prune determines whether pruning is enabled for this application.
+	// Prune determines whether pruning is enabled for this Waybill.
 	// +optional
 	// +kubebuilder:default=true
 	Prune bool `json:"prune,omitempty"`
 
 	// PruneClusterResources determines whether pruning is enabled for cluster
-	// resources, as part of this Application.
+	// resources, as part of this Waybill.
 	// +optional
 	// +kubebuilder:default=false
 	PruneClusterResources bool `json:"pruneClusterResources,omitempty"`
@@ -28,38 +28,38 @@ type ApplicationSpec struct {
 	PruneBlacklist []string `json:"pruneBlacklist,omitempty"`
 
 	// RepositoryPath defines the relative path inside the Repository where the
-	// configuration for this Application is stored.
+	// configuration for this Waybill is stored.
 	RepositoryPath string `json:"repositoryPath"`
 
-	// RunInterval determines how often this application is applied in seconds.
+	// RunInterval determines how often this Waybill is applied in seconds.
 	// +optional
 	// +kubebuilder:default=3600
 	RunInterval int `json:"runInterval,omitempty"`
 
 	// ServerSideApply determines whether the server-side apply flag is enabled
-	// for this Application.
+	// for this Waybill.
 	// +optional
 	// +kubebuilder:default=false
 	ServerSideApply bool `json:"serverSideApply,omitempty"`
 
 	// StrongboxKeyringSecretRef reference a Secret in the same namespace as the
-	// Application that contains a single item, named '.strongbox_keyring' with
-	// any strongbox keys required to decrypt the files before applying.
+	// Waybill that contains a single item, named '.strongbox_keyring' with any
+	// strongbox keys required to decrypt the files before applying.
 	// +optional
 	StrongboxKeyringSecretRef string `json:"strongboxKeyringSecretRef,omitempty"`
 }
 
-// ApplicationStatus defines the observed state of Application
-type ApplicationStatus struct {
+// WaybillStatus defines the observed state of Waybill
+type WaybillStatus struct {
 	// LastRun contains the last apply run's information.
 	// +nullable
 	// +optional
-	LastRun *ApplicationStatusRun `json:"lastRun,omitempty"`
+	LastRun *WaybillStatusRun `json:"lastRun,omitempty"`
 }
 
-// ApplicationStatusRun contains information about an apply run of an
-// Application resource.
-type ApplicationStatusRun struct {
+// WaybillStatusRun contains information about an apply run of a Waybill
+// resource.
+type WaybillStatusRun struct {
 	// Command is the command used during the apply run.
 	Command string `json:"command"`
 
@@ -69,14 +69,13 @@ type ApplicationStatusRun struct {
 	// ErrorMessage describes any errors that occured during the apply run.
 	ErrorMessage string `json:"errorMessage"`
 
-	// Finished is the time that the apply run finished applying this
-	// Application.
+	// Finished is the time that the apply run finished applying this Waybill.
 	Finished metav1.Time `json:"finished"`
 
 	// Output is the stdout of the Command.
 	Output string `json:"output"`
 
-	// Started is the time that the apply run started applying this Application.
+	// Started is the time that the apply run started applying this Waybill.
 	Started metav1.Time `json:"started"`
 
 	// Success denotes whether the apply run was successful or not.
@@ -89,29 +88,29 @@ type ApplicationStatusRun struct {
 
 // +kubebuilder:object:root=true
 
-// Application is the Schema for the Applications API of kube-applier. An
-// Application is defined as a namespace associated with a path in a remote git
-// repository where kubernetes configuration is stored.
-// +kubebuilder:resource:shortName=app;apps
+// Waybill is the Schema for the Waybills API of kube-applier. A Waybill is
+// defined as a namespace associated with a path in a remote git repository
+// where kubernetes configuration is stored.
+// +kubebuilder:resource:shortName=wb;wbs
 // +kubebuilder:subresource:status
-type Application struct {
+type Waybill struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ApplicationSpec   `json:"spec,omitempty"`
-	Status ApplicationStatus `json:"status,omitempty"`
+	Spec   WaybillSpec   `json:"spec,omitempty"`
+	Status WaybillStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ApplicationList contains a list of Application
-type ApplicationList struct {
+// WaybillList contains a list of Waybill
+type WaybillList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []Application `json:"items"`
+	Items []Waybill `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Application{}, &ApplicationList{})
+	SchemeBuilder.Register(&Waybill{}, &WaybillList{})
 }

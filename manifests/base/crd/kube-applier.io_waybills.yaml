@@ -6,25 +6,25 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: applications.kube-applier.io
+  name: waybills.kube-applier.io
 spec:
   group: kube-applier.io
   names:
-    kind: Application
-    listKind: ApplicationList
-    plural: applications
+    kind: Waybill
+    listKind: WaybillList
+    plural: waybills
     shortNames:
-    - app
-    - apps
-    singular: application
+    - wb
+    - wbs
+    singular: waybill
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Application is the Schema for the Applications API of kube-applier.
-          An Application is defined as a namespace associated with a path in a remote
-          git repository where kubernetes configuration is stored.
+        description: Waybill is the Schema for the Waybills API of kube-applier. A
+          Waybill is defined as a namespace associated with a path in a remote git
+          repository where kubernetes configuration is stored.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -39,16 +39,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: ApplicationSpec defines the desired state of Application
+            description: WaybillSpec defines the desired state of Waybill
             properties:
               dryRun:
                 default: false
-                description: DryRun enables the dry-run flag when applying this application.
+                description: DryRun enables the dry-run flag when applying this Waybill.
                 type: boolean
               prune:
                 default: true
                 description: Prune determines whether pruning is enabled for this
-                  application.
+                  Waybill.
                 type: boolean
               pruneBlacklist:
                 description: PruneBlacklist can be used to specify a list of resources
@@ -59,33 +59,32 @@ spec:
               pruneClusterResources:
                 default: false
                 description: PruneClusterResources determines whether pruning is enabled
-                  for cluster resources, as part of this Application.
+                  for cluster resources, as part of this Waybill.
                 type: boolean
               repositoryPath:
                 description: RepositoryPath defines the relative path inside the Repository
-                  where the configuration for this Application is stored.
+                  where the configuration for this Waybill is stored.
                 type: string
               runInterval:
                 default: 3600
-                description: RunInterval determines how often this application is
-                  applied in seconds.
+                description: RunInterval determines how often this Waybill is applied
+                  in seconds.
                 type: integer
               serverSideApply:
                 default: false
                 description: ServerSideApply determines whether the server-side apply
-                  flag is enabled for this Application.
+                  flag is enabled for this Waybill.
                 type: boolean
               strongboxKeyringSecretRef:
                 description: StrongboxKeyringSecretRef reference a Secret in the same
-                  namespace as the Application that contains a single item, named
-                  '.strongbox_keyring' with any strongbox keys required to decrypt
-                  the files before applying.
+                  namespace as the Waybill that contains a single item, named '.strongbox_keyring'
+                  with any strongbox keys required to decrypt the files before applying.
                 type: string
             required:
             - repositoryPath
             type: object
           status:
-            description: ApplicationStatus defines the observed state of Application
+            description: WaybillStatus defines the observed state of Waybill
             properties:
               lastRun:
                 description: LastRun contains the last apply run's information.
@@ -104,7 +103,7 @@ spec:
                     type: string
                   finished:
                     description: Finished is the time that the apply run finished
-                      applying this Application.
+                      applying this Waybill.
                     format: date-time
                     type: string
                   output:
@@ -112,7 +111,7 @@ spec:
                     type: string
                   started:
                     description: Started is the time that the apply run started applying
-                      this Application.
+                      this Waybill.
                     format: date-time
                     type: string
                   success:

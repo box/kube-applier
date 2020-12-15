@@ -6,7 +6,7 @@
 
 * [Usage](#usage)
     * [Environment variables](#environment-variables)
-    * [Application CRD](#application-crd)
+    * [Waybill CRD](#waybill-crd)
     * [Mounting the Git Repository](#mounting-the-git-repository)
     * [Resource pruning](#resource-pruning)
 * [Deploying](#deploying)
@@ -28,9 +28,9 @@ kube-applier runs as a Deployment in your cluster and watches the [Git
 repo](#mounting-the-git-repository) to ensure that the cluster objects are
 up-to-date with their associated spec files (JSON or YAML) in the repo.
 
-Configuration is done through the `kube-applier.io/Application` CRD. Each
-namespace in a cluster defines an Application CRD which defines the source of
-truth for the namespace inside the repository.
+Configuration is done through the `kube-applier.io/Waybill` CRD. Each namespace
+in a cluster defines an Waybill CRD which defines the source of truth for the
+inside the repository.
 
 Whenever a new commit to the repo occurs, or at a [specified
 interval](#run-interval), kube-applier performs a "run", issuing [kubectl
@@ -67,7 +67,7 @@ kube-applier serves a [status page](#status-ui) and provides
   check for new commits to the repo (default is 5).
 
 - `APP_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
-  poll of Application resources on the apiserver (default is 60).
+  poll of Waybill resources on the apiserver (default is 60).
 
 - `STATUS_UPDATE_INTERVAL_SECONDS` - (int) Number of seconds to wait between
   each update of the status page data which is essentially done by polling the
@@ -93,15 +93,15 @@ Additionally `KUBECONFIG` can be set as [described
 here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
 to configure cluster access.
 
-### Application CRD
+### Waybill CRD
 
-kube-applier behaviour is controlled through the Application CRD. Refer to the
-code or CRD yaml definition for details, an example with the default values is
-shown below:
+kube-applier behaviour is controlled through the Waybill CRD. Refer to the code
+or CRD yaml definition for details, an example with the default values is shown
+below:
 
 ```yaml
 apiVersion: kube-applier.io/v1alpha1
-kind: Application
+kind: Waybill
 metadata:
   name: main
 spec:
@@ -115,8 +115,8 @@ spec:
   strongboxKeyringSecretRef: ""
 ```
 
-See the documentation on the Application CRD
-[spec](https://godoc.org/github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1#ApplicationSpec)
+See the documentation on the Waybill CRD
+[spec](https://godoc.org/github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1#WaybillSpec)
 for more details.
 
 #### Integration with `strongbox`
@@ -124,11 +124,11 @@ for more details.
 [strongbox](https://github.com/uw-labs/strongbox) is an encryption tool, geared
 towards git repositories and working as a git filter.
 
-If the Application spec contains a `strongboxKeyringSecretRef` value, the value
-should be the name of a Secret resource (in the namespace where the Application
+If the Waybill spec contains a `strongboxKeyringSecretRef` value, the value
+should be the name of a Secret resource (in the namespace where the Waybill
 resides), which contains a key named `.strongbox_keyring` with its value being
 a valid strongbox keyring file. That keyring is subsequently used when applying
-the Application, allowing for decryption of files under the `repositoryPath`.
+the Waybill, allowing for decryption of files under the `repositoryPath`.
 
 The secret containing the strongbox keyring should itself be version controlled
 to prevent kube-applier from pruning it. However, since it is a secret itself
@@ -147,7 +147,7 @@ and usage.
 ### Resource pruning
 
 Resource pruning is enabled by default and controlled by the `prune` attribute
-of the Application spec. This means that if a file is removed from the git
+of the Waybill spec. This means that if a file is removed from the git
 repository, the resources defined in it will be pruned in the next run.
 
 If you want kube applier to prune cluster resources, you can set
@@ -197,7 +197,7 @@ assume they have been removed and start pruning.
 ### Status UI
 
 kube-applier serves an HTML status page on which displays information about the
-Applications managed by it and their most recent apply runs, including:
+Waybills managed by it and their most recent apply runs, including:
 
 - Apply run type (reason)
 - Start times and latency
@@ -249,14 +249,14 @@ the Prometheus default metrics, the following custom metrics are included:
   that observes the number of times a run failed to queue properly, labelled
   with the namespace name and the run type.
 
-- **kube_applier_application_spec_dry_run** - A
+- **kube_applier_waybill_spec_dry_run** - A
   [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
-  that captures the value of dryRun in the Application spec, labelled with the
+  that captures the value of dryRun in the Waybill spec, labelled with the
   namespace name.
 
-- **kube_applier_application_spec_run_interval** - A
+- **kube_applier_waybill_spec_run_interval** - A
   [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
-  that captures the value of runInterval in the Application spec, labelled with
+  that captures the value of runInterval in the Waybill spec, labelled with
   the namespace name.
 
 The Prometheus [HTTP API](https://prometheus.io/docs/querying/api/) (also see
