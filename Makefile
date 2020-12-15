@@ -7,7 +7,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: manifests generate controller-gen build run release
+.PHONY: manifests generate controller-gen test build run release
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -42,6 +42,12 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test:
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/$(shell grep controller-runtime go.mod | cut -d' ' -f2)/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); CGO_ENABLED=1 && go test -v -race -count=1 -cover ./...
 
 build:
 	docker build -t kube-applier .

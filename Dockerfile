@@ -2,10 +2,9 @@ FROM golang:1.15-alpine AS build
 
 WORKDIR /src
 
-RUN apk --no-cache add git gcc musl-dev curl
+RUN apk --no-cache add git gcc musl-dev curl bash
 
 ENV \
-  KUBEBUILDER_VERSION=2.3.1 \
   STRONGBOX_VERSION=0.2.0 \
   KUBECTL_VERSION=v1.19.2 \
   KUSTOMIZE_VERSION=v3.8.5
@@ -17,14 +16,20 @@ RUN os=$(go env GOOS) && arch=$(go env GOARCH) &&\
   chmod +x /usr/local/bin/kustomize &&\
   curl -Ls -o /usr/local/bin/strongbox https://github.com/uw-labs/strongbox/releases/download/v${STRONGBOX_VERSION}/strongbox_${STRONGBOX_VERSION}_${os}_${arch} &&\
   chmod +x /usr/local/bin/strongbox &&\
-  strongbox -git-config &&\
-  curl -Ls https://go.kubebuilder.io/dl/${KUBEBUILDER_VERSION}/${os}/${arch} |\
-  tar -xz -C /tmp/ &&\
-  mv /tmp/kubebuilder_${KUBEBUILDER_VERSION}_${os}_${arch} /usr/local/kubebuilder
-ENV PATH=$PATH:/usr/local/kubebuilder/bin
+  strongbox -git-config
 
 COPY go.mod go.sum /src/
 RUN go mod download
+
+ENV \
+  ENVTEST_ASSETS_DIR=/usr/local/envtest \
+  KUBEBUILDER_ASSETS=/usr/local/envtest/bin
+RUN /bin/bash -c '\
+  mkdir -p ${ENVTEST_ASSETS_DIR} &&\
+  controller_runtime_version=$(grep controller-runtime go.mod | cut -d" " -f2) &&\
+  curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/${controller_runtime_version}/hack/setup-envtest.sh &&\
+  source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh &&\
+  fetch_envtest_tools ${ENVTEST_ASSETS_DIR}'
 
 COPY . /src
 RUN go get -t ./... &&\

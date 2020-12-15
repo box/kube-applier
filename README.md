@@ -293,8 +293,10 @@ ensure that your config files are using your intended context.
 
 Tests are written primarily using the `envtest` package of the
 [controller-runtime](https://godoc.org/github.com/kubernetes-sigs/controller-runtime/)
-project. In order to be able to run the tests, you need to
-[install `kubebuilder`](https://book.kubebuilder.io/quick-start.html#installation).
+project. Run `make test` to pull the required binary assets and run the tests.
+Once the assets are present in `./testbin` you can invoke `go test` manually
+if you need a particular set of flags, but first you need to point envtest to
+the binaries: `export KUBEBUILDER_ASSETS=$PWD/testbin/bin`.
 
 If you are writing tests, you might want to take a look at the
 [tutorial](https://book.kubebuilder.io/cronjob-tutorial/writing-tests.html),
