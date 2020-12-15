@@ -29,7 +29,7 @@ var (
 	repoTimeout          = os.Getenv("REPO_TIMEOUT_SECONDS")
 	listenPort           = os.Getenv("LISTEN_PORT")
 	gitPollInterval      = os.Getenv("GIT_POLL_INTERVAL_SECONDS")
-	appPollInterval      = os.Getenv("APP_POLL_INTERVAL_SECONDS")
+	waybillPollInterval  = os.Getenv("WAYBILL_POLL_INTERVAL_SECONDS")
 	statusUpdateInterval = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
 	dryRun               = os.Getenv("DRY_RUN")
 	logLevel             = os.Getenv("LOG_LEVEL")
@@ -84,12 +84,12 @@ func validate() {
 		}
 	}
 
-	if appPollInterval == "" {
-		appPollInterval = "60"
+	if waybillPollInterval == "" {
+		waybillPollInterval = "60"
 	} else {
-		_, err := strconv.Atoi(appPollInterval)
+		_, err := strconv.Atoi(waybillPollInterval)
 		if err != nil {
-			fmt.Println("APP_POLL_INTERVAL_SECONDS must be an int")
+			fmt.Println("WAYBILL_POLL_INTERVAL_SECONDS must be an int")
 			os.Exit(1)
 		}
 	}
@@ -188,14 +188,14 @@ func main() {
 	runQueue := runner.Start()
 
 	gpi, _ := strconv.Atoi(gitPollInterval)
-	api, _ := strconv.Atoi(appPollInterval)
+	wpi, _ := strconv.Atoi(waybillPollInterval)
 	scheduler := &run.Scheduler{
-		ApplicationPollInterval: time.Duration(api) * time.Second,
-		Clock:                   clock,
-		GitPollInterval:         time.Duration(gpi) * time.Second,
-		KubeClient:              kubeClient,
-		RepoPath:                repoPath,
-		RunQueue:                runQueue,
+		Clock:               clock,
+		GitPollInterval:     time.Duration(gpi) * time.Second,
+		KubeClient:          kubeClient,
+		RepoPath:            repoPath,
+		RunQueue:            runQueue,
+		WaybillPollInterval: time.Duration(wpi) * time.Second,
 	}
 	scheduler.Start()
 

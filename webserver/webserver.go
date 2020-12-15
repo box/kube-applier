@@ -41,14 +41,16 @@ type WebServer struct {
 	stop, stopped        chan bool
 }
 
-// StatusPageHandler implements the http.Handler interface and serves a status page with info about the most recent applier run.
+// StatusPageHandler implements the http.Handler interface and serves a status
+// page with info about the most recent applier run.
 type StatusPageHandler struct {
 	Clock    sysutil.ClockInterface
 	Result   *Result
 	Template *template.Template
 }
 
-// ServeHTTP populates the status page template with data and serves it when there is a request.
+// ServeHTTP populates the status page template with data and serves it when
+// there is a request.
 func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Logger("webserver").Info("Applier status request", "time", s.Clock.Now().String())
 	if s.Template == nil {
@@ -69,13 +71,15 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Logger("webserver").Info("Request completed successfully", "time", s.Clock.Now().String())
 }
 
-// ForceRunHandler implements the http.Handle interface and serves an API endpoint for forcing a new run.
+// ForceRunHandler implements the http.Handle interface and serves an API
+// endpoint for forcing a new run.
 type ForceRunHandler struct {
 	KubeClient *client.Client
 	RunQueue   chan<- run.Request
 }
 
-// ServeHTTP handles requests for forcing a run by attempting to add to the runQueue, and writes a response including the result and a relevant message.
+// ServeHTTP handles requests for forcing a run by attempting to add to the
+// runQueue, and writes a response including the result and a relevant message.
 func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Logger("webserver").Info("Force run requested")
 	var data struct {
@@ -102,29 +106,29 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		apps, err := f.KubeClient.ListApplications(context.TODO())
+		waybills, err := f.KubeClient.ListWaybills(context.TODO())
 		if err != nil {
 			data.Result = "error"
-			data.Message = "Cannot list Applications"
+			data.Message = "Cannot list Waybills"
 			w.WriteHeader(http.StatusInternalServerError)
 			break
 		}
 
-		var app *kubeapplierv1alpha1.Application
-		for i := range apps {
-			if apps[i].Namespace == ns {
-				app = &apps[i]
+		var waybill *kubeapplierv1alpha1.Waybill
+		for i := range waybills {
+			if waybills[i].Namespace == ns {
+				waybill = &waybills[i]
 				break
 			}
 		}
-		if app == nil {
+		if waybill == nil {
 			data.Result = "error"
-			data.Message = fmt.Sprintf("Cannot find Applications in namespace '%s'", ns)
+			data.Message = fmt.Sprintf("Cannot find Waybills in namespace '%s'", ns)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
 
-		run.Enqueue(f.RunQueue, run.ForcedRun, app)
+		run.Enqueue(f.RunQueue, run.ForcedRun, waybill)
 
 		data.Result = "success"
 		data.Message = "Run queued"
@@ -136,7 +140,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Content-Type", "waybill/json; charset=UTF-8")
 	json.NewEncoder(w).Encode(data)
 }
 
@@ -227,12 +231,12 @@ func (ws *WebServer) Shutdown() error {
 }
 
 func (ws *WebServer) updateResult() error {
-	apps, err := ws.KubeClient.ListApplications(context.TODO())
+	waybills, err := ws.KubeClient.ListWaybills(context.TODO())
 	if err != nil {
-		return fmt.Errorf("Could not list Application resources: %v", err)
+		return fmt.Errorf("Could not list Waybill resources: %v", err)
 	}
 	ws.result.Lock()
-	ws.result.Applications = apps
+	ws.result.Waybills = waybills
 	ws.result.Unlock()
 	return nil
 }

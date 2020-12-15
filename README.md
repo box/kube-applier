@@ -29,7 +29,7 @@ repo](#mounting-the-git-repository) to ensure that the cluster objects are
 up-to-date with their associated spec files (JSON or YAML) in the repo.
 
 Configuration is done through the `kube-applier.io/Waybill` CRD. Each namespace
-in a cluster defines an Waybill CRD which defines the source of truth for the
+in a cluster defines a Waybill CRD which defines the source of truth for the
 inside the repository.
 
 Whenever a new commit to the repo occurs, or at a [specified
@@ -66,7 +66,7 @@ kube-applier serves a [status page](#status-ui) and provides
 - `GIT_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
   check for new commits to the repo (default is 5).
 
-- `APP_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
+- `WAYBILL_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
   poll of Waybill resources on the apiserver (default is 60).
 
 - `STATUS_UPDATE_INTERVAL_SECONDS` - (int) Number of seconds to wait between

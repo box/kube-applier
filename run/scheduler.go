@@ -54,25 +54,25 @@ const (
 
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
-	ApplicationPollInterval time.Duration
-	Clock                   sysutil.ClockInterface
-	GitPollInterval         time.Duration
-	KubeClient              *client.Client
-	RepoPath                string
-	RunQueue                chan<- Request
-	applications            map[string]*kubeapplierv1alpha1.Application
-	applicationSchedulers   map[string]func()
-	applicationsMutex       sync.Mutex
-	gitUtil                 *git.Util
-	gitLastQueuedHash       string
-	stop                    chan bool
-	waitGroup               *sync.WaitGroup
+	Clock               sysutil.ClockInterface
+	GitPollInterval     time.Duration
+	KubeClient          *client.Client
+	RepoPath            string
+	RunQueue            chan<- Request
+	WaybillPollInterval time.Duration
+	waybills            map[string]*kubeapplierv1alpha1.Waybill
+	waybillSchedulers   map[string]func()
+	waybillsMutex       sync.Mutex
+	gitUtil             *git.Util
+	gitLastQueuedHash   string
+	stop                chan bool
+	waitGroup           *sync.WaitGroup
 }
 
-// Start runs two loops: one that keeps track of Applications on apiserver and
+// Start runs two loops: one that keeps track of Waybills on apiserver and
 // maintains loops for applying namespaces on a schedule, and one that watches
-// the git repository for changes and queues runs for applications that are
-// affected by commits.
+// the git repository for changes and queues runs for waybills that are affected
+// by commits.
 func (s *Scheduler) Start() {
 	if s.waitGroup != nil {
 		return
@@ -80,11 +80,11 @@ func (s *Scheduler) Start() {
 	s.stop = make(chan bool)
 	s.waitGroup = &sync.WaitGroup{}
 	s.gitUtil = &git.Util{RepoPath: s.RepoPath}
-	s.applications = make(map[string]*kubeapplierv1alpha1.Application)
-	s.applicationSchedulers = make(map[string]func())
+	s.waybills = make(map[string]*kubeapplierv1alpha1.Waybill)
+	s.waybillSchedulers = make(map[string]func())
 
 	s.waitGroup.Add(1)
-	go s.updateApplicationsLoop()
+	go s.updateWaybillsLoop()
 	s.waitGroup.Add(1)
 	go s.gitPollingLoop()
 }
@@ -98,64 +98,64 @@ func (s *Scheduler) Stop() {
 	close(s.stop)
 	s.waitGroup.Wait()
 	s.waitGroup = nil
-	s.applicationsMutex.Lock()
-	for _, cancel := range s.applicationSchedulers {
+	s.waybillsMutex.Lock()
+	for _, cancel := range s.waybillSchedulers {
 		cancel()
 	}
-	s.applicationSchedulers = nil
-	s.applications = nil
-	s.applicationsMutex.Unlock()
+	s.waybillSchedulers = nil
+	s.waybills = nil
+	s.waybillsMutex.Unlock()
 }
 
-func (s *Scheduler) updateApplications() {
-	apps, err := s.KubeClient.ListApplications(context.TODO())
+func (s *Scheduler) updateWaybills() {
+	waybills, err := s.KubeClient.ListWaybills(context.TODO())
 	if err != nil {
-		log.Logger("scheduler").Error("Could not list Applications", "error", err)
+		log.Logger("scheduler").Error("Could not list Waybills", "error", err)
 		return
 	}
-	metrics.ReconcileFromApplicationList(apps)
-	metrics.UpdateResultSummary(apps)
-	s.applicationsMutex.Lock()
-	for i := range apps {
-		app := &apps[i]
-		if v, ok := s.applications[app.Namespace]; ok {
-			if !reflect.DeepEqual(v, app) {
-				s.applicationSchedulers[app.Namespace]()
-				s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
-				s.applications[app.Namespace] = app
-				log.Logger("scheduler").Debug("Application changed, updating schedulers", "app", fmt.Sprintf("%s/%s", apps[i].Namespace, apps[i].Name))
+	metrics.ReconcileFromWaybillList(waybills)
+	metrics.UpdateResultSummary(waybills)
+	s.waybillsMutex.Lock()
+	for i := range waybills {
+		wb := &waybills[i]
+		if v, ok := s.waybills[wb.Namespace]; ok {
+			if !reflect.DeepEqual(v, wb) {
+				s.waybillSchedulers[wb.Namespace]()
+				s.waybillSchedulers[wb.Namespace] = s.newWaybillLoop(wb)
+				s.waybills[wb.Namespace] = wb
+				log.Logger("scheduler").Debug("Waybill changed, updating schedulers", "waybill", fmt.Sprintf("%s/%s", wb.Namespace, wb.Name))
 			}
 		} else {
-			s.applicationSchedulers[app.Namespace] = s.newApplicationLoop(app)
-			s.applications[app.Namespace] = app
+			s.waybillSchedulers[wb.Namespace] = s.newWaybillLoop(wb)
+			s.waybills[wb.Namespace] = wb
 		}
 	}
-	for ns := range s.applications {
+	for ns := range s.waybills {
 		found := false
-		for _, app := range apps {
-			if ns == app.Namespace {
+		for _, wb := range waybills {
+			if ns == wb.Namespace {
 				found = true
 				break
 			}
 		}
 		if !found {
-			s.applicationSchedulers[ns]()
-			delete(s.applicationSchedulers, ns)
-			delete(s.applications, ns)
+			s.waybillSchedulers[ns]()
+			delete(s.waybillSchedulers, ns)
+			delete(s.waybills, ns)
 		}
 	}
-	s.applicationsMutex.Unlock()
+	s.waybillsMutex.Unlock()
 }
 
-func (s *Scheduler) updateApplicationsLoop() {
-	ticker := time.NewTicker(s.ApplicationPollInterval)
+func (s *Scheduler) updateWaybillsLoop() {
+	ticker := time.NewTicker(s.WaybillPollInterval)
 	defer ticker.Stop()
 	defer s.waitGroup.Done()
-	s.updateApplications()
+	s.updateWaybills()
 	for {
 		select {
 		case <-ticker.C:
-			s.updateApplications()
+			s.updateWaybills()
 		case <-s.stop:
 			return
 		}
@@ -175,44 +175,44 @@ func (s *Scheduler) gitPollingLoop() {
 				break
 			}
 			// This check prevents the Scheduler from queueing multiple runs for
-			// an Application; without this check, when a new commit appears it
-			// will be eligible for new a run until it finishes the run and its
+			// a Waybill; without this check, when a new commit appears it will
+			// be eligible for new a run until it finishes the run and its
 			// status is updated.
-			// Applications that are not in the Scheduler's cache when a new
-			// commit appears will not be retroactively checked against the
-			// latest commit when they are acknowledged. This is acceptable,
-			// since they will (eventually) trigger a scheduled run.
+			// Waybills that are not in the Scheduler's cache when a new commit
+			// appears will not be retroactively checked against the latest
+			// commit when they are acknowledged. This is acceptable, since they
+			// will (eventually) trigger a scheduled run.
 			if hash == s.gitLastQueuedHash {
 				break
 			}
-			s.applicationsMutex.Lock()
-			for i := range s.applications {
+			s.waybillsMutex.Lock()
+			for i := range s.waybills {
 				// If LastRun is nil, we don't trigger the Polling run at all
 				// and instead rely on the Scheduled run to kickstart things.
-				if s.applications[i].Status.LastRun != nil && s.applications[i].Status.LastRun.Commit != hash {
-					sinceHash := s.applications[i].Status.LastRun.Commit
-					path := s.applications[i].Spec.RepositoryPath
-					appId := fmt.Sprintf("%s/%s", s.applications[i].Namespace, s.applications[i].Name)
+				if s.waybills[i].Status.LastRun != nil && s.waybills[i].Status.LastRun.Commit != hash {
+					sinceHash := s.waybills[i].Status.LastRun.Commit
+					path := s.waybills[i].Spec.RepositoryPath
+					wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
 					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
 					if err != nil {
-						log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "app", appId, "path", path, "since", sinceHash, "error", err)
+						log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "waybill", wbId, "path", path, "since", sinceHash, "error", err)
 						continue
 					}
 					if !changed {
 						continue
 					}
-					Enqueue(s.RunQueue, PollingRun, s.applications[i])
+					Enqueue(s.RunQueue, PollingRun, s.waybills[i])
 				}
 			}
 			s.gitLastQueuedHash = hash
-			s.applicationsMutex.Unlock()
+			s.waybillsMutex.Unlock()
 		case <-s.stop:
 			return
 		}
 	}
 }
 
-func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) func() {
+func (s *Scheduler) newWaybillLoop(waybill *kubeapplierv1alpha1.Waybill) func() {
 	stop := make(chan bool)
 	stopped := make(chan bool)
 	go func() {
@@ -222,23 +222,23 @@ func (s *Scheduler) newApplicationLoop(app *kubeapplierv1alpha1.Application) fun
 		// wait for the proper amount of time in order to maintain the period.
 		// If it's been too long, it will still trigger immediately since the
 		// wait duration is going to be negative.
-		if app.Status.LastRun == nil {
-			Enqueue(s.RunQueue, ScheduledRun, app)
+		if waybill.Status.LastRun == nil {
+			Enqueue(s.RunQueue, ScheduledRun, waybill)
 		} else {
-			runAt := app.Status.LastRun.Started.Add(time.Duration(app.Spec.RunInterval) * time.Second)
+			runAt := waybill.Status.LastRun.Started.Add(time.Duration(waybill.Spec.RunInterval) * time.Second)
 			select {
 			case <-time.After(runAt.Sub(s.Clock.Now())):
-				Enqueue(s.RunQueue, ScheduledRun, app)
+				Enqueue(s.RunQueue, ScheduledRun, waybill)
 			case <-stop:
 				return
 			}
 		}
-		ticker := time.NewTicker(time.Duration(app.Spec.RunInterval) * time.Second)
+		ticker := time.NewTicker(time.Duration(waybill.Spec.RunInterval) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				Enqueue(s.RunQueue, ScheduledRun, app)
+				Enqueue(s.RunQueue, ScheduledRun, waybill)
 			case <-stop:
 				return
 			}

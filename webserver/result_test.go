@@ -38,7 +38,7 @@ func TestResultFormattedTime(t *testing.T) {
 	assert := assert.New(t)
 	r := Result{Mutex: &sync.Mutex{}}
 	for _, tc := range formattingTestCasess {
-		status := kubeapplierv1alpha1.ApplicationStatusRun{
+		status := kubeapplierv1alpha1.WaybillStatusRun{
 			Started:  metav1.NewTime(tc.Start),
 			Finished: metav1.NewTime(tc.Finish),
 		}
@@ -50,7 +50,7 @@ func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
 	r := Result{Mutex: &sync.Mutex{}}
 	for _, tc := range formattingTestCasess {
-		status := kubeapplierv1alpha1.ApplicationStatusRun{
+		status := kubeapplierv1alpha1.WaybillStatusRun{
 			Started:  metav1.NewTime(tc.Start),
 			Finished: metav1.NewTime(tc.Finish),
 		}
@@ -59,47 +59,47 @@ func TestResultLatency(t *testing.T) {
 }
 
 type totalFilesTestCase struct {
-	Applications []kubeapplierv1alpha1.Application
-	Failures     []kubeapplierv1alpha1.Application
-	Successes    []kubeapplierv1alpha1.Application
+	Waybills  []kubeapplierv1alpha1.Waybill
+	Failures  []kubeapplierv1alpha1.Waybill
+	Successes []kubeapplierv1alpha1.Waybill
 }
 
 var totalFilesTestCases = []totalFilesTestCase{
 	{nil, nil, nil},
 	{
-		[]kubeapplierv1alpha1.Application{
+		[]kubeapplierv1alpha1.Waybill{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "app-a"},
-				Status: kubeapplierv1alpha1.ApplicationStatus{
-					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+				Status: kubeapplierv1alpha1.WaybillStatus{
+					LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 						Success: true,
 					},
 				},
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "app-b"},
-				Status: kubeapplierv1alpha1.ApplicationStatus{
-					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+				Status: kubeapplierv1alpha1.WaybillStatus{
+					LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 						Success: false,
 					},
 				},
 			},
 		},
-		[]kubeapplierv1alpha1.Application{
-			kubeapplierv1alpha1.Application{
+		[]kubeapplierv1alpha1.Waybill{
+			kubeapplierv1alpha1.Waybill{
 				ObjectMeta: metav1.ObjectMeta{Name: "app-b"},
-				Status: kubeapplierv1alpha1.ApplicationStatus{
-					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+				Status: kubeapplierv1alpha1.WaybillStatus{
+					LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 						Success: false,
 					},
 				},
 			},
 		},
-		[]kubeapplierv1alpha1.Application{
+		[]kubeapplierv1alpha1.Waybill{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "app-a"},
-				Status: kubeapplierv1alpha1.ApplicationStatus{
-					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+				Status: kubeapplierv1alpha1.WaybillStatus{
+					LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 						Success: true,
 					},
 				},
@@ -111,7 +111,7 @@ var totalFilesTestCases = []totalFilesTestCase{
 func TestResultSuccessesAndFailures(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
-		r := Result{Mutex: &sync.Mutex{}, Applications: tc.Applications}
+		r := Result{Mutex: &sync.Mutex{}, Waybills: tc.Waybills}
 		assert.Equal(tc.Successes, r.Successes())
 		assert.Equal(tc.Failures, r.Failures())
 	}
@@ -154,7 +154,7 @@ func TestResultFinished(t *testing.T) {
 	assert := assert.New(t)
 	r := Result{Mutex: &sync.Mutex{}}
 	assert.Equal(r.Finished(), false)
-	r.Applications = []kubeapplierv1alpha1.Application{{}}
+	r.Waybills = []kubeapplierv1alpha1.Waybill{{}}
 	assert.Equal(r.Finished(), true)
 
 	for _, tc := range lastCommitLinkTestCases {
@@ -207,14 +207,14 @@ func TestResultAppliedRecently(t *testing.T) {
 
 	r := Result{Mutex: &sync.Mutex{}}
 
-	assert.Equal(false, r.AppliedRecently(kubeapplierv1alpha1.Application{}))
+	assert.Equal(false, r.AppliedRecently(kubeapplierv1alpha1.Waybill{}))
 
 	for _, tc := range testCases {
 		assert.Equal(
 			tc.e,
-			r.AppliedRecently(kubeapplierv1alpha1.Application{
-				Status: kubeapplierv1alpha1.ApplicationStatus{
-					LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+			r.AppliedRecently(kubeapplierv1alpha1.Waybill{
+				Status: kubeapplierv1alpha1.WaybillStatus{
+					LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 						Started: metav1.NewTime(tc.t),
 					},
 				},

@@ -15,31 +15,31 @@ import (
 // The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
 type Result struct {
 	*sync.Mutex
-	Applications  []kubeapplierv1alpha1.Application
+	Waybills      []kubeapplierv1alpha1.Waybill
 	DiffURLFormat string
 }
 
-// Successes returns all the Applications that applied successfully.
-func (r *Result) Successes() []kubeapplierv1alpha1.Application {
-	var ret []kubeapplierv1alpha1.Application
+// Successes returns all the Waybills that applied successfully.
+func (r *Result) Successes() []kubeapplierv1alpha1.Waybill {
+	var ret []kubeapplierv1alpha1.Waybill
 	r.Lock()
 	defer r.Unlock()
-	for _, app := range r.Applications {
-		if app.Status.LastRun != nil && app.Status.LastRun.Success {
-			ret = append(ret, app)
+	for _, wb := range r.Waybills {
+		if wb.Status.LastRun != nil && wb.Status.LastRun.Success {
+			ret = append(ret, wb)
 		}
 	}
 	return ret
 }
 
-// Failures returns all the Applications that failed applying.
-func (r *Result) Failures() []kubeapplierv1alpha1.Application {
-	var ret []kubeapplierv1alpha1.Application
+// Failures returns all the Waybills that failed applying.
+func (r *Result) Failures() []kubeapplierv1alpha1.Waybill {
+	var ret []kubeapplierv1alpha1.Waybill
 	r.Lock()
 	defer r.Unlock()
-	for _, app := range r.Applications {
-		if app.Status.LastRun != nil && !app.Status.LastRun.Success {
-			ret = append(ret, app)
+	for _, wb := range r.Waybills {
+		if wb.Status.LastRun != nil && !wb.Status.LastRun.Success {
+			ret = append(ret, wb)
 		}
 	}
 	return ret
@@ -69,12 +69,12 @@ func (r *Result) CommitLink(commit string) string {
 func (r *Result) Finished() bool {
 	r.Lock()
 	defer r.Unlock()
-	return len(r.Applications) > 0
+	return len(r.Waybills) > 0
 }
 
-// AppliedRecently checks whether the provided Application was applied in the
-// last 15 minutes.
-func (r *Result) AppliedRecently(app kubeapplierv1alpha1.Application) bool {
-	return app.Status.LastRun != nil &&
-		time.Since(app.Status.LastRun.Started.Time) < time.Minute*15
+// AppliedRecently checks whether the provided Waybill was applied in the last
+// 15 minutes.
+func (r *Result) AppliedRecently(waybill kubeapplierv1alpha1.Waybill) bool {
+	return waybill.Status.LastRun != nil &&
+		time.Since(waybill.Status.LastRun.Started.Time) < time.Minute*15
 }

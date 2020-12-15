@@ -224,38 +224,38 @@ func TestPrunableNoDelete(t *testing.T) {
 }
 
 var _ = Describe("Client", func() {
-	Context("When listing applications", func() {
-		It("Should return only one Application per namespace and emit events for the others", func() {
-			appList := []kubeapplierv1alpha1.Application{
+	Context("When listing waybills", func() {
+		It("Should return only one Waybill per namespace and emit events for the others", func() {
+			wbList := []kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "alpha", Namespace: "ns-0"},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "beta", Namespace: "ns-0"},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "ns-1"},
 				},
 			}
 
-			for i := range appList {
-				err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
+			for i := range wbList {
+				err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 				if err != nil {
 					Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 				}
-				Expect(testKubeClient.Create(context.TODO(), &appList[i])).To(BeNil())
+				Expect(testKubeClient.Create(context.TODO(), &wbList[i])).To(BeNil())
 			}
 
 			Eventually(
 				func() int {
-					apps, err := testKubeClient.ListApplications(context.TODO())
+					waybills, err := testKubeClient.ListWaybills(context.TODO())
 					if err != nil {
 						return -1
 					}
-					return len(apps)
+					return len(waybills)
 				},
 				time.Second*15,
 				time.Second,
@@ -273,7 +273,7 @@ var _ = Describe("Client", func() {
 				time.Second,
 			).Should(Equal(1))
 			for _, e := range events.Items {
-				Expect(e).To(matchEvent(appList[1], corev1.EventTypeWarning, "MultipleApplicationsFound", fmt.Sprintf("^.*%s.*$", appList[0].Name)))
+				Expect(e).To(matchEvent(wbList[1], corev1.EventTypeWarning, "MultipleWaybillsFound", fmt.Sprintf("^.*%s.*$", wbList[0].Name)))
 			}
 
 			Expect(testKubeClient.Delete(context.TODO(), &events.Items[0])).To(BeNil())
@@ -281,16 +281,16 @@ var _ = Describe("Client", func() {
 	})
 })
 
-func matchEvent(app kubeapplierv1alpha1.Application, eventType, reason, message string) gomegatypes.GomegaMatcher {
+func matchEvent(waybill kubeapplierv1alpha1.Waybill, eventType, reason, message string) gomegatypes.GomegaMatcher {
 	return MatchFields(IgnoreExtras, Fields{
 		"TypeMeta": Ignore(),
 		"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-			"Namespace": Equal(app.ObjectMeta.Namespace),
+			"Namespace": Equal(waybill.ObjectMeta.Namespace),
 		}),
 		"InvolvedObject": MatchFields(IgnoreExtras, Fields{
-			"Kind":      Equal("Application"),
-			"Namespace": Equal(app.ObjectMeta.Namespace),
-			"Name":      Equal(app.ObjectMeta.Name),
+			"Kind":      Equal("Waybill"),
+			"Namespace": Equal(waybill.ObjectMeta.Namespace),
+			"Name":      Equal(waybill.ObjectMeta.Name),
 		}),
 		"Action":  BeEmpty(),
 		"Count":   BeNumerically(">", 0),

@@ -130,31 +130,31 @@ func testCleanupNamespaces() {
 	// With the envtest package we cannot delete namespaces, however, deleting
 	// the CRs should be enough to avoid test pollution.
 	// See https://github.com/kubernetes-sigs/controller-runtime/issues/880
-	testRemoveAllApplications()
+	testRemoveAllWaybills()
 }
 
-func testRemoveAllApplications() {
+func testRemoveAllWaybills() {
 	// Although we could in theory use DeleteAllOf() here, it returns with a
 	// NotFound error that has proven hard to debug. Instead, we can manually
-	// List and Delete Applications one by one. There should not be too many of
-	// them to significantly affect test duration.
-	apps := kubeapplierv1alpha1.ApplicationList{}
+	// List and Delete Waybills one by one. There should not be too many of them
+	// to significantly affect test duration.
+	waybills := kubeapplierv1alpha1.WaybillList{}
 	Expect(testKubeClient.List(
 		context.TODO(),
-		&apps,
+		&waybills,
 	)).To(BeNil())
-	for _, app := range apps.Items {
+	for _, wb := range waybills.Items {
 		Expect(testKubeClient.Delete(
 			context.TODO(),
-			&app,
+			&wb,
 			controllerruntimeclient.GracePeriodSeconds(0),
 		)).To(BeNil())
 	}
 	Eventually(
 		func() int {
-			apps := kubeapplierv1alpha1.ApplicationList{}
-			Expect(testKubeClient.List(context.TODO(), &apps)).To(BeNil())
-			return len(apps.Items)
+			waybills := kubeapplierv1alpha1.WaybillList{}
+			Expect(testKubeClient.List(context.TODO(), &waybills)).To(BeNil())
+			return len(waybills.Items)
 		},
 		time.Second*60,
 		time.Second,

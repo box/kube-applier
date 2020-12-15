@@ -58,12 +58,12 @@ var _ = Describe("Scheduler", func() {
 		testRunQueue = make(chan Request)
 		testSchedulerRequests, testSchedulerRequestsWait = testSchedulerDrainRequests(testRunQueue)
 		testScheduler = Scheduler{
-			ApplicationPollInterval: time.Second * 5,
-			Clock:                   &zeroClock{},
-			GitPollInterval:         time.Second * 5,
-			KubeClient:              testKubeClient,
-			RepoPath:                "../testdata/manifests",
-			RunQueue:                testRunQueue,
+			WaybillPollInterval: time.Second * 5,
+			Clock:               &zeroClock{},
+			GitPollInterval:     time.Second * 5,
+			KubeClient:          testKubeClient,
+			RepoPath:            "../testdata/manifests",
+			RunQueue:            testRunQueue,
 		}
 		testScheduler.Start()
 
@@ -76,39 +76,39 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Context("When running", func() {
-		It("Should keep track of Application resources on the server", func() {
-			By("Listing all the Applications in the cluster initially")
-			appList := []*kubeapplierv1alpha1.Application{
+		It("Should keep track of Waybill resources on the server", func() {
+			By("Listing all the Waybills in the cluster initially")
+			wbList := []*kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "main",
 						Namespace: "foo",
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "foo",
 						RunInterval:    5,
 					},
 				},
 			}
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			lastSyncedAt := time.Now()
 
-			By("Listing all the Applications in the cluster regularly")
-			appList = append(appList, &kubeapplierv1alpha1.Application{
-				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+			By("Listing all the Waybills in the cluster regularly")
+			wbList = append(wbList, &kubeapplierv1alpha1.Waybill{
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
 					Namespace: "bar",
 				},
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					RepositoryPath: "bar",
 				},
 			})
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			t := time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -117,20 +117,20 @@ var _ = Describe("Scheduler", func() {
 			}
 			lastSyncedAt = time.Now()
 
-			By("Acknowledging changes in the Application Specs")
-			appList[0].Spec.RunInterval = 3600
-			appList[0].Status = kubeapplierv1alpha1.ApplicationStatus{
-				LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+			By("Acknowledging changes in the Waybill Specs")
+			wbList[0].Spec.RunInterval = 3600
+			wbList[0].Status = kubeapplierv1alpha1.WaybillStatus{
+				LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 					Started:  metav1.NewTime(time.Now()), // this is to prevent an "initial" run to be queued
 					Finished: metav1.NewTime(time.Now()), // the rest is for the status subresource to pass validation
 					Success:  true,
 				},
 			}
-			// remove the "bar" Application
-			testKubeClient.Delete(context.TODO(), appList[1])
-			appList = appList[:1]
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			// remove the "bar" Waybill
+			testKubeClient.Delete(context.TODO(), wbList[1])
+			wbList = wbList[:1]
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			t = time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
@@ -144,7 +144,7 @@ var _ = Describe("Scheduler", func() {
 					ScheduledRun: BeNumerically(">=", 4),
 				}),
 				"bar": MatchAllKeys(Keys{
-					// RunInterval is 3600s and then the Application is removed.
+					// RunInterval is 3600s and then the Waybill is removed.
 					ScheduledRun: Equal(1),
 				}),
 			}))
@@ -154,7 +154,7 @@ var _ = Describe("Scheduler", func() {
 			testSchedulerRequestsWait()
 		})
 
-		It("Should trigger runs for Applications that have had their source change in git", func() {
+		It("Should trigger runs for Waybills that have had their source change in git", func() {
 			gitUtil := &git.Util{RepoPath: "../testdata/manifests"}
 			headHash, err := gitUtil.HeadHashForPaths(".")
 			Expect(err).To(BeNil())
@@ -166,28 +166,28 @@ var _ = Describe("Scheduler", func() {
 			Expect(err).To(BeNil())
 			Expect(appAKHeadHash).ToNot(BeEmpty())
 
-			appList := []*kubeapplierv1alpha1.Application{
+			wbList := []*kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "ignored"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "ignored",
 					},
-					Status: kubeapplierv1alpha1.ApplicationStatus{
-						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
 							Started:  metav1.NewTime(time.Now()),
 						},
 					},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "up-to-date"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "up-to-date",
 					},
-					Status: kubeapplierv1alpha1.ApplicationStatus{
-						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
 							Started:  metav1.NewTime(time.Now()),
 							Commit:   headHash,
@@ -195,13 +195,13 @@ var _ = Describe("Scheduler", func() {
 					},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "app-a",
 					},
-					Status: kubeapplierv1alpha1.ApplicationStatus{
-						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
 							Started:  metav1.NewTime(time.Now()),
 							Commit:   appAHeadHash, // this is the app-a dir head hash, no changes since
@@ -209,13 +209,13 @@ var _ = Describe("Scheduler", func() {
 					},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "app-a-kustomize",
 					},
-					Status: kubeapplierv1alpha1.ApplicationStatus{
-						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
 							Started:  metav1.NewTime(time.Now()),
 							Commit:   fmt.Sprintf("%s^1", appAKHeadHash), // this is a hack that should always return changes
@@ -223,13 +223,13 @@ var _ = Describe("Scheduler", func() {
 					},
 				},
 			}
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			// This is a hack to force the scheduler to re-check all
-			// Applications for this test. Otherwise, the test is sensitive to
+			// Waybills for this test. Otherwise, the test is sensitive to
 			// timing and can fail if the git polling check runs before the
-			// Scheduler has synced all Applications from the apiserver.
+			// Scheduler has synced all Waybills from the apiserver.
 			testScheduler.gitLastQueuedHash = ""
 
 			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
@@ -244,15 +244,15 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should export metrics about resources applied", func() {
-			By("Listing all the Applications in the cluster")
+			By("Listing all the Waybills in the cluster")
 			// The status sub-resource only contains the Output field and this
 			// is is only used to test that metrics are properly exported
-			appList := []*kubeapplierv1alpha1.Application{
+			wbList := []*kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-foo"},
-					Status: kubeapplierv1alpha1.ApplicationStatus{
-						LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
 							Started:  metav1.NewTime(time.Now()),
 							Output: `namespace/metrics-foo created
@@ -266,17 +266,17 @@ Some error output has been omitted because it may contain sensitive data
 					},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-bar"},
 				},
 			}
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			testScheduler.Stop()
 			close(testRunQueue)
 
-			By("Parsing the Output field in the Application status and exporting metrics about individual resources")
+			By("Parsing the Output field in the Waybill status and exporting metrics about individual resources")
 			testMetrics([]string{
 				`kube_applier_result_summary{action="created",name="metrics-foo",namespace="metrics-foo",type="namespace"} 1`,
 				`kube_applier_result_summary{action="created",name="test-a",namespace="metrics-foo",type="deployment.apps"} 1`,
@@ -285,71 +285,71 @@ Some error output has been omitted because it may contain sensitive data
 			})
 		})
 
-		It("Should export Application spec metrics from the cluster state", func() {
-			appList := []*kubeapplierv1alpha1.Application{
+		It("Should export Waybill spec metrics from the cluster state", func() {
+			wbList := []*kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-foo"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "foo",
 						RunInterval:    5,
 					},
 				},
 				{
-					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-bar"},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						RepositoryPath: "bar",
 						DryRun:         true,
 					},
 				},
 			}
-			testEnsureApplications(appList)
-			testWaitForSchedulerToUpdate(&testScheduler, appList)
+			testEnsureWaybills(wbList)
+			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
 			testScheduler.Stop()
 			close(testRunQueue)
 
 			testMetrics([]string{
-				`kube_applier_application_spec_dry_run{namespace="spec-foo"} 0`,
-				`kube_applier_application_spec_run_interval{namespace="spec-foo"} 5`,
-				`kube_applier_application_spec_dry_run{namespace="spec-bar"} 1`,
-				`kube_applier_application_spec_run_interval{namespace="spec-bar"} 3600`,
+				`kube_applier_waybill_spec_dry_run{namespace="spec-foo"} 0`,
+				`kube_applier_waybill_spec_run_interval{namespace="spec-foo"} 5`,
+				`kube_applier_waybill_spec_dry_run{namespace="spec-bar"} 1`,
+				`kube_applier_waybill_spec_run_interval{namespace="spec-bar"} 3600`,
 			})
 		})
 	})
 })
 
-func testEnsureApplications(appList []*kubeapplierv1alpha1.Application) {
-	for i := range appList {
-		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
+func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
+	for i := range wbList {
+		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			Expect(err).To(BeNil())
 		}
-		err = testKubeClient.Create(context.TODO(), appList[i])
+		err = testKubeClient.Create(context.TODO(), wbList[i])
 		if err != nil {
-			Expect(testKubeClient.UpdateApplication(context.TODO(), appList[i])).To(BeNil())
+			Expect(testKubeClient.UpdateWaybill(context.TODO(), wbList[i])).To(BeNil())
 		}
-		if appList[i].Status.LastRun != nil {
+		if wbList[i].Status.LastRun != nil {
 			// UpdateStatus changes SelfLink to the status sub-resource but we
 			// should revert the change for tests to pass
-			selfLink := appList[i].ObjectMeta.SelfLink
-			Expect(testKubeClient.UpdateApplicationStatus(context.TODO(), appList[i])).To(BeNil())
-			appList[i].ObjectMeta.SelfLink = selfLink
+			selfLink := wbList[i].ObjectMeta.SelfLink
+			Expect(testKubeClient.UpdateWaybillStatus(context.TODO(), wbList[i])).To(BeNil())
+			wbList[i].ObjectMeta.SelfLink = selfLink
 		}
 		// This is a workaround for Equal checks to work below.
-		// Apparently, List will return Applications with TypeMeta but
+		// Apparently, List will return Waybills with TypeMeta but
 		// Get and Create (which updates the struct) do not.
-		appList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"}
+		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
 	}
 }
 
-func testWaitForSchedulerToUpdate(s *Scheduler, appList []*kubeapplierv1alpha1.Application) {
+func testWaitForSchedulerToUpdate(s *Scheduler, wbList []*kubeapplierv1alpha1.Waybill) {
 	Eventually(
-		testSchedulerCopyApplicationsMap(s),
+		testSchedulerCopyWaybillsMap(s),
 		time.Second*15,
 		time.Second,
-	).Should(Equal(testSchedulerExpectedApplicationsMap(appList)))
+	).Should(Equal(testSchedulerExpectedWaybillsMap(wbList)))
 }
 
 func testWaitForRequests(actual func() []Request, expected gomegatypes.GomegaMatcher) {
@@ -357,10 +357,10 @@ func testWaitForRequests(actual func() []Request, expected gomegatypes.GomegaMat
 		func() map[string]map[Type]int {
 			requestCount := map[string]map[Type]int{}
 			for _, req := range actual() {
-				if _, ok := requestCount[req.Application.Namespace]; !ok {
-					requestCount[req.Application.Namespace] = map[Type]int{}
+				if _, ok := requestCount[req.Waybill.Namespace]; !ok {
+					requestCount[req.Waybill.Namespace] = map[Type]int{}
 				}
-				requestCount[req.Application.Namespace][req.Type]++
+				requestCount[req.Waybill.Namespace][req.Type]++
 			}
 			return requestCount
 		},
@@ -369,22 +369,22 @@ func testWaitForRequests(actual func() []Request, expected gomegatypes.GomegaMat
 	).Should(expected)
 }
 
-func testSchedulerExpectedApplicationsMap(appList []*kubeapplierv1alpha1.Application) map[string]*kubeapplierv1alpha1.Application {
-	expectedAppMap := map[string]*kubeapplierv1alpha1.Application{}
-	for i := range appList {
-		expectedAppMap[appList[i].Namespace] = appList[i]
+func testSchedulerExpectedWaybillsMap(wbList []*kubeapplierv1alpha1.Waybill) map[string]*kubeapplierv1alpha1.Waybill {
+	expectedWaybillMap := map[string]*kubeapplierv1alpha1.Waybill{}
+	for i := range wbList {
+		expectedWaybillMap[wbList[i].Namespace] = wbList[i]
 	}
-	return expectedAppMap
+	return expectedWaybillMap
 }
 
-func testSchedulerCopyApplicationsMap(scheduler *Scheduler) func() map[string]*kubeapplierv1alpha1.Application {
-	return func() map[string]*kubeapplierv1alpha1.Application {
-		scheduler.applicationsMutex.Lock()
-		defer scheduler.applicationsMutex.Unlock()
-		apps := map[string]*kubeapplierv1alpha1.Application{}
-		for i := range scheduler.applications {
-			apps[i] = scheduler.applications[i]
+func testSchedulerCopyWaybillsMap(scheduler *Scheduler) func() map[string]*kubeapplierv1alpha1.Waybill {
+	return func() map[string]*kubeapplierv1alpha1.Waybill {
+		scheduler.waybillsMutex.Lock()
+		defer scheduler.waybillsMutex.Unlock()
+		waybills := map[string]*kubeapplierv1alpha1.Waybill{}
+		for i := range scheduler.waybills {
+			waybills[i] = scheduler.waybills[i]
 		}
-		return apps
+		return waybills
 	}
 }

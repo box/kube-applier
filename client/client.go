@@ -93,38 +93,38 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	}, nil
 }
 
-// EmitApplicationEvent creates an Event for the provided Application.
-func (c *Client) EmitApplicationEvent(app *kubeapplierv1alpha1.Application, eventType, reason, messageFmt string, args ...interface{}) {
-	c.recorder.Eventf(app, eventType, reason, messageFmt, args...)
+// EmitWaybillEvent creates an Event for the provided Waybill.
+func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
+	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
 }
 
-// ListApplications returns a list of all the Application resources.
-func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Application, error) {
-	apps := &kubeapplierv1alpha1.ApplicationList{}
-	if err := c.List(ctx, apps); err != nil {
+// ListWaybills returns a list of all the Waybill resources.
+func (c *Client) ListWaybills(ctx context.Context) ([]kubeapplierv1alpha1.Waybill, error) {
+	waybills := &kubeapplierv1alpha1.WaybillList{}
+	if err := c.List(ctx, waybills); err != nil {
 		return nil, err
 	}
-	// ensure that the list of Applications is sorted alphabetically
-	sortedApps := make([]kubeapplierv1alpha1.Application, len(apps.Items))
-	for i, app := range apps.Items {
-		sortedApps[i] = app
+	// ensure that the list of Waybills is sorted alphabetically
+	sortedWaybills := make([]kubeapplierv1alpha1.Waybill, len(waybills.Items))
+	for i, wb := range waybills.Items {
+		sortedWaybills[i] = wb
 	}
-	sort.Slice(sortedApps, func(i, j int) bool {
-		return sortedApps[i].Namespace+sortedApps[i].Name < sortedApps[j].Namespace+sortedApps[j].Name
+	sort.Slice(sortedWaybills, func(i, j int) bool {
+		return sortedWaybills[i].Namespace+sortedWaybills[i].Name < sortedWaybills[j].Namespace+sortedWaybills[j].Name
 	})
 
-	unique := map[string]kubeapplierv1alpha1.Application{}
-	for _, app := range sortedApps {
-		if v, ok := unique[app.Namespace]; ok {
-			c.EmitApplicationEvent(&app, corev1.EventTypeWarning, "MultipleApplicationsFound", "Application %s is already being used", v.Name)
+	unique := map[string]kubeapplierv1alpha1.Waybill{}
+	for _, wb := range sortedWaybills {
+		if v, ok := unique[wb.Namespace]; ok {
+			c.EmitWaybillEvent(&wb, corev1.EventTypeWarning, "MultipleWaybillsFound", "Waybill %s is already being used", v.Name)
 			continue
 		}
-		unique[app.Namespace] = app
+		unique[wb.Namespace] = wb
 	}
-	ret := make([]kubeapplierv1alpha1.Application, len(unique))
+	ret := make([]kubeapplierv1alpha1.Waybill, len(unique))
 	i := 0
-	for _, app := range unique {
-		ret[i] = app
+	for _, wb := range unique {
+		ret[i] = wb
 		i++
 	}
 	sort.Slice(ret, func(i, j int) bool {
@@ -133,25 +133,25 @@ func (c *Client) ListApplications(ctx context.Context) ([]kubeapplierv1alpha1.Ap
 	return ret, nil
 }
 
-// GetApplication returns the Application resource specified by the namespace
+// GetWaybill returns the Waybill resource specified by the namespace
 // and name.
-func (c *Client) GetApplication(ctx context.Context, namespace, name string) (*kubeapplierv1alpha1.Application, error) {
-	app := &kubeapplierv1alpha1.Application{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, app); err != nil {
+func (c *Client) GetWaybill(ctx context.Context, namespace, name string) (*kubeapplierv1alpha1.Waybill, error) {
+	waybill := &kubeapplierv1alpha1.Waybill{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, waybill); err != nil {
 		return nil, err
 	}
-	return app, nil
+	return waybill, nil
 }
 
-// UpdateApplication updates the Application resource provided.
-func (c *Client) UpdateApplication(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
-	return c.Update(ctx, app, defaultUpdateOptions)
+// UpdateWaybill updates the Waybill resource provided.
+func (c *Client) UpdateWaybill(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) error {
+	return c.Update(ctx, waybill, defaultUpdateOptions)
 }
 
-// UpdateApplicationStatus updates the status of the Application resource
+// UpdateWaybillStatus updates the status of the Waybill resource
 // provided.
-func (c *Client) UpdateApplicationStatus(ctx context.Context, app *kubeapplierv1alpha1.Application) error {
-	return c.Status().Update(ctx, app, defaultUpdateOptions)
+func (c *Client) UpdateWaybillStatus(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) error {
+	return c.Status().Update(ctx, waybill, defaultUpdateOptions)
 }
 
 // GetSecret returns the Secret resource specified by the namespace and name.

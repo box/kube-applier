@@ -60,41 +60,41 @@ var _ = Describe("WebServer", func() {
 	})
 
 	Context("When running", func() {
-		appList := []kubeapplierv1alpha1.Application{
+		wbList := []kubeapplierv1alpha1.Waybill{
 			{
-				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
 					Namespace: "foo",
 				},
-				Spec: kubeapplierv1alpha1.ApplicationSpec{RepositoryPath: "foo"},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "foo"},
 			},
 			{
-				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
 					Namespace: "bar",
 				},
-				Spec: kubeapplierv1alpha1.ApplicationSpec{RepositoryPath: "bar"},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "bar"},
 			},
 		}
 
-		It("Should keep track of Application resources on the server", func() {
-			By("Listing all the Applications in the cluster")
-			testEnsureApplications(appList)
+		It("Should keep track of Waybill resources on the server", func() {
+			By("Listing all the Waybills in the cluster")
+			testEnsureWaybills(wbList)
 			Eventually(
-				func() []kubeapplierv1alpha1.Application {
+				func() []kubeapplierv1alpha1.Waybill {
 					testWebServer.result.Lock()
 					defer testWebServer.result.Unlock()
-					ret := make([]kubeapplierv1alpha1.Application, len(testWebServer.result.Applications))
-					for i := range testWebServer.result.Applications {
-						ret[i] = testWebServer.result.Applications[i]
+					ret := make([]kubeapplierv1alpha1.Waybill, len(testWebServer.result.Waybills))
+					for i := range testWebServer.result.Waybills {
+						ret[i] = testWebServer.result.Waybills[i]
 					}
 					return ret
 				},
 				time.Second*15,
 				time.Second,
-			).Should(ConsistOf(appList))
+			).Should(ConsistOf(wbList))
 
 			testWebServer.Shutdown()
 			close(testRunQueue)
@@ -124,9 +124,9 @@ var _ = Describe("WebServer", func() {
 			body, err = ioutil.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Cannot find Applications in namespace 'invalid'"}`))
+			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Cannot find Waybills in namespace 'invalid'"}`))
 
-			v.Set("namespace", appList[0].Namespace)
+			v.Set("namespace", wbList[0].Namespace)
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
 			Expect(err).To(BeNil())
 			body, err = ioutil.ReadAll(res.Body)
@@ -138,8 +138,8 @@ var _ = Describe("WebServer", func() {
 			close(testRunQueue)
 
 			Expect(testWebServerRequests()).To(Equal([]run.Request{{
-				Type:        run.ForcedRun,
-				Application: &appList[0],
+				Type:    run.ForcedRun,
+				Waybill: &wbList[0],
 			}}))
 		})
 
@@ -172,26 +172,26 @@ var _ = Describe("WebServer", func() {
 
 // TODO: this is essentially duplication from the run package (but with values
 // instead of pointers), can we share?
-func testEnsureApplications(appList []kubeapplierv1alpha1.Application) {
-	for i := range appList {
-		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: appList[i].Namespace}})
+func testEnsureWaybills(wbList []kubeapplierv1alpha1.Waybill) {
+	for i := range wbList {
+		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 		if err != nil {
 			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		}
-		err = testKubeClient.Create(context.TODO(), &appList[i])
+		err = testKubeClient.Create(context.TODO(), &wbList[i])
 		if err != nil {
-			Expect(testKubeClient.UpdateApplication(context.TODO(), &appList[i])).To(BeNil())
+			Expect(testKubeClient.UpdateWaybill(context.TODO(), &wbList[i])).To(BeNil())
 		}
-		if appList[i].Status.LastRun != nil {
+		if wbList[i].Status.LastRun != nil {
 			// UpdateStatus changes SelfLink to the status sub-resource but we
 			// should revert the change for tests to pass
-			selfLink := appList[i].ObjectMeta.SelfLink
-			Expect(testKubeClient.UpdateApplicationStatus(context.TODO(), &appList[i])).To(BeNil())
-			appList[i].ObjectMeta.SelfLink = selfLink
+			selfLink := wbList[i].ObjectMeta.SelfLink
+			Expect(testKubeClient.UpdateWaybillStatus(context.TODO(), &wbList[i])).To(BeNil())
+			wbList[i].ObjectMeta.SelfLink = selfLink
 		}
 		// This is a workaround for Equal checks to work below.
-		// Apparently, List will return Applications with TypeMeta but
+		// Apparently, List will return Waybills with TypeMeta but
 		// Get and Create (which updates the struct) do not.
-		appList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"}
+		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
 	}
 }
