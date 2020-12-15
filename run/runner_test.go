@@ -244,6 +244,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			testRunner.Stop()
 
 			for i := range appList {
+				appList[i].Status.LastRun.Output = testStripKubectlWarnings(appList[i].Status.LastRun.Output)
 				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 
@@ -301,6 +302,7 @@ Some error output has been omitted because it may contain sensitive data
 			Enqueue(testRunQueue, PollingRun, &app)
 			testRunner.Stop()
 
+			app.Status.LastRun.Output = testStripKubectlWarnings(app.Status.LastRun.Output)
 			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(&app, testRunner.PruneBlacklist)))
 
 			testMetrics([]string{
@@ -486,6 +488,7 @@ deployment.apps/test-deployment created
 			testRunner.Stop()
 
 			for i := range appList {
+				appList[i].Status.LastRun.Output = testStripKubectlWarnings(appList[i].Status.LastRun.Output)
 				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
 			}
 
@@ -587,4 +590,15 @@ func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, kus
 			})),
 		}),
 	})
+}
+
+func testStripKubectlWarnings(output string) string {
+	lines := strings.Split(output, "\n")
+	ret := []string{}
+	for _, l := range lines {
+		if !strings.HasPrefix(l, "Warning:") {
+			ret = append(ret, l)
+		}
+	}
+	return strings.Join(ret, "\n")
 }
