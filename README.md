@@ -1,6 +1,6 @@
 # kube-applier
 
-[![Docker Repository on Quay](https://quay.io/repository/utilitywarehouse/kube-applier/status "Docker Repository on Quay")](https://quay.io/repository/utilitywarehouse/kube-applier)
+[![Build Status](https://drone.prod.merit.uw.systems/api/badges/utilitywarehouse/kube-applier/status.svg)](https://drone.prod.merit.uw.systems/utilitywarehouse/kube-applier)
 
 # Table of Contents
 
