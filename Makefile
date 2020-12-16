@@ -13,9 +13,7 @@ endif
 manifests: controller-gen
 	$(CONTROLLER_GEN) \
 		crd:trivialVersions=true \
-		rbac:roleName=kube-applier \
 		paths="./..." \
-		output:rbac:artifacts:config=manifests/base \
 		output:crd:artifacts:config=manifests/base/crd
 	@{ \
 	cd manifests/base/crd ;\
