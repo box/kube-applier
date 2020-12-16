@@ -30,7 +30,7 @@ up-to-date with their associated spec files (JSON or YAML) in the repo.
 
 Configuration is done through the `kube-applier.io/Waybill` CRD. Each namespace
 in a cluster defines a Waybill CRD which defines the source of truth for the
-inside the repository.
+namespace inside the repository.
 
 Whenever a new commit to the repo occurs, or at a [specified
 interval](#run-interval), kube-applier performs a "run", issuing [kubectl
