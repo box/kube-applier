@@ -1,6 +1,6 @@
 // Package run implements structs for scheduling and performing apply runs that
 // apply manifest files from a git repository source based on configuration
-// stored in Application CRDs and scheduling.
+// stored in Waybill CRDs and scheduling.
 package run
 
 import (
@@ -30,8 +30,8 @@ const (
 
 // Request defines an apply run request
 type Request struct {
-	Type        Type
-	Application *kubeapplierv1alpha1.Application
+	Type    Type
+	Waybill *kubeapplierv1alpha1.Waybill
 }
 
 // ApplyOptions contains global configuration for Apply
@@ -40,17 +40,17 @@ type ApplyOptions struct {
 	NamespacedResources []string
 }
 
-func (o *ApplyOptions) pruneWhitelist(app *kubeapplierv1alpha1.Application, pruneBlacklist []string) []string {
+func (o *ApplyOptions) pruneWhitelist(waybill *kubeapplierv1alpha1.Waybill, pruneBlacklist []string) []string {
 	var pruneWhitelist []string
-	if app.Spec.Prune {
+	if waybill.Spec.Prune {
 		pruneWhitelist = append(pruneWhitelist, o.NamespacedResources...)
 
-		if app.Spec.PruneClusterResources {
+		if waybill.Spec.PruneClusterResources {
 			pruneWhitelist = append(pruneWhitelist, o.ClusterResources...)
 		}
 
 		// Trim blacklisted items out of the whitelist
-		pruneBlacklist := uniqueStrings(append(pruneBlacklist, app.Spec.PruneBlacklist...))
+		pruneBlacklist := uniqueStrings(append(pruneBlacklist, waybill.Spec.PruneBlacklist...))
 		for _, b := range pruneBlacklist {
 			for i, w := range pruneWhitelist {
 				if b == w {
@@ -114,14 +114,14 @@ func (r *Runner) applyWorker() {
 	defer r.workerGroup.Done()
 	for request := range r.workerQueue {
 		// TODO: for brevity, we could do:
-		// app := request.Application
-		appId := fmt.Sprintf("%s/%s", request.Application.Namespace, request.Application.Name)
-		log.Logger("runner").Info("Started apply run", "app", appId)
-		metrics.UpdateRunRequest(request.Type.String(), request.Application, -1)
+		// wb := request.Waybill
+		wbId := fmt.Sprintf("%s/%s", request.Waybill.Namespace, request.Waybill.Name)
+		log.Logger("runner").Info("Started apply run", "waybill", wbId)
+		metrics.UpdateRunRequest(request.Type.String(), request.Waybill, -1)
 
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
-			log.Logger("runner").Error("Could not compute list of prunable resources", "app", appId, "error", err)
+			log.Logger("runner").Error("Could not compute list of prunable resources", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
 			continue
 		}
@@ -129,48 +129,48 @@ func (r *Runner) applyWorker() {
 			ClusterResources:    clusterResources,
 			NamespacedResources: namespacedResources,
 		}
-		gitUtil, cleanupTemp, err := r.copyRepository(request.Application)
+		gitUtil, cleanupTemp, err := r.copyRepository(request.Waybill)
 		if err != nil {
-			log.Logger("runner").Error("Could not create a repository copy", "app", appId, "error", err)
+			log.Logger("runner").Error("Could not create a repository copy", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
 			continue
 		}
-		hash, err := gitUtil.HeadHashForPaths(request.Application.Spec.RepositoryPath)
+		hash, err := gitUtil.HeadHashForPaths(request.Waybill.Spec.RepositoryPath)
 		if err != nil {
-			log.Logger("runner").Error("Could not determine HEAD hash", "app", appId, "error", err)
+			log.Logger("runner").Error("Could not determine HEAD hash", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
 			cleanupTemp()
 			continue
 		}
 
-		r.apply(gitUtil.RepoPath, request.Application, applyOptions)
+		r.apply(gitUtil.RepoPath, request.Waybill, applyOptions)
 
 		// TODO: move these in apply()
-		request.Application.Status.LastRun.Commit = hash
-		request.Application.Status.LastRun.Type = request.Type.String()
+		request.Waybill.Status.LastRun.Commit = hash
+		request.Waybill.Status.LastRun.Type = request.Type.String()
 
-		if err := r.KubeClient.UpdateApplicationStatus(context.TODO(), request.Application); err != nil {
-			log.Logger("runner").Warn("Could not update Application run info", "app", appId, "error", err)
+		if err := r.KubeClient.UpdateWaybillStatus(context.TODO(), request.Waybill); err != nil {
+			log.Logger("runner").Warn("Could not update Waybill run info", "waybill", wbId, "error", err)
 		}
 
-		if request.Application.Status.LastRun.Success {
-			log.Logger("runner").Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", appId, request.Application.Status.LastRun.Command, request.Application.Status.LastRun.Output))
+		if request.Waybill.Status.LastRun.Success {
+			log.Logger("runner").Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", wbId, request.Waybill.Status.LastRun.Command, request.Waybill.Status.LastRun.Output))
 		} else {
-			log.Logger("runner").Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", appId, request.Application.Status.LastRun.ErrorMessage))
+			log.Logger("runner").Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", wbId, request.Waybill.Status.LastRun.ErrorMessage))
 		}
 
-		metrics.UpdateFromLastRun(request.Application)
+		metrics.UpdateFromLastRun(request.Waybill)
 
-		log.Logger("runner").Info("Finished apply run", "app", appId)
+		log.Logger("runner").Info("Finished apply run", "waybill", wbId)
 		cleanupTemp()
 	}
 }
 
-// setRequestFailure is used to update the status of an Application when the
-// request failed to setup and before attempting to apply.
+// setRequestFailure is used to update the status of a Waybill when the request
+// failed to setup and before attempting to apply.
 // TODO: it might be preferrable to convert these to events
 func (r *Runner) setRequestFailure(req Request, err error) {
-	req.Application.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
+	req.Waybill.Status.LastRun = &kubeapplierv1alpha1.WaybillStatusRun{
 		Command:      "", // These fields are not available since the request
 		Commit:       "", // failed before even attempting an apply
 		Output:       "",
@@ -194,19 +194,19 @@ func (r *Runner) Stop() {
 	r.workerGroup = nil
 }
 
-func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util, func(), error) {
+func (r *Runner) copyRepository(waybill *kubeapplierv1alpha1.Waybill) (*git.Util, func(), error) {
 	var env []string
 	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
 	if err != nil {
 		return nil, nil, err
 	}
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d", app.Namespace, app.Name, r.Clock.Now().Unix()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
 		return nil, nil, err
 	}
 	cleanupDirs := []string{tmpDir}
-	if app.Spec.StrongboxKeyringSecretRef != "" {
-		sbHome, err := r.setupStrongboxKeyring(app)
+	if waybill.Spec.StrongboxKeyringSecretRef != "" {
+		sbHome, err := r.setupStrongboxKeyring(waybill)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -218,7 +218,7 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 			os.RemoveAll(v)
 		}
 	}
-	path := filepath.Join(sub, app.Spec.RepositoryPath)
+	path := filepath.Join(sub, waybill.Spec.RepositoryPath)
 	if err := git.CloneRepository(root, tmpDir, path, env); err != nil {
 		cleanup()
 		return nil, nil, err
@@ -226,8 +226,8 @@ func (r *Runner) copyRepository(app *kubeapplierv1alpha1.Application) (*git.Util
 	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, cleanup, nil
 }
 
-func (r *Runner) setupStrongboxKeyring(app *kubeapplierv1alpha1.Application) (string, error) {
-	secret, err := r.KubeClient.GetSecret(context.TODO(), app.Namespace, app.Spec.StrongboxKeyringSecretRef)
+func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill) (string, error) {
+	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
 	if err != nil {
 		return "", err
 	}
@@ -235,7 +235,7 @@ func (r *Runner) setupStrongboxKeyring(app *kubeapplierv1alpha1.Application) (st
 	if !ok {
 		return "", fmt.Errorf("Secret %s/%s does not contain key '.strongbox_keyring'", secret.Namespace, secret.Name)
 	}
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_strongbox", app.Namespace, app.Name, r.Clock.Now().Unix()))
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_strongbox", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
 		return "", err
 	}
@@ -247,25 +247,25 @@ func (r *Runner) setupStrongboxKeyring(app *kubeapplierv1alpha1.Application) (st
 }
 
 // Apply takes a list of files and attempts an apply command on each.
-func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, options *ApplyOptions) {
+func (r *Runner) apply(rootPath string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
-	path := filepath.Join(rootPath, app.Spec.RepositoryPath)
+	path := filepath.Join(rootPath, waybill.Spec.RepositoryPath)
 	log.Logger("runner").Info("Applying files", "path", path)
 
 	dryRunStrategy := "none"
-	if r.DryRun || app.Spec.DryRun {
+	if r.DryRun || waybill.Spec.DryRun {
 		dryRunStrategy = "server"
 	}
 
 	cmd, output, err := r.KubectlClient.Apply(path, kubectl.ApplyFlags{
-		Namespace:      app.Namespace,
+		Namespace:      waybill.Namespace,
 		DryRunStrategy: dryRunStrategy,
-		PruneWhitelist: options.pruneWhitelist(app, r.PruneBlacklist),
-		ServerSide:     app.Spec.ServerSideApply,
+		PruneWhitelist: options.pruneWhitelist(waybill, r.PruneBlacklist),
+		ServerSide:     waybill.Spec.ServerSideApply,
 	})
 	finish := r.Clock.Now()
 
-	app.Status.LastRun = &kubeapplierv1alpha1.ApplicationStatusRun{
+	waybill.Status.LastRun = &kubeapplierv1alpha1.WaybillStatusRun{
 		Command:      cmd,
 		Output:       output,
 		ErrorMessage: "",
@@ -273,22 +273,22 @@ func (r *Runner) apply(rootPath string, app *kubeapplierv1alpha1.Application, op
 		Started:      metav1.NewTime(start),
 	}
 	if err != nil {
-		app.Status.LastRun.ErrorMessage = err.Error()
+		waybill.Status.LastRun.ErrorMessage = err.Error()
 	} else {
-		app.Status.LastRun.Success = true
+		waybill.Status.LastRun.Success = true
 	}
 }
 
 // Enqueue attempts to add a run request to the queue, timing out after 5
 // seconds.
-func Enqueue(queue chan<- Request, t Type, app *kubeapplierv1alpha1.Application) {
-	appId := fmt.Sprintf("%s/%s", app.Namespace, app.Name)
+func Enqueue(queue chan<- Request, t Type, waybill *kubeapplierv1alpha1.Waybill) {
+	wbId := fmt.Sprintf("%s/%s", waybill.Namespace, waybill.Name)
 	select {
-	case queue <- Request{Type: t, Application: app}:
-		log.Logger("runner").Debug("Run queued", "app", appId, "type", t)
-		metrics.UpdateRunRequest(t.String(), app, 1)
+	case queue <- Request{Type: t, Waybill: waybill}:
+		log.Logger("runner").Debug("Run queued", "waybill", wbId, "type", t)
+		metrics.UpdateRunRequest(t.String(), waybill, 1)
 	case <-time.After(5 * time.Second):
-		log.Logger("runner").Error("Timed out trying to queue a run, run queue is full", "app", appId, "type", t)
-		metrics.AddRunRequestQueueFailure(t.String(), app)
+		log.Logger("runner").Error("Timed out trying to queue a run, run queue is full", "waybill", wbId, "type", t)
+		metrics.AddRunRequestQueueFailure(t.String(), waybill)
 	}
 }

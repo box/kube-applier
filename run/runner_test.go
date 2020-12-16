@@ -34,20 +34,20 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 
 	testCases := []struct {
 		options   *ApplyOptions
-		app       *kubeapplierv1alpha1.Application
+		waybill   *kubeapplierv1alpha1.Waybill
 		blacklist []string
 		expected  []string
 	}{
 		{
 			&ApplyOptions{},
-			&kubeapplierv1alpha1.Application{},
+			&kubeapplierv1alpha1.Waybill{},
 			[]string{},
 			nil,
 		},
 		{
 			&ApplyOptions{},
-			&kubeapplierv1alpha1.Application{
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+			&kubeapplierv1alpha1.Waybill{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune: true,
 				},
 			},
@@ -56,8 +56,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 		},
 		{
 			applyOptions,
-			&kubeapplierv1alpha1.Application{
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+			&kubeapplierv1alpha1.Waybill{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune: true,
 				},
 			},
@@ -66,8 +66,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 		},
 		{
 			applyOptions,
-			&kubeapplierv1alpha1.Application{
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+			&kubeapplierv1alpha1.Waybill{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune:          true,
 					PruneBlacklist: []string{"b"},
 				},
@@ -77,8 +77,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 		},
 		{
 			applyOptions,
-			&kubeapplierv1alpha1.Application{
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+			&kubeapplierv1alpha1.Waybill{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune:                 true,
 					PruneBlacklist:        []string{"b"},
 					PruneClusterResources: true,
@@ -90,7 +90,7 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		assert.Equal(tc.options.pruneWhitelist(tc.app, tc.blacklist), tc.expected)
+		assert.Equal(tc.options.pruneWhitelist(tc.waybill, tc.blacklist), tc.expected)
 	}
 }
 
@@ -135,53 +135,53 @@ var _ = Describe("Runner", func() {
 		testRunner.Stop()
 	})
 
-	Context("When operating on an empty Application list", func() {
+	Context("When operating on an empty Waybill list", func() {
 		It("Should be a no-op", func() {
-			appList := []kubeapplierv1alpha1.Application{}
-			appListExpected := []kubeapplierv1alpha1.Application{}
+			wbList := []kubeapplierv1alpha1.Waybill{}
+			wbListExpected := []kubeapplierv1alpha1.Waybill{}
 
-			for i := range appList {
-				Enqueue(testRunQueue, PollingRun, &appList[i])
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, &wbList[i])
 			}
 			testRunner.Stop()
 
-			Expect(appList).Should(Equal(appListExpected))
+			Expect(wbList).Should(Equal(wbListExpected))
 		})
 	})
 
-	Context("When operating on an Application list", func() {
+	Context("When operating on a Waybill list", func() {
 		It("Should update the Status subresources accordingly", func() {
-			appList := []kubeapplierv1alpha1.Application{
+			wbList := []kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appA",
 						Namespace: "app-a",
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:          true,
 						RepositoryPath: "app-a",
 					},
 				},
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appB",
 						Namespace: "app-b",
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:                 true,
 						PruneClusterResources: true,
 						RepositoryPath:        "app-b",
 					},
 				},
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appC",
 						Namespace: "app-c",
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DryRun:         true,
 						Prune:          true,
 						PruneBlacklist: []string{"core/v1/Pod"},
@@ -190,7 +190,7 @@ var _ = Describe("Runner", func() {
 				},
 			}
 
-			expectedStatus := []*kubeapplierv1alpha1.ApplicationStatusRun{
+			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
 				{
 					Command:      "",
 					ErrorMessage: "",
@@ -226,26 +226,26 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 				},
 			}
 
-			// construct expected app list
-			expected := make([]kubeapplierv1alpha1.Application, len(appList))
-			for i := range appList {
-				expected[i] = appList[i]
-				expected[i].Status = kubeapplierv1alpha1.ApplicationStatus{LastRun: expectedStatus[i]}
+			// construct expected waybill list
+			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
+			for i := range wbList {
+				expected[i] = wbList[i]
+				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
 				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
 
-			By("Applying all the Applications and populating their Status subresource with the results")
+			By("Applying all the Waybills and populating their Status subresource with the results")
 
-			for i := range appList {
-				Enqueue(testRunQueue, PollingRun, &appList[i])
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, &wbList[i])
 			}
 			testRunner.Stop()
 
-			for i := range appList {
-				appList[i].Status.LastRun.Output = testStripKubectlWarnings(appList[i].Status.LastRun.Output)
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+			for i := range wbList {
+				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				Expect(wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&wbList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -266,25 +266,25 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 		})
 	})
 
-	Context("When operating on an Application that uses kustomize", func() {
+	Context("When operating on a Waybill that uses kustomize", func() {
 		It("Should be able to build and apply", func() {
-			app := kubeapplierv1alpha1.Application{
-				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+			waybill := kubeapplierv1alpha1.Waybill{
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "appA",
 					Namespace: "app-a-kustomize",
 				},
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune:          true,
 					RepositoryPath: "app-a-kustomize",
 				},
 			}
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(app.Spec.RepositoryPath)
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(waybill.Spec.RepositoryPath)
 			Expect(err).To(BeNil())
-			expected := app
-			expected.Status = kubeapplierv1alpha1.ApplicationStatus{
-				LastRun: &kubeapplierv1alpha1.ApplicationStatusRun{
+			expected := waybill
+			expected.Status = kubeapplierv1alpha1.WaybillStatus{
+				LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 					Command:      "",
 					Commit:       headCommitHash,
 					ErrorMessage: "exit status 1",
@@ -299,11 +299,11 @@ Some error output has been omitted because it may contain sensitive data
 				},
 			}
 
-			Enqueue(testRunQueue, PollingRun, &app)
+			Enqueue(testRunQueue, PollingRun, &waybill)
 			testRunner.Stop()
 
-			app.Status.LastRun.Output = testStripKubectlWarnings(app.Status.LastRun.Output)
-			Expect(app).Should(matchApplication(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(&app, testRunner.PruneBlacklist)))
+			waybill.Status.LastRun.Output = testStripKubectlWarnings(waybill.Status.LastRun.Output)
+			Expect(waybill).Should(matchWaybill(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(&waybill, testRunner.PruneBlacklist)))
 
 			testMetrics([]string{
 				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a-kustomize"} 1`,
@@ -316,18 +316,18 @@ Some error output has been omitted because it may contain sensitive data
 		})
 	})
 
-	Context("When operating on an Application that defines a strongbox keyring", func() {
+	Context("When operating on a Waybill that defines a strongbox keyring", func() {
 		It("Should be able to apply encrypted files, given a strongbox keyring secret", func() {
 			// Instead of creating the namespace using the test kube client, we
-			// instead use a "hack" here by requesting a run for an Application
+			// instead use a "hack" here by requesting a run for a Waybill
 			// pointing to a single file that defines the namespace. This is to
 			// avoid kubectl apply warnings in the output below.
-			Enqueue(testRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
+			Enqueue(testRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foobar",
 					Namespace: "app-d",
 				},
-				Spec: kubeapplierv1alpha1.ApplicationSpec{
+				Spec: kubeapplierv1alpha1.WaybillSpec{
 					Prune:          false,
 					RepositoryPath: "app-d/00-namespace.yaml",
 				},
@@ -364,49 +364,49 @@ Some error output has been omitted because it may contain sensitive data
 			}
 			Expect(testKubeClient.Create(context.TODO(), secretEmpty)).To(BeNil())
 
-			appList := []kubeapplierv1alpha1.Application{
+			wbList := []kubeapplierv1alpha1.Waybill{
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appD",
 						Namespace: ns.Name,
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:          true,
 						RepositoryPath: "app-d",
 					},
 				},
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appD",
 						Namespace: ns.Name,
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "invalid",
 					},
 				},
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appD",
 						Namespace: ns.Name,
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secretEmpty.Name,
 					},
 				},
 				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "appD",
 						Namespace: ns.Name,
 					},
-					Spec: kubeapplierv1alpha1.ApplicationSpec{
+					Spec: kubeapplierv1alpha1.WaybillSpec{
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secret.Name,
@@ -418,7 +418,7 @@ Some error output has been omitted because it may contain sensitive data
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
-			expectedStatus := []*kubeapplierv1alpha1.ApplicationStatusRun{
+			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
 				{
 					Command:      "",
 					Commit:       headCommitHash,
@@ -465,15 +465,15 @@ deployment.apps/test-deployment created
 				},
 			}
 
-			// construct expected app list
-			expected := make([]kubeapplierv1alpha1.Application, len(appList))
-			for i := range appList {
-				expected[i] = appList[i]
-				expected[i].Status = kubeapplierv1alpha1.ApplicationStatus{LastRun: expectedStatus[i]}
+			// construct expected waybill list
+			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
+			for i := range wbList {
+				expected[i] = wbList[i]
+				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
 			}
 
-			for i := range appList {
-				Enqueue(testRunQueue, PollingRun, &appList[i])
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, &wbList[i])
 			}
 
 			Eventually(
@@ -487,9 +487,9 @@ deployment.apps/test-deployment created
 
 			testRunner.Stop()
 
-			for i := range appList {
-				appList[i].Status.LastRun.Output = testStripKubectlWarnings(appList[i].Status.LastRun.Output)
-				Expect(appList[i]).Should(matchApplication(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&appList[i], testRunner.PruneBlacklist)))
+			for i := range wbList {
+				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				Expect(wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&wbList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -506,19 +506,19 @@ deployment.apps/test-deployment created
 	Context("When it fails to enqueue a run request", func() {
 		It("Should increase the respective metrics counter", func() {
 			smallRunQueue := make(chan Request, 1)
-			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "queued-ok"},
 			})
-			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
 			})
 			testMetrics([]string{
 				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 1`,
 			})
-			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Application{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Application"},
+			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
 			})
 			testMetrics([]string{
@@ -528,7 +528,7 @@ deployment.apps/test-deployment created
 	})
 })
 
-func matchApplication(expected kubeapplierv1alpha1.Application, kubectlPath, kustomizePath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
+func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
 	commandMatcher := Ignore()
 	if expected.Status.LastRun.Command != "^.*$" {
 		commandExtraArgs := expected.Status.LastRun.Command

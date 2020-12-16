@@ -27,11 +27,11 @@
                         </h4>
                     </div>
                     <div id="failures" class="panel-group collapse {{ if .Failures }}in{{ end }}">
-                        {{ range $i, $app := .Failures }}
+                        {{ range $i, $wb := .Failures }}
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $app.Namespace }}{{ if $app.Spec.DryRun }} (dry-run){{ end }}</a>
+                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $wb.Namespace }}{{ if $wb.Spec.DryRun }} (dry-run){{ end }}</a>
                                 </div>
                             </div>
                             <div id="failure-{{$i}}" class="panel-collapse collapse in">
@@ -39,15 +39,15 @@
                                     <li class="list-group-item">
                                         <div class="row">
                                             <div class="col-md-10">
-                                                <strong>Type: </strong>{{ $app.Status.LastRun.Type }}<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $app.Status.LastRun.Commit }}<a href="{{ $.CommitLink $app.Status.LastRun.Commit }}">{{ $app.Status.LastRun.Commit }}</a>{{ end }}<br/>
-                                                <strong>Started: </strong>{{ $.FormattedTime $app.Status.LastRun.Started }} (took {{ $.Latency $app.Status.LastRun.Started $app.Status.LastRun.Finished }})
+                                                <strong>Type: </strong>{{ $wb.Status.LastRun.Type }}<br/>
+                                                <strong>Commit: </strong> {{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ end }}<br/>
+                                                <strong>Started: </strong>{{ $.FormattedTime $wb.Status.LastRun.Started }} (took {{ $.Latency $wb.Status.LastRun.Started $wb.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-namespace="{{ $app.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $wb.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
-                                        <pre class="file-output">{{ printf "$ %s\n" $app.Status.LastRun.Command }}{{ $app.Status.LastRun.Output }}{{ $app.Status.LastRun.ErrorMessage }}</pre>
+                                        <pre class="file-output">{{ printf "$ %s\n" $wb.Status.LastRun.Command }}{{ $wb.Status.LastRun.Output }}{{ $wb.Status.LastRun.ErrorMessage }}</pre>
                                     </li>
                                 </ul>
                             </div>
@@ -65,31 +65,31 @@
                 <div class="panel panel-default {{ if .Failures }}panel-warning{{ else }}panel-success{{ end }}">
                     <div class="panel-heading">
                         <h4 class="panel-title">
-                            <a data-toggle="collapse" href="#successes">Applied Namespaces: {{ len .Successes }} / {{ len .Applications }}</a>
+                            <a data-toggle="collapse" href="#successes">Applied Namespaces: {{ len .Successes }} / {{ len .Waybills }}</a>
                         </h4>
                     </div>
                     <div id="successes" class="panel-group collapse in">
-                        {{ range $i, $app := .Successes }}
+                        {{ range $i, $wb := .Successes }}
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $app.Namespace }}{{ if $app.Spec.DryRun }} (dry-run){{ end }}</a>
+                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $wb.Namespace }}{{ if $wb.Spec.DryRun }} (dry-run){{ end }}</a>
                                 </div>
                             </div>
-                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $app }}in{{ end }}">
+                            <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $wb }}in{{ end }}">
                                 <ul class="list-group">
                                     <li class="list-group-item">
                                         <div class="row">
                                             <div class="col-md-10">
-                                                <strong>Type: </strong>{{ $app.Status.LastRun.Type }}<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $app.Status.LastRun.Commit }}<a href="{{ $.CommitLink $app.Status.LastRun.Commit }}">{{ $app.Status.LastRun.Commit }}</a>{{ end }}<br/>
-                                                <strong>Started: </strong>{{ $.FormattedTime $app.Status.LastRun.Started }} (took {{ $.Latency $app.Status.LastRun.Started $app.Status.LastRun.Finished }})
+                                                <strong>Type: </strong>{{ $wb.Status.LastRun.Type }}<br/>
+                                                <strong>Commit: </strong> {{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ end }}<br/>
+                                                <strong>Started: </strong>{{ $.FormattedTime $wb.Status.LastRun.Started }} (took {{ $.Latency $wb.Status.LastRun.Started $wb.Status.LastRun.Finished }})
                                             </div>
-                                            <div class="col-md-2"><button data-namespace="{{ $app.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply</strong></button></div>
+                                            <div class="col-md-2"><button data-namespace="{{ $wb.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force wb</strong></button></div>
                                         </div>
                                     </li>
                                     <li class="list-group-item">
-                                        <pre class="file-output">{{ printf "$ %s\n" $app.Status.LastRun.Command }}{{ $app.Status.LastRun.Output }}</pre>
+                                        <pre class="file-output">{{ printf "$ %s\n" $wb.Status.LastRun.Command }}{{ $wb.Status.LastRun.Output }}</pre>
                                     </li>
                                 </ul>
                             </div>

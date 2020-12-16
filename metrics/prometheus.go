@@ -8,8 +8,8 @@
 //   - kube_applier_last_run_timestamp_seconds{"namespace"}
 //   - kube_applier_run_queue{"namespace", "type"}
 //   - kube_applier_run_queue_failures{"namespace", "type"}
-//   - kube_applier_application_spec_dry_run{"namespace"}
-//   - kube_applier_application_spec_run_interval{"namespace"}
+//   - kube_applier_waybill_spec_dry_run{"namespace"}
+//   - kube_applier_waybill_spec_run_interval{"namespace"}
 package metrics
 
 import (
@@ -47,12 +47,12 @@ var (
 	runQueue *prometheus.GaugeVec
 	// runQueueFailures is a Counter vector of failed queue attempts
 	runQueueFailures *prometheus.CounterVec
-	// applicationSpecDryRun is a Gauge vector that captures an Application's
-	// dryRun attribute
-	applicationSpecDryRun *prometheus.GaugeVec
-	// applicationSpecRunInterval is a Gauge vector that captures an
-	// Application's runInterval attribute
-	applicationSpecRunInterval *prometheus.GaugeVec
+	// waybillSpecDryRun is a Gauge vector that captures a Waybill's dryRun
+	// attribute
+	waybillSpecDryRun *prometheus.GaugeVec
+	// waybillSpecRunInterval is a Gauge vector that captures a Waybill's
+	// runInterval attribute
+	waybillSpecRunInterval *prometheus.GaugeVec
 )
 
 func init() {
@@ -62,7 +62,7 @@ func init() {
 		Help:      "Count of kubectl exit codes",
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 			// Exit code
 			"exit_code",
@@ -74,7 +74,7 @@ func init() {
 		Help:      "Success metric for every namespace applied",
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 			// Whether the apply was successful or not
 			"success",
@@ -87,7 +87,7 @@ func init() {
 		Buckets:   []float64{1, 5, 10, 30, 60, 90, 120, 150, 300, 600},
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 			// Whether the apply was successful or not
 			"success",
@@ -117,7 +117,7 @@ func init() {
 		Help:      "Timestamp of the last completed apply run",
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 		},
 	)
@@ -127,7 +127,7 @@ func init() {
 		Help:      "Number of run requests currently queued",
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 			// Type of the run requested
 			"type",
@@ -139,87 +139,87 @@ func init() {
 		Help:      "Number of run requests queue failures",
 	},
 		[]string{
-			// Namespace of the Application applied
+			// Namespace of the Waybill applied
 			"namespace",
 			// Type of the run requested
 			"type",
 		},
 	)
-	applicationSpecDryRun = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	waybillSpecDryRun = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "application_spec",
+		Subsystem: "waybill_spec",
 		Name:      "dry_run",
-		Help:      "The value of dryRun in the Application spec",
+		Help:      "The value of dryRun in the Waybill spec",
 	},
 		[]string{
-			// Namespace of the Application
+			// Namespace of the Waybill
 			"namespace",
 		},
 	)
-	applicationSpecRunInterval = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	waybillSpecRunInterval = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Subsystem: "application_spec",
+		Subsystem: "waybill_spec",
 		Name:      "run_interval",
-		Help:      "The value of runInterval in the Application spec",
+		Help:      "The value of runInterval in the Waybill spec",
 	},
 		[]string{
-			// Namespace of the Application
+			// Namespace of the Waybill
 			"namespace",
 		},
 	)
 }
 
 // AddRunRequestQueueFailure increments the counter of failed queue attempts
-func AddRunRequestQueueFailure(t string, app *kubeapplierv1alpha1.Application) {
+func AddRunRequestQueueFailure(t string, waybill *kubeapplierv1alpha1.Waybill) {
 	runQueueFailures.With(prometheus.Labels{
-		"namespace": app.Namespace,
+		"namespace": waybill.Namespace,
 		"type":      t,
 	}).Inc()
 }
 
-// ReconcileFromApplicationList ensures that the last_run_timestamp and
-// application_spec metrics correctly represent the state in the cluster
-func ReconcileFromApplicationList(apps []kubeapplierv1alpha1.Application) {
+// ReconcileFromWaybillList ensures that the last_run_timestamp and waybill_spec
+// metrics correctly represent the state in the cluster
+func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 	lastRunTimestamp.Reset()
-	applicationSpecDryRun.Reset()
-	applicationSpecRunInterval.Reset()
-	for _, app := range apps {
+	waybillSpecDryRun.Reset()
+	waybillSpecRunInterval.Reset()
+	for _, wb := range waybills {
 		var dryRun float64
-		if app.Spec.DryRun {
+		if wb.Spec.DryRun {
 			dryRun = 1
 		}
-		applicationSpecDryRun.With(prometheus.Labels{
-			"namespace": app.Namespace,
+		waybillSpecDryRun.With(prometheus.Labels{
+			"namespace": wb.Namespace,
 		}).Set(dryRun)
-		applicationSpecRunInterval.With(prometheus.Labels{
-			"namespace": app.Namespace,
-		}).Set(float64(app.Spec.RunInterval))
-		if app.Status.LastRun == nil {
+		waybillSpecRunInterval.With(prometheus.Labels{
+			"namespace": wb.Namespace,
+		}).Set(float64(wb.Spec.RunInterval))
+		if wb.Status.LastRun == nil {
 			continue
 		}
 		lastRunTimestamp.With(prometheus.Labels{
-			"namespace": app.Namespace,
-		}).Set(float64(app.Status.LastRun.Finished.Unix()))
+			"namespace": wb.Namespace,
+		}).Set(float64(wb.Status.LastRun.Finished.Unix()))
 	}
 }
 
-// UpdateFromLastRun takes information from an Application's LastRun status and
+// UpdateFromLastRun takes information from a Waybill's LastRun status and
 // updates all the relevant metrics
-func UpdateFromLastRun(app *kubeapplierv1alpha1.Application) {
-	success := strconv.FormatBool(app.Status.LastRun.Success)
-	dryRun := strconv.FormatBool(app.Spec.DryRun)
+func UpdateFromLastRun(waybill *kubeapplierv1alpha1.Waybill) {
+	success := strconv.FormatBool(waybill.Status.LastRun.Success)
+	dryRun := strconv.FormatBool(waybill.Spec.DryRun)
 	namespaceApplyCount.With(prometheus.Labels{
-		"namespace": app.Namespace,
+		"namespace": waybill.Namespace,
 		"success":   success,
 	}).Inc()
 	runLatency.With(prometheus.Labels{
-		"namespace": app.Namespace,
+		"namespace": waybill.Namespace,
 		"success":   success,
 		"dryrun":    dryRun,
-	}).Observe(app.Status.LastRun.Finished.Sub(app.Status.LastRun.Started.Time).Seconds())
+	}).Observe(waybill.Status.LastRun.Finished.Sub(waybill.Status.LastRun.Started.Time).Seconds())
 	lastRunTimestamp.With(prometheus.Labels{
-		"namespace": app.Namespace,
-	}).Set(float64(app.Status.LastRun.Finished.Unix()))
+		"namespace": waybill.Namespace,
+	}).Set(float64(waybill.Status.LastRun.Finished.Unix()))
 }
 
 // UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
@@ -231,18 +231,18 @@ func UpdateKubectlExitCodeCount(namespace string, code int) {
 }
 
 // UpdateResultSummary sets gauges for resources applied during the last run of
-// each Application
-func UpdateResultSummary(apps []kubeapplierv1alpha1.Application) {
+// each Waybill
+func UpdateResultSummary(waybills []kubeapplierv1alpha1.Waybill) {
 	resultSummary.Reset()
 
-	for _, app := range apps {
-		if app.Status.LastRun == nil {
+	for _, wb := range waybills {
+		if wb.Status.LastRun == nil {
 			continue
 		}
-		res := parseKubectlOutput(app.Status.LastRun.Output)
+		res := parseKubectlOutput(wb.Status.LastRun.Output)
 		for _, r := range res {
 			resultSummary.With(prometheus.Labels{
-				"namespace": app.Namespace,
+				"namespace": wb.Namespace,
 				"type":      r.Type,
 				"name":      r.Name,
 				"action":    r.Action,
@@ -252,9 +252,9 @@ func UpdateResultSummary(apps []kubeapplierv1alpha1.Application) {
 }
 
 // UpdateRunRequest modifies the gauge of currently queued run requests
-func UpdateRunRequest(t string, app *kubeapplierv1alpha1.Application, diff float64) {
+func UpdateRunRequest(t string, waybill *kubeapplierv1alpha1.Waybill, diff float64) {
 	runQueue.With(prometheus.Labels{
-		"namespace": app.Namespace,
+		"namespace": waybill.Namespace,
 		"type":      t,
 	}).Add(diff)
 }
@@ -268,8 +268,8 @@ func Reset() {
 	lastRunTimestamp.Reset()
 	runQueue.Reset()
 	runQueueFailures.Reset()
-	applicationSpecDryRun.Reset()
-	applicationSpecRunInterval.Reset()
+	waybillSpecDryRun.Reset()
+	waybillSpecRunInterval.Reset()
 }
 
 type applyObjectResult struct {

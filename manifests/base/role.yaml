@@ -9,7 +9,7 @@ rules:
 - apiGroups:
   - kube-applier.io
   resources:
-  - applications
+  - waybills
   verbs:
   - create
   - delete
@@ -21,7 +21,7 @@ rules:
 - apiGroups:
   - kube-applier.io
   resources:
-  - applications/status
+  - waybills/status
   verbs:
   - get
   - patch
