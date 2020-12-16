@@ -31,7 +31,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $wb.Namespace }}{{ if $wb.Spec.DryRun }} (dry-run){{ end }}</a>
+                                    <a data-toggle="collapse" href="#failure-{{$i}}">{{ $wb.Namespace }} {{ $.Status $wb }}</a>
                                 </div>
                             </div>
                             <div id="failure-{{$i}}" class="panel-collapse collapse in">
@@ -73,7 +73,7 @@
                         <div class="panel">
                             <div class="panel-heading">
                                 <div class="panel-title">
-                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $wb.Namespace }}{{ if $wb.Spec.DryRun }} (dry-run){{ end }}</a>
+                                    <a data-toggle="collapse" href="#success-{{$i}}">{{ $wb.Namespace }} {{ $.Status $wb }}</a>
                                 </div>
                             </div>
                             <div id="success-{{$i}}" class="panel-collapse collapse {{ if $.AppliedRecently $wb }}in{{ end }}">

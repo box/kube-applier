@@ -8,6 +8,7 @@
 //   - kube_applier_last_run_timestamp_seconds{"namespace"}
 //   - kube_applier_run_queue{"namespace", "type"}
 //   - kube_applier_run_queue_failures{"namespace", "type"}
+//   - kube_applier_waybill_spec_auto_apply{"namespace"}
 //   - kube_applier_waybill_spec_dry_run{"namespace"}
 //   - kube_applier_waybill_spec_run_interval{"namespace"}
 package metrics
@@ -19,6 +20,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/log"
@@ -47,6 +49,9 @@ var (
 	runQueue *prometheus.GaugeVec
 	// runQueueFailures is a Counter vector of failed queue attempts
 	runQueueFailures *prometheus.CounterVec
+	// waybillSpecAutoApply is a Gauge vector that captures a Waybill's
+	// autoApply attribute
+	waybillSpecAutoApply *prometheus.GaugeVec
 	// waybillSpecDryRun is a Gauge vector that captures a Waybill's dryRun
 	// attribute
 	waybillSpecDryRun *prometheus.GaugeVec
@@ -145,6 +150,17 @@ func init() {
 			"type",
 		},
 	)
+	waybillSpecAutoApply = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "waybill_spec",
+		Name:      "auto_apply",
+		Help:      "The value of auto apply in the Waybill spec",
+	},
+		[]string{
+			// Namespace of the Waybill
+			"namespace",
+		},
+	)
 	waybillSpecDryRun = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Subsystem: "waybill_spec",
@@ -181,13 +197,20 @@ func AddRunRequestQueueFailure(t string, waybill *kubeapplierv1alpha1.Waybill) {
 // metrics correctly represent the state in the cluster
 func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 	lastRunTimestamp.Reset()
+	waybillSpecAutoApply.Reset()
 	waybillSpecDryRun.Reset()
 	waybillSpecRunInterval.Reset()
 	for _, wb := range waybills {
-		var dryRun float64
+		var autoApply, dryRun float64
+		if pointer.BoolPtrDerefOr(wb.Spec.AutoApply, true) {
+			autoApply = 1
+		}
 		if wb.Spec.DryRun {
 			dryRun = 1
 		}
+		waybillSpecAutoApply.With(prometheus.Labels{
+			"namespace": wb.Namespace,
+		}).Set(autoApply)
 		waybillSpecDryRun.With(prometheus.Labels{
 			"namespace": wb.Namespace,
 		}).Set(dryRun)
@@ -268,6 +291,7 @@ func Reset() {
 	lastRunTimestamp.Reset()
 	runQueue.Reset()
 	runQueueFailures.Reset()
+	waybillSpecAutoApply.Reset()
 	waybillSpecDryRun.Reset()
 	waybillSpecRunInterval.Reset()
 }

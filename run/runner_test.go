@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
@@ -159,6 +160,7 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-a",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:      pointer.BoolPtr(true),
 						Prune:          true,
 						RepositoryPath: "app-a",
 					},
@@ -170,6 +172,7 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-b",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:             pointer.BoolPtr(true),
 						Prune:                 true,
 						PruneClusterResources: true,
 						RepositoryPath:        "app-b",
@@ -182,6 +185,7 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-c",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:      pointer.BoolPtr(true),
 						DryRun:         true,
 						Prune:          true,
 						PruneBlacklist: []string{"core/v1/Pod"},
@@ -275,6 +279,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 					Namespace: "app-a-kustomize",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
+					AutoApply:      pointer.BoolPtr(true),
 					Prune:          true,
 					RepositoryPath: "app-a-kustomize",
 				},
@@ -328,6 +333,7 @@ Some error output has been omitted because it may contain sensitive data
 					Namespace: "app-d",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
+					AutoApply:      pointer.BoolPtr(true),
 					Prune:          false,
 					RepositoryPath: "app-d/00-namespace.yaml",
 				},
@@ -372,6 +378,7 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:      pointer.BoolPtr(true),
 						Prune:          true,
 						RepositoryPath: "app-d",
 					},
@@ -383,6 +390,7 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "invalid",
@@ -395,6 +403,7 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secretEmpty.Name,
@@ -407,6 +416,7 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     true,
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secret.Name,
@@ -509,10 +519,12 @@ deployment.apps/test-deployment created
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "queued-ok"},
+				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
+				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			testMetrics([]string{
 				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 1`,
@@ -520,10 +532,45 @@ deployment.apps/test-deployment created
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
+				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			testMetrics([]string{
 				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 2`,
 			})
+		})
+	})
+})
+
+var _ = Describe("Run Queue", func() {
+	Context("When a Waybill autoApply is disabled", func() {
+		It("Should only only be applied for forced run requests", func() {
+			waybill := kubeapplierv1alpha1.Waybill{
+				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "waybill-auto-apply-disabled",
+				},
+				Spec: kubeapplierv1alpha1.WaybillSpec{
+					AutoApply:      pointer.BoolPtr(false),
+					Prune:          true,
+					RepositoryPath: "app-a",
+				},
+			}
+
+			fakeRunQueue := make(chan Request, 4)
+			Enqueue(fakeRunQueue, ScheduledRun, &waybill)
+			Enqueue(fakeRunQueue, PollingRun, &waybill)
+			Enqueue(fakeRunQueue, ForcedRun, &waybill)
+
+			close(fakeRunQueue)
+
+			res := []Request{}
+			for req := range fakeRunQueue {
+				res = append(res, req)
+			}
+			Expect(res).To(Equal([]Request{
+				{Type: ForcedRun, Waybill: &waybill},
+			}))
 		})
 	})
 })
