@@ -105,6 +105,7 @@ kind: Waybill
 metadata:
   name: main
 spec:
+  autoApply: true
   dryRun: false
   prune: true
   pruneClusterResources: false
