@@ -6,6 +6,12 @@ import (
 
 // WaybillSpec defines the desired state of Waybill
 type WaybillSpec struct {
+	// AutoApply determines whether this Waybill will be automatically applied
+	// by scheduled or polling runs.
+	// +optional
+	// +kubebuilder:default=true
+	AutoApply *bool `json:"autoApply,omitempty"`
+
 	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional
 	// +kubebuilder:default=false

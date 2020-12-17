@@ -28,7 +28,7 @@ require (
 	k8s.io/apimachinery v0.19.3
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/klog/v2 v2.4.0 // indirect
-	k8s.io/utils v0.0.0-20201104234853-8146046b121e // indirect
+	k8s.io/utils v0.0.0-20201104234853-8146046b121e
 	sigs.k8s.io/controller-runtime v0.7.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
 	sigs.k8s.io/yaml v1.2.0

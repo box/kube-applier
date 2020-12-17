@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/git"
@@ -90,6 +91,18 @@ var _ = Describe("Scheduler", func() {
 						RunInterval:    5,
 					},
 				},
+				{ // no runs should be triggered for this resource, with autoApply false
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "main",
+						Namespace: "foo-disabled-auto-apply",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:      pointer.BoolPtr(false),
+						RepositoryPath: "foo",
+						RunInterval:    5,
+					},
+				},
 			}
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
@@ -127,8 +140,8 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			// remove the "bar" Waybill
-			testKubeClient.Delete(context.TODO(), wbList[1])
-			wbList = wbList[:1]
+			testKubeClient.Delete(context.TODO(), wbList[len(wbList)-1])
+			wbList = wbList[:len(wbList)-1]
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
 
@@ -222,6 +235,21 @@ var _ = Describe("Scheduler", func() {
 						},
 					},
 				},
+				{ // this should not produce any requests, with autoApply false
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize-no-auto-apply"},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						RepositoryPath: "app-a-kustomize",
+						AutoApply:      pointer.BoolPtr(false),
+					},
+					Status: kubeapplierv1alpha1.WaybillStatus{
+						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
+							Finished: metav1.NewTime(time.Now()),
+							Started:  metav1.NewTime(time.Now()),
+							Commit:   fmt.Sprintf("%s^1", appAKHeadHash), // this is a hack that should always return changes
+						},
+					},
+				},
 			}
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
@@ -303,6 +331,14 @@ Some error output has been omitted because it may contain sensitive data
 						DryRun:         true,
 					},
 				},
+				{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-baz"},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						RepositoryPath: "baz",
+						AutoApply:      pointer.BoolPtr(false),
+					},
+				},
 			}
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
@@ -312,9 +348,14 @@ Some error output has been omitted because it may contain sensitive data
 
 			testMetrics([]string{
 				`kube_applier_waybill_spec_dry_run{namespace="spec-foo"} 0`,
+				`kube_applier_waybill_spec_auto_apply{namespace="spec-foo"} 1`,
 				`kube_applier_waybill_spec_run_interval{namespace="spec-foo"} 5`,
 				`kube_applier_waybill_spec_dry_run{namespace="spec-bar"} 1`,
+				`kube_applier_waybill_spec_auto_apply{namespace="spec-bar"} 1`,
 				`kube_applier_waybill_spec_run_interval{namespace="spec-bar"} 3600`,
+				`kube_applier_waybill_spec_dry_run{namespace="spec-baz"} 0`,
+				`kube_applier_waybill_spec_auto_apply{namespace="spec-baz"} 0`,
+				`kube_applier_waybill_spec_run_interval{namespace="spec-baz"} 3600`,
 			})
 		})
 	})

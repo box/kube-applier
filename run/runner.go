@@ -13,6 +13,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
@@ -283,6 +284,10 @@ func (r *Runner) apply(rootPath string, waybill *kubeapplierv1alpha1.Waybill, op
 // seconds.
 func Enqueue(queue chan<- Request, t Type, waybill *kubeapplierv1alpha1.Waybill) {
 	wbId := fmt.Sprintf("%s/%s", waybill.Namespace, waybill.Name)
+	if t != ForcedRun && !pointer.BoolPtrDerefOr(waybill.Spec.AutoApply, true) {
+		log.Logger("runner").Debug("Run ignored, waybill autoApply is disabled", "waybill", wbId, "type", t)
+		return
+	}
 	select {
 	case queue <- Request{Type: t, Waybill: waybill}:
 		log.Logger("runner").Debug("Run queued", "waybill", wbId, "type", t)

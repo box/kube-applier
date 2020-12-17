@@ -41,6 +41,11 @@ spec:
           spec:
             description: WaybillSpec defines the desired state of Waybill
             properties:
+              autoApply:
+                default: true
+                description: AutoApply determines whether this Waybill will be automatically
+                  applied by scheduled or polling runs.
+                type: boolean
               dryRun:
                 default: false
                 description: DryRun enables the dry-run flag when applying this Waybill.

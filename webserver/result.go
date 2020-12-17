@@ -7,6 +7,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
@@ -70,6 +71,19 @@ func (r *Result) Finished() bool {
 	r.Lock()
 	defer r.Unlock()
 	return len(r.Waybills) > 0
+}
+
+// Status returns a human-readable string that describes the Waybill in terms
+// of its autoApply and dryRun attributes.
+func (r *Result) Status(wb *kubeapplierv1alpha1.Waybill) string {
+	ret := []string{}
+	if !pointer.BoolPtrDerefOr(wb.Spec.AutoApply, true) {
+		ret = append(ret, "auto-apply disabled")
+	}
+	if wb.Spec.DryRun {
+		ret = append(ret, "dry-run")
+	}
+	return fmt.Sprintf("(%s)", strings.Join(ret, ", "))
 }
 
 // AppliedRecently checks whether the provided Waybill was applied in the last
