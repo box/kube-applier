@@ -43,7 +43,7 @@ type ApplyOptions struct {
 
 func (o *ApplyOptions) pruneWhitelist(waybill *kubeapplierv1alpha1.Waybill, pruneBlacklist []string) []string {
 	var pruneWhitelist []string
-	if waybill.Spec.Prune {
+	if pointer.BoolPtrDerefOr(waybill.Spec.Prune, true) {
 		pruneWhitelist = append(pruneWhitelist, o.NamespacedResources...)
 
 		if waybill.Spec.PruneClusterResources {

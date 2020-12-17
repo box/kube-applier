@@ -75,6 +75,11 @@ func (in *WaybillSpec) DeepCopyInto(out *WaybillSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Prune != nil {
+		in, out := &in.Prune, &out.Prune
+		*out = new(bool)
+		**out = **in
+	}
 	if in.PruneBlacklist != nil {
 		in, out := &in.PruneBlacklist, &out.PruneBlacklist
 		*out = make([]string, len(*in))
