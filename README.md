@@ -249,7 +249,7 @@ the Prometheus default metrics, the following custom metrics are included:
   that observes the number of times a run failed to queue properly, labelled
   with the namespace name and the run type.
 
-- **kube_applier_waybill_spec_dry_auto_apply** - A
+- **kube_applier_waybill_spec_auto_apply** - A
   [Gauge](https://godoc.org/github.com/prometheus/client_golang/prometheus#Gauge)
   that captures the value of autoApply in the Waybill spec, labelled with the
   namespace name.
