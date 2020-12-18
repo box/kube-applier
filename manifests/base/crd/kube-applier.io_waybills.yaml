@@ -19,7 +19,40 @@ spec:
     singular: waybill
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.autoApply
+      name: Auto Apply
+      type: boolean
+    - jsonPath: .spec.dryRun
+      name: Dry Run
+      type: boolean
+    - jsonPath: .spec.prune
+      name: Prune
+      priority: 10
+      type: boolean
+    - jsonPath: .spec.runInterval
+      name: Run Interval
+      priority: 10
+      type: number
+    - jsonPath: .spec.repositoryPath
+      name: Repository Path
+      priority: 20
+      type: string
+    - jsonPath: .status.lastRun.success
+      name: Last Run Successful
+      type: boolean
+    - jsonPath: .status.lastRun.finished
+      name: Last Applied
+      type: date
+    - jsonPath: .status.lastRun.type
+      name: Reason
+      priority: 10
+      type: string
+    - jsonPath: .status.lastRun.commit
+      name: Commit
+      priority: 10
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Waybill is the Schema for the Waybills API of kube-applier. A
