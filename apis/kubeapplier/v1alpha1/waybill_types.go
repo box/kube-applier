@@ -20,7 +20,7 @@ type WaybillSpec struct {
 	// Prune determines whether pruning is enabled for this Waybill.
 	// +optional
 	// +kubebuilder:default=true
-	Prune bool `json:"prune,omitempty"`
+	Prune *bool `json:"prune,omitempty"`
 
 	// PruneClusterResources determines whether pruning is enabled for cluster
 	// resources, as part of this Waybill.

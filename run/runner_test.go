@@ -49,7 +49,7 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			&ApplyOptions{},
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: true,
+					Prune: pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -59,7 +59,7 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: true,
+					Prune: pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -69,7 +69,7 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:          true,
+					Prune:          pointer.BoolPtr(true),
 					PruneBlacklist: []string{"b"},
 				},
 			},
@@ -80,7 +80,7 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:                 true,
+					Prune:                 pointer.BoolPtr(true),
 					PruneBlacklist:        []string{"b"},
 					PruneClusterResources: true,
 				},
@@ -161,7 +161,7 @@ var _ = Describe("Runner", func() {
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(true),
-						Prune:          true,
+						Prune:          pointer.BoolPtr(true),
 						RepositoryPath: "app-a",
 					},
 				},
@@ -173,7 +173,7 @@ var _ = Describe("Runner", func() {
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:             pointer.BoolPtr(true),
-						Prune:                 true,
+						Prune:                 pointer.BoolPtr(true),
 						PruneClusterResources: true,
 						RepositoryPath:        "app-b",
 					},
@@ -187,7 +187,7 @@ var _ = Describe("Runner", func() {
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(true),
 						DryRun:         true,
-						Prune:          true,
+						Prune:          pointer.BoolPtr(true),
 						PruneBlacklist: []string{"core/v1/Pod"},
 						RepositoryPath: "app-c",
 					},
@@ -280,7 +280,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(true),
-					Prune:          true,
+					Prune:          pointer.BoolPtr(true),
 					RepositoryPath: "app-a-kustomize",
 				},
 			}
@@ -334,7 +334,7 @@ Some error output has been omitted because it may contain sensitive data
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(true),
-					Prune:          false,
+					Prune:          pointer.BoolPtr(false),
 					RepositoryPath: "app-d/00-namespace.yaml",
 				},
 			})
@@ -379,7 +379,7 @@ Some error output has been omitted because it may contain sensitive data
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(true),
-						Prune:          true,
+						Prune:          pointer.BoolPtr(true),
 						RepositoryPath: "app-d",
 					},
 				},
@@ -391,7 +391,7 @@ Some error output has been omitted because it may contain sensitive data
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     true,
+						Prune:                     pointer.BoolPtr(true),
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "invalid",
 					},
@@ -404,7 +404,7 @@ Some error output has been omitted because it may contain sensitive data
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     true,
+						Prune:                     pointer.BoolPtr(true),
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secretEmpty.Name,
 					},
@@ -417,7 +417,7 @@ Some error output has been omitted because it may contain sensitive data
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     true,
+						Prune:                     pointer.BoolPtr(true),
 						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: secret.Name,
 					},
@@ -552,7 +552,7 @@ var _ = Describe("Run Queue", func() {
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(false),
-					Prune:          true,
+					Prune:          pointer.BoolPtr(true),
 					RepositoryPath: "app-a",
 				},
 			}
@@ -584,7 +584,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 		} else {
 			commandExtraArgs += " --dry-run=none"
 		}
-		if expected.Spec.Prune {
+		if pointer.BoolPtrDerefOr(expected.Spec.Prune, true) {
 			commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
 		}
 		if kustomizePath == "" {
