@@ -83,6 +83,9 @@ func (r *Result) Status(wb *kubeapplierv1alpha1.Waybill) string {
 	if wb.Spec.DryRun {
 		ret = append(ret, "dry-run")
 	}
+	if len(ret) == 0 {
+		return ""
+	}
 	return fmt.Sprintf("(%s)", strings.Join(ret, ", "))
 }
 
