@@ -99,6 +99,15 @@ type WaybillStatusRun struct {
 // where kubernetes configuration is stored.
 // +kubebuilder:resource:shortName=wb;wbs
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Success",type=boolean,JSONPath=`.status.lastRun.success`
+// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.lastRun.type`
+// +kubebuilder:printcolumn:name="Commit",type=string,JSONPath=`.status.lastRun.commit`
+// +kubebuilder:printcolumn:name="Last Applied",type=date,JSONPath=`.status.lastRun.finished`
+// +kubebuilder:printcolumn:name="Auto Apply",type=boolean,JSONPath=`.spec.autoApply`,priority=10
+// +kubebuilder:printcolumn:name="Dry Run",type=boolean,JSONPath=`.spec.dryRun`,priority=10
+// +kubebuilder:printcolumn:name="Prune",type=boolean,JSONPath=`.spec.prune`,priority=10
+// +kubebuilder:printcolumn:name="Run Interval",type=number,JSONPath=`.spec.runInterval`,priority=10
+// +kubebuilder:printcolumn:name="Repository Path",type=string,JSONPath=`.spec.repositoryPath`,priority=20
 type Waybill struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
