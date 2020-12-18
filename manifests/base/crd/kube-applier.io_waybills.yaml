@@ -23,15 +23,15 @@ spec:
     - jsonPath: .status.lastRun.success
       name: Success
       type: boolean
-    - jsonPath: .status.lastRun.finished
-      name: Last Applied
-      type: date
     - jsonPath: .status.lastRun.type
       name: Reason
       type: string
     - jsonPath: .status.lastRun.commit
       name: Commit
       type: string
+    - jsonPath: .status.lastRun.finished
+      name: Last Applied
+      type: date
     - jsonPath: .spec.autoApply
       name: Auto Apply
       priority: 10
