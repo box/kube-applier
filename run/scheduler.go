@@ -182,10 +182,11 @@ func (s *Scheduler) gitPollingLoop() {
 			// appears will not be retroactively checked against the latest
 			// commit when they are acknowledged. This is acceptable, since they
 			// will (eventually) trigger a scheduled run.
+			s.waybillsMutex.Lock()
 			if hash == s.gitLastQueuedHash {
+				s.waybillsMutex.Unlock()
 				break
 			}
-			s.waybillsMutex.Lock()
 			for i := range s.waybills {
 				// If LastRun is nil, we don't trigger the Polling run at all
 				// and instead rely on the Scheduled run to kickstart things.

@@ -258,7 +258,9 @@ var _ = Describe("Scheduler", func() {
 			// Waybills for this test. Otherwise, the test is sensitive to
 			// timing and can fail if the git polling check runs before the
 			// Scheduler has synced all Waybills from the apiserver.
+			testScheduler.waybillsMutex.Lock()
 			testScheduler.gitLastQueuedHash = ""
+			testScheduler.waybillsMutex.Unlock()
 
 			testWaitForRequests(testSchedulerRequests, MatchAllKeys(Keys{
 				"scheduler-polling-app-a-kustomize": MatchAllKeys(Keys{

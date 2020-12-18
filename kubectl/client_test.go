@@ -205,7 +205,7 @@ func TestSplitSecrets(t *testing.T) {
 			yamlData: []byte(`apiVersion: v1
 kind: Secret
 metadata:
-  name: example 
+  name: example
   namespace: example-ns
 stringData:
   some-key: some-value
@@ -214,10 +214,6 @@ stringData:
 apiVersion: v1
 kind: Namespace
 metadata:
-  annotations:
-    kube-applier.io/dry-run: "false"
-    kube-applier.io/enabled: "true"
-    kube-applier.io/prune: "true"
   labels:
     name: example-ns
     some-label: some-value
@@ -228,21 +224,21 @@ kind: ServiceAccount
 metadata:
   annotations:
     some-annotation: some-value
-  name: example 
+  name: example
 ---
 apiVersion: v1
 data:
   some-value: c2Vuc2l0aXZlCg==
 kind: Secret
 metadata:
-  name: example-1 
+  name: example-1
   namespace: example-ns
 type: Opaque
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: example 
+  name: example
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -250,15 +246,11 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kube-applier
-  namespace: example-ns 
+  namespace: example-ns
 `),
 			resourcesData: []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  annotations:
-    kube-applier.io/dry-run: "false"
-    kube-applier.io/enabled: "true"
-    kube-applier.io/prune: "true"
   labels:
     name: example-ns
     some-label: some-value
@@ -307,10 +299,6 @@ type: Opaque
 			yamlData: []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  annotations:
-    kube-applier.io/dry-run: "false"
-    kube-applier.io/enabled: "true"
-    kube-applier.io/prune: "true"
   labels:
     name: example-ns
     some-label: some-value
@@ -321,12 +309,12 @@ kind: ServiceAccount
 metadata:
   annotations:
     some-annotation: some-value
-  name: example 
+  name: example
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: example 
+  name: example
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -334,15 +322,11 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kube-applier
-  namespace: example-ns 
+  namespace: example-ns
 `),
 			resourcesData: []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  annotations:
-    kube-applier.io/dry-run: "false"
-    kube-applier.io/enabled: "true"
-    kube-applier.io/prune: "true"
   labels:
     name: example-ns
     some-label: some-value
@@ -374,7 +358,7 @@ subjects:
 			yamlData: []byte(`apiVersion: v1
 kind: Secret
 metadata:
-  name: example 
+  name: example
   namespace: example-ns
 stringData:
   some-key: some-value
@@ -385,7 +369,7 @@ data:
   some-value: c2Vuc2l0aXZlCg==
 kind: Secret
 metadata:
-  name: example-1 
+  name: example-1
   namespace: example-ns
 type: Opaque
 `),
