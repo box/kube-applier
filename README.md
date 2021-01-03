@@ -313,7 +313,7 @@ as well as the [`ginkgo`](http://onsi.github.io/ginkgo/) and
 
 Copyright 2016 Box, Inc. All rights reserved.
 
-Copyright (c) 2017-2020 Utility Warehouse Ltd.
+Copyright (c) 2017-2021 Utility Warehouse Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
