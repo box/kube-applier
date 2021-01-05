@@ -106,6 +106,7 @@ metadata:
   name: main
 spec:
   autoApply: true
+  delegateServiceAccountSecretRef: kube-applier-delegate
   dryRun: false
   prune: true
   pruneClusterResources: false
@@ -119,6 +120,19 @@ spec:
 See the documentation on the Waybill CRD
 [spec](https://godoc.org/github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1#WaybillSpec)
 for more details.
+
+#### Delegate Service Account
+
+To avoid leaking access from kube-applier to client namespaces, the concept of a
+delegate Service Account is introduced. When applying a Waybill, kube-applier
+will use the credentials defined in the Secret referenced by
+`delegateServiceAccountSecretRef`. This is a Service Account in the same
+namespace as the Waybill itself and should typically be given admin access to
+the namespace. See the [client base](./manifests/base/client) for an example of
+how to set this up.
+
+This secret should be version controlled but will have to be manually applied
+at first in order to bootstrap the kube-applier integration in a namespace.
 
 #### Integration with `strongbox`
 

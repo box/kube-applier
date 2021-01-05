@@ -79,6 +79,12 @@ spec:
                 description: AutoApply determines whether this Waybill will be automatically
                   applied by scheduled or polling runs.
                 type: boolean
+              delegateServiceAccountSecretRef:
+                description: DelegateServiceAccountSecretRef references a Secret of
+                  type kubernetes.io/service-account-token in the same namespace as
+                  the Waybill that will be passed by kube-applier to kubectl when
+                  performing apply runs.
+                type: string
               dryRun:
                 default: false
                 description: DryRun enables the dry-run flag when applying this Waybill.
@@ -114,11 +120,13 @@ spec:
                   flag is enabled for this Waybill.
                 type: boolean
               strongboxKeyringSecretRef:
-                description: StrongboxKeyringSecretRef reference a Secret in the same
-                  namespace as the Waybill that contains a single item, named '.strongbox_keyring'
-                  with any strongbox keys required to decrypt the files before applying.
+                description: StrongboxKeyringSecretRef references a Secret in the
+                  same namespace as the Waybill that contains a single item, named
+                  '.strongbox_keyring' with any strongbox keys required to decrypt
+                  the files before applying.
                 type: string
             required:
+            - delegateServiceAccountSecretRef
             - repositoryPath
             type: object
           status:
