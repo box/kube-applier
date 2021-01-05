@@ -8,33 +8,37 @@ import (
 )
 
 const (
-	defaultLogLevel = "warn"
+	defaultName = "kube-applier"
 )
 
 var (
-	level   = hclog.LevelFromString(defaultLogLevel)
 	loggers = map[string]hclog.Logger{}
 	m       = sync.Mutex{}
 )
 
-// SetLevel sets the global logging level
-func SetLevel(logLevel string) {
-	level = hclog.LevelFromString(logLevel)
-	for _, l := range loggers {
-		l.SetLevel(level)
-	}
+func init() {
+	m.Lock()
+	defer m.Unlock()
+	loggers[defaultName] = hclog.New(&hclog.LoggerOptions{
+		Name:            defaultName,
+		Level:           hclog.LevelFromString("warn"),
+		IncludeLocation: true,
+	})
 }
 
-// Logger returns an hclog.Logger with the specified name
+// SetLevel sets the global logging level.
+func SetLevel(logLevel string) {
+	// Since the original logger with defaultName does not set IndependentLevels
+	// changing its level will also change the level of sub-loggers.
+	loggers[defaultName].SetLevel(hclog.LevelFromString(logLevel))
+}
+
+// Logger returns an hclog.Logger with the specified name.
 func Logger(name string) hclog.Logger {
 	m.Lock()
 	defer m.Unlock()
-	if _, ok := loggers[name]; ok {
-		return loggers[name]
+	if _, ok := loggers[name]; !ok {
+		loggers[name] = loggers[defaultName].ResetNamed(name)
 	}
-	loggers[name] = hclog.New(&hclog.LoggerOptions{
-		Name:  name,
-		Level: level,
-	})
 	return loggers[name]
 }
