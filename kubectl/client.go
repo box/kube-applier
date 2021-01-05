@@ -31,13 +31,6 @@ var (
 	omitErrOutputMessage = "Some error output has been omitted because it may contain sensitive data\n"
 )
 
-// Client enables communication with the Kubernetes API Server through kubectl commands.
-type Client struct {
-	Host    string
-	Label   string
-	Timeout time.Duration
-}
-
 // ApplyFlags configure kubectl apply
 type ApplyFlags struct {
 	DryRunStrategy string
@@ -72,9 +65,16 @@ func (f *ApplyFlags) Args() []string {
 	return args
 }
 
+// Client enables communication with the Kubernetes API Server through kubectl commands.
+type Client struct {
+	Host    string
+	Label   string
+	Timeout time.Duration
+}
+
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
-func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
+func (c *Client) Apply(environment []string, path string, flags ApplyFlags) (string, string, error) {
 	var kustomize bool
 	if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
 		kustomize = true
@@ -85,9 +85,9 @@ func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
 	}
 
 	if kustomize {
-		return c.applyKustomize(path, flags)
+		return c.applyKustomize(environment, path, flags)
 	}
-	return c.applyPath(path, flags)
+	return c.applyPath(environment, path, flags)
 }
 
 // KubectlPath returns the filesystem path to the kubectl binary
@@ -103,8 +103,8 @@ func (c *Client) KustomizePath() string {
 }
 
 // applyPath runs `kubectl apply -f <path>`
-func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error) {
-	cmdStr, out, err := c.apply(path, []byte{}, flags)
+func (c *Client) applyPath(environment []string, path string, flags ApplyFlags) (string, string, error) {
+	cmdStr, out, err := c.apply(environment, path, []byte{}, flags)
 	if err != nil {
 		// Filter potential secret leaks out of the output
 		return cmdStr, filterErrOutput(out), err
@@ -114,7 +114,7 @@ func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error
 }
 
 // applyKustomize does a `kustomize build | kubectl apply -f -` on the path
-func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, error) {
+func (c *Client) applyKustomize(environment []string, path string, flags ApplyFlags) (string, string, error) {
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
@@ -171,7 +171,7 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 		resourcesFlags := flags
 		resourcesFlags.PruneWhitelist = resourcesPruneWhitelist
 
-		_, out, err := c.apply("-", resources, resourcesFlags)
+		_, out, err := c.apply(environment, "-", resources, resourcesFlags)
 		kubectlOut = kubectlOut + out
 		if err != nil {
 			return cmdStr, kubectlOut, err
@@ -190,7 +190,7 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 		secretsFlags := flags
 		secretsFlags.PruneWhitelist = secretsPruneWhitelist
 
-		_, out, err := c.apply("-", secrets, secretsFlags)
+		_, out, err := c.apply(environment, "-", secrets, secretsFlags)
 		if err != nil {
 			// Don't append the actual output, as the error output
 			// from kubectl can leak the content of secrets
@@ -204,7 +204,7 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 }
 
 // apply runs `kubectl apply`
-func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, string, error) {
+func (c *Client) apply(environment []string, path string, stdin []byte, flags ApplyFlags) (string, string, error) {
 	args := []string{}
 	if c.Host != "" {
 		args = append(args, "--server", c.Host)
@@ -224,6 +224,9 @@ func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, str
 			return "", "", fmt.Errorf("path can't be %s when stdin is empty", path)
 		}
 		kubectlCmd.Stdin = bytes.NewReader(stdin)
+	}
+	if len(environment) > 0 {
+		kubectlCmd.Env = append(os.Environ(), environment...)
 	}
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
