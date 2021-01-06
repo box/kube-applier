@@ -136,7 +136,7 @@ func (r *Runner) applyWorker() {
 			r.setRequestFailure(request, err)
 			continue
 		}
-		hash, err := gitUtil.HeadHashForPaths(request.Waybill.Spec.RepositoryPath)
+		hash, err := gitUtil.HeadHashForPaths(*request.Waybill.Spec.RepositoryPath)
 		if err != nil {
 			log.Logger("runner").Error("Could not determine HEAD hash", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
@@ -219,7 +219,7 @@ func (r *Runner) copyRepository(waybill *kubeapplierv1alpha1.Waybill) (*git.Util
 			os.RemoveAll(v)
 		}
 	}
-	path := filepath.Join(sub, waybill.Spec.RepositoryPath)
+	path := filepath.Join(sub, *waybill.Spec.RepositoryPath)
 	if err := git.CloneRepository(root, tmpDir, path, env); err != nil {
 		cleanup()
 		return nil, nil, err
@@ -250,7 +250,7 @@ func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill) (st
 // Apply takes a list of files and attempts an apply command on each.
 func (r *Runner) apply(rootPath string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
-	path := filepath.Join(rootPath, waybill.Spec.RepositoryPath)
+	path := filepath.Join(rootPath, *waybill.Spec.RepositoryPath)
 	log.Logger("runner").Info("Applying files", "path", path)
 
 	dryRunStrategy := "none"

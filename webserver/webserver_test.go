@@ -10,10 +10,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	//. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/run"
@@ -67,7 +67,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "foo",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "foo"},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
 			},
 			{
 				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
@@ -75,7 +75,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "bar",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "bar"},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("bar"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
 			},
 		}
 
@@ -178,9 +178,16 @@ func testEnsureWaybills(wbList []kubeapplierv1alpha1.Waybill) {
 		if err != nil {
 			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		}
+		// The ResourceVersion swapping is to prevent the respective error from
+		// Create() which makes it difficult to handle it below.
+		rv := wbList[i].ResourceVersion
+		wbList[i].ResourceVersion = ""
 		err = testKubeClient.Create(context.TODO(), &wbList[i])
-		if err != nil {
+		if err != nil && errors.IsAlreadyExists(err) {
+			wbList[i].ResourceVersion = rv
 			Expect(testKubeClient.UpdateWaybill(context.TODO(), &wbList[i])).To(BeNil())
+		} else {
+			Expect(err).To(BeNil())
 		}
 		if wbList[i].Status.LastRun != nil {
 			// UpdateStatus changes SelfLink to the status sub-resource but we

@@ -49,7 +49,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			&ApplyOptions{},
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -59,7 +60,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -69,8 +71,9 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:          pointer.BoolPtr(true),
-					PruneBlacklist: []string{"b"},
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					PruneBlacklist:                  []string{"b"},
 				},
 			},
 			[]string{"c"},
@@ -80,9 +83,10 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:                 pointer.BoolPtr(true),
-					PruneBlacklist:        []string{"b"},
-					PruneClusterResources: true,
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					PruneBlacklist:                  []string{"b"},
+					PruneClusterResources:           true,
 				},
 			},
 			[]string{"c"},
@@ -160,9 +164,10 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-a",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: "app-a",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-a"),
 					},
 				},
 				{
@@ -172,10 +177,11 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-b",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:             pointer.BoolPtr(true),
-						Prune:                 pointer.BoolPtr(true),
-						PruneClusterResources: true,
-						RepositoryPath:        "app-b",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						PruneClusterResources:           true,
+						RepositoryPath:                  pointer.StringPtr("app-b"),
 					},
 				},
 				{
@@ -185,11 +191,12 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-c",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						DryRun:         true,
-						Prune:          pointer.BoolPtr(true),
-						PruneBlacklist: []string{"core/v1/Pod"},
-						RepositoryPath: "app-c",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						DryRun:                          true,
+						Prune:                           pointer.BoolPtr(true),
+						PruneBlacklist:                  []string{"core/v1/Pod"},
+						RepositoryPath:                  pointer.StringPtr("app-c"),
 					},
 				},
 			}
@@ -235,7 +242,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			for i := range wbList {
 				expected[i] = wbList[i]
 				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*expected[i].Spec.RepositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -279,13 +286,14 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 					Namespace: "app-a-kustomize",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(true),
-					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a-kustomize",
+					AutoApply:                       pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					RepositoryPath:                  pointer.StringPtr("app-a-kustomize"),
 				},
 			}
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(waybill.Spec.RepositoryPath)
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*waybill.Spec.RepositoryPath)
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -333,9 +341,10 @@ Some error output has been omitted because it may contain sensitive data
 					Namespace: "app-d",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(true),
-					Prune:          pointer.BoolPtr(false),
-					RepositoryPath: "app-d/00-namespace.yaml",
+					AutoApply:                       pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(false),
+					RepositoryPath:                  pointer.StringPtr("app-d/00-namespace.yaml"),
 				},
 			})
 			ns := &corev1.Namespace{}
@@ -378,9 +387,10 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: "app-d",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
 					},
 				},
 				{
@@ -390,10 +400,11 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: "invalid",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       "invalid",
 					},
 				},
 				{
@@ -403,10 +414,11 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: secretEmpty.Name,
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       secretEmpty.Name,
 					},
 				},
 				{
@@ -416,10 +428,11 @@ Some error output has been omitted because it may contain sensitive data
 						Namespace: ns.Name,
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: secret.Name,
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       secret.Name,
 					},
 				},
 			}
@@ -553,7 +566,7 @@ var _ = Describe("Run Queue", func() {
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(false),
 					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a",
+					RepositoryPath: pointer.StringPtr("app-a"),
 				},
 			}
 
@@ -592,7 +605,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
 				kubectlPath,
 				testConfig.Host,
-				expected.Spec.RepositoryPath,
+				*expected.Spec.RepositoryPath,
 				expected.Namespace,
 				commandExtraArgs,
 			)
@@ -600,7 +613,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			commandMatcher = MatchRegexp(
 				"^%s build [^ ]+/%s | %s --server %s apply -f - -R -n %s%s",
 				kustomizePath,
-				expected.Spec.RepositoryPath,
+				*expected.Spec.RepositoryPath,
 				kubectlPath,
 				testConfig.Host,
 				expected.Namespace,
