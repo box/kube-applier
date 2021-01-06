@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -130,13 +131,13 @@ func (r *Runner) applyWorker() {
 			ClusterResources:    clusterResources,
 			NamespacedResources: namespacedResources,
 		}
-		gitUtil, cleanupTemp, err := r.copyRepository(request.Waybill)
+		tmpRepoPath, tmpKubeconfig, cleanupTemp, err := r.setupApplyDirs(request.Waybill)
 		if err != nil {
-			log.Logger("runner").Error("Could not create a repository copy", "waybill", wbId, "error", err)
+			log.Logger("runner").Error("Could not setup apply environment", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
 			continue
 		}
-		hash, err := gitUtil.HeadHashForPaths(*request.Waybill.Spec.RepositoryPath)
+		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(*request.Waybill.Spec.RepositoryPath)
 		if err != nil {
 			log.Logger("runner").Error("Could not determine HEAD hash", "waybill", wbId, "error", err)
 			r.setRequestFailure(request, err)
@@ -144,7 +145,7 @@ func (r *Runner) applyWorker() {
 			continue
 		}
 
-		r.apply(gitUtil.RepoPath, request.Waybill, applyOptions)
+		r.apply(tmpRepoPath, tmpKubeconfig, request.Waybill, applyOptions)
 
 		// TODO: move these in apply()
 		request.Waybill.Status.LastRun.Commit = hash
@@ -195,60 +196,119 @@ func (r *Runner) Stop() {
 	r.workerGroup = nil
 }
 
-func (r *Runner) copyRepository(waybill *kubeapplierv1alpha1.Waybill) (*git.Util, func(), error) {
-	var env []string
-	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
+func (r *Runner) setupKubeconfig(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
+	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, *waybill.Spec.DelegateServiceAccountSecretRef)
 	if err != nil {
-		return nil, nil, err
+		return "", err
 	}
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
-	if err != nil {
-		return nil, nil, err
+	if secret.Type != corev1.SecretTypeServiceAccountToken {
+		return "", fmt.Errorf("Secret %s/%s is not of type %s", secret.Namespace, secret.Name, corev1.SecretTypeServiceAccountToken)
 	}
-	cleanupDirs := []string{tmpDir}
-	if waybill.Spec.StrongboxKeyringSecretRef != "" {
-		sbHome, err := r.setupStrongboxKeyring(waybill)
-		if err != nil {
-			return nil, nil, err
-		}
-		env = []string{fmt.Sprintf("STRONGBOX_HOME=%s", sbHome)}
-		cleanupDirs = append(cleanupDirs, sbHome)
+	delegateToken, ok := secret.Data["token"]
+	if !ok {
+		return "", fmt.Errorf("Secret %s/%s does not contain key 'token'", secret.Namespace, secret.Name)
 	}
-	cleanup := func() {
-		for _, v := range cleanupDirs {
-			os.RemoveAll(v)
-		}
+	delegateCA, ok := secret.Data["ca.crt"]
+	if !ok {
+		return "", fmt.Errorf("Secret %s/%s does not contain key 'ca.crt'", secret.Namespace, secret.Name)
 	}
-	path := filepath.Join(sub, *waybill.Spec.RepositoryPath)
-	if err := git.CloneRepository(root, tmpDir, path, env); err != nil {
-		cleanup()
-		return nil, nil, err
+	delegateNamespace, ok := secret.Data["namespace"]
+	if !ok {
+		delegateNamespace = []byte(waybill.Namespace)
 	}
-	return &git.Util{RepoPath: filepath.Join(tmpDir, sub)}, cleanup, nil
+	if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, "ca.crt"), delegateCA, 0400); err != nil {
+		return "", fmt.Errorf("Could not write ca.crt: %w", err)
+	}
+	kubeHost := os.Getenv("KUBERNETES_SERVICE_HOST")
+	kubePort := os.Getenv("KUBERNETES_SERVICE_PORT")
+	kubeScheme := "http"
+	if kubePort == "443" {
+		kubeScheme = "https"
+	}
+	kubeconfigData := []byte(fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority: ca.crt
+    server: '%s'
+  name: local
+contexts:
+- context:
+    cluster: local
+    namespace: %s
+    user: delegate
+  name: delegate
+current-context: delegate
+users:
+- name: delegate
+  user:
+    token: %s`,
+		fmt.Sprintf("%s://%s:%s", kubeScheme, kubeHost, kubePort),
+		delegateNamespace,
+		delegateToken,
+	))
+	kubeconfigPath := filepath.Join(tmpHomeDir, "kubeconfig")
+	if err := ioutil.WriteFile(kubeconfigPath, kubeconfigData, 0400); err != nil {
+		return "", err
+	}
+	return kubeconfigPath, nil
 }
 
-func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill) (string, error) {
-	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
+func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir, tmpRepoDir string) (string, error) {
+	if waybill.Spec.StrongboxKeyringSecretRef != "" {
+		secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
+		if err != nil {
+			return "", err
+		}
+		strongboxData, ok := secret.Data[".strongbox_keyring"]
+		if !ok {
+			return "", fmt.Errorf("Secret %s/%s does not contain key '.strongbox_keyring'", secret.Namespace, secret.Name)
+		}
+		if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".strongbox_keyring"), strongboxData, 0400); err != nil {
+			return "", err
+		}
+	}
+	// repository clone
+	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
 	if err != nil {
 		return "", err
 	}
-	data, ok := secret.Data[".strongbox_keyring"]
-	if !ok {
-		return "", fmt.Errorf("Secret %s/%s does not contain key '.strongbox_keyring'", secret.Namespace, secret.Name)
+	subpath := filepath.Join(sub, *waybill.Spec.RepositoryPath)
+	if err := git.CloneRepository(root, tmpRepoDir, subpath, []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}); err != nil {
+		return "", err
 	}
-	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_strongbox", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	return filepath.Join(tmpRepoDir, sub), nil
+}
+
+func (r *Runner) setupApplyDirs(waybill *kubeapplierv1alpha1.Waybill) (string, string, func(), error) {
+	tmpHomeDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
-		return "", err
+		return "", "", nil, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, ".strongbox_keyring"), data, 0400); err != nil {
-		os.RemoveAll(tmpDir)
-		return "", err
+	tmpRepoDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	if err != nil {
+		os.RemoveAll(tmpHomeDir)
+		return "", "", nil, err
 	}
-	return tmpDir, nil
+	cleanup := func() {
+		os.RemoveAll(tmpHomeDir)
+		os.RemoveAll(tmpRepoDir)
+	}
+	kubeconfigPath, err := r.setupKubeconfig(waybill, tmpHomeDir)
+	if err != nil {
+		cleanup()
+		return "", "", nil, fmt.Errorf("failed setting up kubeconfig: %w", err)
+	}
+	repoPath, err := r.setupRepositoryClone(waybill, tmpHomeDir, tmpRepoDir)
+	if err != nil {
+		cleanup()
+		return "", "", nil, fmt.Errorf("failed setting up repository clone: %w", err)
+	}
+	return repoPath, kubeconfigPath, cleanup, nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.
-func (r *Runner) apply(rootPath string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
+func (r *Runner) apply(rootPath, kubeconfigPath string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
 	path := filepath.Join(rootPath, *waybill.Spec.RepositoryPath)
 	log.Logger("runner").Info("Applying files", "path", path)
@@ -258,12 +318,16 @@ func (r *Runner) apply(rootPath string, waybill *kubeapplierv1alpha1.Waybill, op
 		dryRunStrategy = "server"
 	}
 
-	cmd, output, err := r.KubectlClient.Apply(path, kubectl.ApplyFlags{
-		Namespace:      waybill.Namespace,
-		DryRunStrategy: dryRunStrategy,
-		PruneWhitelist: options.pruneWhitelist(waybill, r.PruneBlacklist),
-		ServerSide:     waybill.Spec.ServerSideApply,
-	})
+	cmd, output, err := r.KubectlClient.Apply(
+		[]string{fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath)},
+		path,
+		kubectl.ApplyFlags{
+			Namespace:      waybill.Namespace,
+			DryRunStrategy: dryRunStrategy,
+			PruneWhitelist: options.pruneWhitelist(waybill, r.PruneBlacklist),
+			ServerSide:     waybill.Spec.ServerSideApply,
+		},
+	)
 	finish := r.Clock.Now()
 
 	waybill.Status.LastRun = &kubeapplierv1alpha1.WaybillStatusRun{
