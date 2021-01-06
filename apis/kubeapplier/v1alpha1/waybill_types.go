@@ -17,7 +17,7 @@ type WaybillSpec struct {
 	// that will be passed by kube-applier to kubectl when performing apply
 	// runs.
 	// +required
-	DelegateServiceAccountSecretRef string `json:"delegateServiceAccountSecretRef"`
+	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef"`
 
 	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional
@@ -42,7 +42,8 @@ type WaybillSpec struct {
 
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Waybill is stored.
-	RepositoryPath string `json:"repositoryPath"`
+	// +required
+	RepositoryPath *string `json:"repositoryPath"`
 
 	// RunInterval determines how often this Waybill is applied in seconds.
 	// +optional
