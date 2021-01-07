@@ -507,6 +507,193 @@ deployment.apps/test-deployment created
 		})
 	})
 
+	Context("When setting up the apply environment", func() {
+		It("Should properly validate the delegate Service Account secret", func() {
+			wbList := []*kubeapplierv1alpha1.Waybill{
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-notfound",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-notfound"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-wrongtype",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-wrongtype"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-notoken",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-notoken"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-noca",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-noca"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+			}
+
+			testEnsureWaybills(wbList)
+
+			// Manipulate the delegate Secrets that have been create above
+			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
+			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"},
+				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+			Expect(testKubeClient.Update(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "app-e-notoken",
+					Name:        "ka-notoken",
+					Annotations: map[string]string{corev1.ServiceAccountNameKey: "ka-notoken"},
+				},
+				Type: corev1.SecretTypeServiceAccountToken,
+				Data: map[string][]byte{},
+			})).To(BeNil())
+			Expect(testKubeClient.Update(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "app-e-noca",
+					Name:        "ka-noca",
+					Annotations: map[string]string{corev1.ServiceAccountNameKey: "ka-noca"},
+				},
+				Type: corev1.SecretTypeServiceAccountToken,
+				Data: map[string][]byte{"token": []byte{}},
+			})).To(BeNil())
+
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-e")
+			Expect(err).To(BeNil())
+			Expect(headCommitHash).ToNot(BeEmpty())
+
+			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed setting up kubeconfig: secrets "ka-notfound" not found`,
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed setting up kubeconfig: Secret app-e-wrongtype/ka-wrongtype is not of type ` + string(corev1.SecretTypeServiceAccountToken),
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed setting up kubeconfig: Secret app-e-notoken/ka-notoken does not contain key 'token'`,
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed setting up kubeconfig: Secret app-e-noca/ka-noca does not contain key 'ca.crt'`,
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-e configured
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
+			}
+
+			// construct expected waybill list
+			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
+			for i := range wbList {
+				expected[i] = *wbList[i]
+				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
+			}
+
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, wbList[i])
+			}
+
+			Eventually(
+				func() bool {
+					deployment := &appsv1.Deployment{}
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment) == nil
+				},
+				time.Second*15,
+				time.Second,
+			).Should(BeTrue())
+
+			testRunner.Stop()
+
+			for i := range wbList {
+				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+			}
+
+			testMetrics([]string{
+				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-e"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-e",success="true"} 1`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="app-e-notfound",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e-wrongtype",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e-notoken",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e-noca",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e",type="Git polling run"} 0`,
+			})
+		})
+	})
+
 	Context("When it fails to enqueue a run request", func() {
 		It("Should increase the respective metrics counter", func() {
 			smallRunQueue := make(chan Request, 1)
