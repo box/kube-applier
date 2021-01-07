@@ -17,6 +17,7 @@ import (
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/git"
+	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
@@ -128,7 +129,7 @@ var _ = Describe("Scheduler", func() {
 
 			t := time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
-				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
+				log.Logger("test").Info("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
 				time.Sleep(t)
 			}
 			lastSyncedAt = time.Now()
@@ -150,7 +151,7 @@ var _ = Describe("Scheduler", func() {
 
 			t = time.Second*15 - time.Since(lastSyncedAt)
 			if t > 0 {
-				fmt.Printf("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
+				log.Logger("test").Info("Sleeping for ~%v to record queued runs\n", t.Truncate(time.Second))
 				time.Sleep(t)
 			}
 
