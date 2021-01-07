@@ -410,6 +410,32 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		// Apparently, List will return Waybills with TypeMeta but
 		// Get and Create (which updates the struct) do not.
 		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
+		// Add the kube-applier delegate Secret, if it doesn't exist
+		_, err = testKubeClient.GetSecret(context.TODO(), wbList[i].Namespace, *wbList[i].Spec.DelegateServiceAccountSecretRef)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				err = testKubeClient.Create(context.TODO(), &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      *wbList[i].Spec.DelegateServiceAccountSecretRef,
+						Namespace: wbList[i].Namespace,
+						Annotations: map[string]string{
+							// This is to satisfy validation. The SA does not
+							// exist and is not needed either. The Secret is not
+							// populated with data so we need to put some values
+							// in. Every[one|thing] is cluster-admin in envtest.
+							corev1.ServiceAccountNameKey: *wbList[i].Spec.DelegateServiceAccountSecretRef,
+						},
+					},
+					Type: corev1.SecretTypeServiceAccountToken,
+					Data: map[string][]byte{
+						"ca.crt": []byte{},
+						// testConfig.BearerToken is empty
+						"token": []byte(testConfig.BearerToken),
+					},
+				})
+			}
+			Expect(err).To(BeNil())
+		}
 	}
 }
 
