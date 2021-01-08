@@ -80,6 +80,7 @@ spec:
                   applied by scheduled or polling runs.
                 type: boolean
               delegateServiceAccountSecretRef:
+                default: kube-applier-delegate-token
                 description: DelegateServiceAccountSecretRef references a Secret of
                   type kubernetes.io/service-account-token in the same namespace as
                   the Waybill that will be passed by kube-applier to kubectl when

@@ -17,6 +17,7 @@ type WaybillSpec struct {
 	// that will be passed by kube-applier to kubectl when performing apply
 	// runs.
 	// +required
+	// +kubebuilder:default=kube-applier-delegate-token
 	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef"`
 
 	// DryRun enables the dry-run flag when applying this Waybill.
