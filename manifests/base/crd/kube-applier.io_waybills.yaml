@@ -110,6 +110,7 @@ spec:
               repositoryPath:
                 description: RepositoryPath defines the relative path inside the Repository
                   where the configuration for this Waybill is stored.
+                pattern: ^\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?$
                 type: string
               runInterval:
                 default: 3600
