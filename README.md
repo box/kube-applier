@@ -121,12 +121,12 @@ See the documentation on the Waybill CRD
 [spec](https://godoc.org/github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1#WaybillSpec)
 for more details.
 
-#### Delegate Service Account
+#### Delegate ServiceAccount
 
 To avoid leaking access from kube-applier to client namespaces, the concept of a
-delegate Service Account is introduced. When applying a Waybill, kube-applier
+delegate ServiceAccount is introduced. When applying a Waybill, kube-applier
 will use the credentials defined in the Secret referenced by
-`delegateServiceAccountSecretRef`. This is a Service Account in the same
+`delegateServiceAccountSecretRef`. This is a ServiceAccount in the same
 namespace as the Waybill itself and should typically be given admin access to
 the namespace. See the [client base](./manifests/base/client) for an example of
 how to set this up.
