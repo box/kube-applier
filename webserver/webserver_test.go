@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/run"
@@ -67,7 +66,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "foo",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo")},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "foo"},
 			},
 			{
 				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
@@ -75,7 +74,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "bar",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("bar")},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: "bar"},
 			},
 		}
 

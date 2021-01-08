@@ -164,7 +164,7 @@ var _ = Describe("Runner", func() {
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(true),
 						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: pointer.StringPtr("app-a"),
+						RepositoryPath: "app-a",
 					},
 				},
 				{
@@ -177,7 +177,7 @@ var _ = Describe("Runner", func() {
 						AutoApply:             pointer.BoolPtr(true),
 						Prune:                 pointer.BoolPtr(true),
 						PruneClusterResources: true,
-						RepositoryPath:        pointer.StringPtr("app-b"),
+						RepositoryPath:        "app-b",
 					},
 				},
 				{
@@ -191,7 +191,7 @@ var _ = Describe("Runner", func() {
 						DryRun:         true,
 						Prune:          pointer.BoolPtr(true),
 						PruneBlacklist: []string{"core/v1/Pod"},
-						RepositoryPath: pointer.StringPtr("app-c"),
+						RepositoryPath: "app-c",
 					},
 				},
 			}
@@ -239,7 +239,7 @@ deployment.apps/test-deployment created (server dry run)
 			for i := range wbList {
 				expected[i] = *wbList[i]
 				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*expected[i].Spec.RepositoryPath)
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -285,13 +285,13 @@ deployment.apps/test-deployment created (server dry run)
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(true),
 					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: pointer.StringPtr("app-a-kustomize"),
+					RepositoryPath: "app-a-kustomize",
 				},
 			}
 
 			testEnsureWaybills([]*kubeapplierv1alpha1.Waybill{&waybill})
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*waybill.Spec.RepositoryPath)
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(waybill.Spec.RepositoryPath)
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -339,7 +339,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(true),
 						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: pointer.StringPtr("app-d"),
+						RepositoryPath: "app-d",
 					},
 				},
 				{
@@ -351,7 +351,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            pointer.StringPtr("app-d"),
+						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "invalid",
 					},
 				},
@@ -364,7 +364,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            pointer.StringPtr("app-d"),
+						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "strongbox-empty",
 					},
 				},
@@ -377,7 +377,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            pointer.StringPtr("app-d"),
+						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "strongbox",
 					},
 				},
@@ -506,7 +506,7 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-notfound",
-						RepositoryPath:                  pointer.StringPtr("app-e"),
+						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -517,7 +517,7 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-wrongtype",
-						RepositoryPath:                  pointer.StringPtr("app-e"),
+						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -528,7 +528,7 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-notoken",
-						RepositoryPath:                  pointer.StringPtr("app-e"),
+						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -539,7 +539,7 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka",
-						RepositoryPath:                  pointer.StringPtr("app-e"),
+						RepositoryPath:                  "app-e",
 					},
 				},
 			}
@@ -687,7 +687,7 @@ var _ = Describe("Run Queue", func() {
 				Spec: kubeapplierv1alpha1.WaybillSpec{
 					AutoApply:      pointer.BoolPtr(false),
 					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: pointer.StringPtr("app-a"),
+					RepositoryPath: "app-a",
 				},
 			}
 
@@ -726,7 +726,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
 				kubectlPath,
 				testConfig.Host,
-				*expected.Spec.RepositoryPath,
+				expected.Spec.RepositoryPath,
 				expected.Namespace,
 				commandExtraArgs,
 			)
@@ -734,7 +734,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			commandMatcher = MatchRegexp(
 				"^%s build [^ ]+/%s | %s --server %s apply -f - -R -n %s%s",
 				kustomizePath,
-				*expected.Spec.RepositoryPath,
+				expected.Spec.RepositoryPath,
 				kubectlPath,
 				testConfig.Host,
 				expected.Namespace,

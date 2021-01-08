@@ -45,7 +45,7 @@ type WaybillSpec struct {
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Waybill is stored.
 	// +required
-	RepositoryPath *string `json:"repositoryPath"`
+	RepositoryPath string `json:"repositoryPath"`
 
 	// RunInterval determines how often this Waybill is applied in seconds.
 	// +optional

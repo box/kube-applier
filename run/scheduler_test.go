@@ -88,7 +88,7 @@ var _ = Describe("Scheduler", func() {
 						Namespace: "foo",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("foo"),
+						RepositoryPath: "foo",
 						RunInterval:    5,
 					},
 				},
@@ -100,7 +100,7 @@ var _ = Describe("Scheduler", func() {
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:      pointer.BoolPtr(false),
-						RepositoryPath: pointer.StringPtr("foo"),
+						RepositoryPath: "foo",
 						RunInterval:    5,
 					},
 				},
@@ -118,7 +118,7 @@ var _ = Describe("Scheduler", func() {
 					Namespace: "bar",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					RepositoryPath: pointer.StringPtr("bar"),
+					RepositoryPath: "bar",
 				},
 			})
 			testEnsureWaybills(wbList)
@@ -185,7 +185,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "ignored"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("ignored"),
+						RepositoryPath: "ignored",
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -198,7 +198,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "up-to-date"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("up-to-date"),
+						RepositoryPath: "up-to-date",
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -212,7 +212,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("app-a"),
+						RepositoryPath: "app-a",
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -226,7 +226,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("app-a-kustomize"),
+						RepositoryPath: "app-a-kustomize",
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -240,7 +240,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize-no-auto-apply"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("app-a-kustomize"),
+						RepositoryPath: "app-a-kustomize",
 						AutoApply:      pointer.BoolPtr(false),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
@@ -283,7 +283,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-foo"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("foo"),
+						RepositoryPath: "foo",
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -303,7 +303,7 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-bar"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("foo"),
+						RepositoryPath: "foo",
 					},
 				},
 			}
@@ -328,7 +328,7 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-foo"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("foo"),
+						RepositoryPath: "foo",
 						RunInterval:    5,
 					},
 				},
@@ -336,7 +336,7 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-bar"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("bar"),
+						RepositoryPath: "bar",
 						DryRun:         true,
 					},
 				},
@@ -344,7 +344,7 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-baz"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: pointer.StringPtr("baz"),
+						RepositoryPath: "baz",
 						AutoApply:      pointer.BoolPtr(false),
 					},
 				},
