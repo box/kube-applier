@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -64,6 +65,10 @@ var _ = BeforeSuite(func(done Done) {
 	testKubeClient, err = client.NewWithConfig(testConfig)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(testKubeClient).ToNot(BeNil())
+
+	hostParts := strings.Split(testConfig.Host, ":")
+	os.Setenv("KUBERNETES_SERVICE_HOST", hostParts[0])
+	os.Setenv("KUBERNETES_SERVICE_PORT", hostParts[1])
 
 	close(done)
 }, 60)

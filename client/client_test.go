@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
@@ -230,14 +231,17 @@ var _ = Describe("Client", func() {
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "alpha", Namespace: "ns-0"},
+					Spec:       kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "beta", Namespace: "ns-0"},
+					Spec:       kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "ns-1"},
+					Spec:       kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
 				},
 			}
 

@@ -12,6 +12,13 @@ type WaybillSpec struct {
 	// +kubebuilder:default=true
 	AutoApply *bool `json:"autoApply,omitempty"`
 
+	// DelegateServiceAccountSecretRef references a Secret of type
+	// kubernetes.io/service-account-token in the same namespace as the Waybill
+	// that will be passed by kube-applier to kubectl when performing apply
+	// runs.
+	// +required
+	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef"`
+
 	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional
 	// +kubebuilder:default=false
@@ -35,7 +42,8 @@ type WaybillSpec struct {
 
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Waybill is stored.
-	RepositoryPath string `json:"repositoryPath"`
+	// +required
+	RepositoryPath *string `json:"repositoryPath"`
 
 	// RunInterval determines how often this Waybill is applied in seconds.
 	// +optional
@@ -48,9 +56,9 @@ type WaybillSpec struct {
 	// +kubebuilder:default=false
 	ServerSideApply bool `json:"serverSideApply,omitempty"`
 
-	// StrongboxKeyringSecretRef reference a Secret in the same namespace as the
-	// Waybill that contains a single item, named '.strongbox_keyring' with any
-	// strongbox keys required to decrypt the files before applying.
+	// StrongboxKeyringSecretRef references a Secret in the same namespace as
+	// the Waybill that contains a single item, named '.strongbox_keyring' with
+	// any strongbox keys required to decrypt the files before applying.
 	// +optional
 	StrongboxKeyringSecretRef string `json:"strongboxKeyringSecretRef,omitempty"`
 }

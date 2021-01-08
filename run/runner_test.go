@@ -49,7 +49,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			&ApplyOptions{},
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -59,7 +60,8 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune: pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
 				},
 			},
 			[]string{},
@@ -69,8 +71,9 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:          pointer.BoolPtr(true),
-					PruneBlacklist: []string{"b"},
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					PruneBlacklist:                  []string{"b"},
 				},
 			},
 			[]string{"c"},
@@ -80,9 +83,10 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 			applyOptions,
 			&kubeapplierv1alpha1.Waybill{
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					Prune:                 pointer.BoolPtr(true),
-					PruneBlacklist:        []string{"b"},
-					PruneClusterResources: true,
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					PruneBlacklist:                  []string{"b"},
+					PruneClusterResources:           true,
 				},
 			},
 			[]string{"c"},
@@ -114,6 +118,7 @@ var _ = Describe("Runner", func() {
 			},
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
 			RepoPath:       "../testdata/manifests",
+			WorkerCount:    1, // limit to one to prevent race issues
 		}
 		testRunQueue = testRunner.Start()
 		kubectlPath := testRunner.KubectlClient.KubectlPath()
@@ -134,6 +139,7 @@ var _ = Describe("Runner", func() {
 
 	AfterEach(func() {
 		testRunner.Stop()
+		testCleanupNamespaces()
 	})
 
 	Context("When operating on an empty Waybill list", func() {
@@ -152,54 +158,59 @@ var _ = Describe("Runner", func() {
 
 	Context("When operating on a Waybill list", func() {
 		It("Should update the Status subresources accordingly", func() {
-			wbList := []kubeapplierv1alpha1.Waybill{
+			wbList := []*kubeapplierv1alpha1.Waybill{
 				{
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appA",
+						Name:      "app-a",
 						Namespace: "app-a",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: "app-a",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-a"),
 					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appB",
+						Name:      "app-b",
 						Namespace: "app-b",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:             pointer.BoolPtr(true),
-						Prune:                 pointer.BoolPtr(true),
-						PruneClusterResources: true,
-						RepositoryPath:        "app-b",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						PruneClusterResources:           true,
+						RepositoryPath:                  pointer.StringPtr("app-b"),
 					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appC",
+						Name:      "app-c",
 						Namespace: "app-c",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						DryRun:         true,
-						Prune:          pointer.BoolPtr(true),
-						PruneBlacklist: []string{"core/v1/Pod"},
-						RepositoryPath: "app-c",
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						DryRun:                          true,
+						Prune:                           pointer.BoolPtr(true),
+						PruneBlacklist:                  []string{"core/v1/Pod"},
+						RepositoryPath:                  pointer.StringPtr("app-c"),
 					},
 				},
 			}
+
+			testEnsureWaybills(wbList)
 
 			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
 				{
 					Command:      "",
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-a created
+					Output: `namespace/app-a configured
 deployment.apps/test-deployment created
 `,
 					Started: metav1.Time{},
@@ -210,7 +221,7 @@ deployment.apps/test-deployment created
 					Command:      "",
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-b created
+					Output: `namespace/app-b configured
 error: error validating "../testdata/manifests/app-b/deployment.yaml": error validating data: ValidationError(Deployment.spec.template.spec): missing required field "containers" in io.k8s.api.core.v1.PodSpec; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
@@ -219,13 +230,13 @@ error: error validating "../testdata/manifests/app-b/deployment.yaml": error val
 				},
 				{
 					Command:      "",
-					ErrorMessage: "exit status 1",
+					ErrorMessage: "",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-c created (server dry run)
-Error from server (NotFound): error when creating "../testdata/manifests/app-c/deployment.yaml": namespaces "app-c" not found
+					Output: `namespace/app-c configured (server dry run)
+deployment.apps/test-deployment created (server dry run)
 `,
 					Started: metav1.Time{},
-					Success: false,
+					Success: true,
 					Type:    PollingRun.String(),
 				},
 			}
@@ -233,9 +244,9 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			// construct expected waybill list
 			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
 			for i := range wbList {
-				expected[i] = wbList[i]
+				expected[i] = *wbList[i]
 				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*expected[i].Spec.RepositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -243,25 +254,25 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			By("Applying all the Waybills and populating their Status subresource with the results")
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, &wbList[i])
+				Enqueue(testRunQueue, PollingRun, wbList[i])
 			}
 			testRunner.Stop()
 
 			for i := range wbList {
 				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
-				Expect(wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
 				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a"} 1`,
 				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-b"} 1`,
-				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-c"} 1`,
+				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-c"} 1`,
 				`kube_applier_last_run_timestamp_seconds{namespace="app-a"}`,
 				`kube_applier_last_run_timestamp_seconds{namespace="app-b"}`,
 				`kube_applier_last_run_timestamp_seconds{namespace="app-c"}`,
 				`kube_applier_namespace_apply_count{namespace="app-a",success="true"} 1`,
 				`kube_applier_namespace_apply_count{namespace="app-b",success="false"} 1`,
-				`kube_applier_namespace_apply_count{namespace="app-c",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-c",success="true"} 1`,
 				`kube_applier_run_latency_seconds`,
 				`kube_applier_run_queue{namespace="app-a",type="Git polling run"} 0`,
 				`kube_applier_run_queue{namespace="app-b",type="Git polling run"} 0`,
@@ -275,17 +286,20 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 			waybill := kubeapplierv1alpha1.Waybill{
 				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "appA",
+					Name:      "app-a",
 					Namespace: "app-a-kustomize",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(true),
-					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a-kustomize",
+					AutoApply:                       pointer.BoolPtr(true),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+					Prune:                           pointer.BoolPtr(true),
+					RepositoryPath:                  pointer.StringPtr("app-a-kustomize"),
 				},
 			}
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(waybill.Spec.RepositoryPath)
+			testEnsureWaybills([]*kubeapplierv1alpha1.Waybill{&waybill})
+
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(*waybill.Spec.RepositoryPath)
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -294,7 +308,7 @@ Error from server (NotFound): error when creating "../testdata/manifests/app-c/d
 					Commit:       headCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-a-kustomize created
+					Output: `namespace/app-a-kustomize configured
 deployment.apps/test-deployment created
 Some error output has been omitted because it may contain sensitive data
 `,
@@ -323,34 +337,70 @@ Some error output has been omitted because it may contain sensitive data
 
 	Context("When operating on a Waybill that defines a strongbox keyring", func() {
 		It("Should be able to apply encrypted files, given a strongbox keyring secret", func() {
-			// Instead of creating the namespace using the test kube client, we
-			// instead use a "hack" here by requesting a run for a Waybill
-			// pointing to a single file that defines the namespace. This is to
-			// avoid kubectl apply warnings in the output below.
-			Enqueue(testRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foobar",
-					Namespace: "app-d",
+			wbList := []*kubeapplierv1alpha1.Waybill{
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d-missing",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+					},
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(true),
-					Prune:          pointer.BoolPtr(false),
-					RepositoryPath: "app-d/00-namespace.yaml",
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d-notfound",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       "invalid",
+					},
 				},
-			})
-			ns := &corev1.Namespace{}
-			Eventually(
-				func() bool {
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Name: "app-d"}, ns) == nil
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d-empty",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       "strongbox-empty",
+					},
 				},
-				time.Second*15,
-				time.Second,
-			).Should(BeTrue())
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                       pointer.BoolPtr(true),
+						DelegateServiceAccountSecretRef: pointer.StringPtr("kube-applier"),
+						Prune:                           pointer.BoolPtr(true),
+						RepositoryPath:                  pointer.StringPtr("app-d"),
+						StrongboxKeyringSecretRef:       "strongbox",
+					},
+				},
+			}
 
-			secret := &corev1.Secret{
+			testEnsureWaybills(wbList)
+
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "strongbox",
-					Namespace: ns.Name,
+					Namespace: "app-d",
 				},
 				StringData: map[string]string{
 					".strongbox_keyring": `keyentries:
@@ -359,70 +409,14 @@ Some error output has been omitted because it may contain sensitive data
   key: QxK6PHX37IybXRshJZy4IXRjCdFFsE0wdiYlfeGP1QA=`,
 				},
 				Type: corev1.SecretTypeOpaque,
-			}
-			Expect(testKubeClient.Create(context.TODO(), secret)).To(BeNil())
-			secretEmpty := &corev1.Secret{
+			})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "strongbox-empty",
-					Namespace: ns.Name,
+					Namespace: "app-d-empty",
 				},
 				Type: corev1.SecretTypeOpaque,
-			}
-			Expect(testKubeClient.Create(context.TODO(), secretEmpty)).To(BeNil())
-
-			wbList := []kubeapplierv1alpha1.Waybill{
-				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appD",
-						Namespace: ns.Name,
-					},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: "app-d",
-					},
-				},
-				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appD",
-						Namespace: ns.Name,
-					},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: "invalid",
-					},
-				},
-				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appD",
-						Namespace: ns.Name,
-					},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: secretEmpty.Name,
-					},
-				},
-				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "appD",
-						Namespace: ns.Name,
-					},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                 pointer.BoolPtr(true),
-						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
-						StrongboxKeyringSecretRef: secret.Name,
-					},
-				},
-			}
+			})).To(BeNil())
 
 			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-d")
 			Expect(err).To(BeNil())
@@ -434,7 +428,7 @@ Some error output has been omitted because it may contain sensitive data
 					Commit:       headCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `namespace/app-d unchanged
+					Output: `namespace/app-d configured
 error: error validating "../testdata/manifests/app-d/deployment.yaml": error validating data: invalid object to validate; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
@@ -444,7 +438,7 @@ error: error validating "../testdata/manifests/app-d/deployment.yaml": error val
 				{
 					Command:      "^.*$",
 					Commit:       "",
-					ErrorMessage: `secrets "invalid" not found`,
+					ErrorMessage: `failed setting up repository clone: secrets "invalid" not found`,
 					Finished:     metav1.Time{},
 					Output:       "",
 					Started:      metav1.Time{},
@@ -454,7 +448,7 @@ error: error validating "../testdata/manifests/app-d/deployment.yaml": error val
 				{
 					Command:      "^.*$",
 					Commit:       "",
-					ErrorMessage: `Secret app-d/strongbox-empty does not contain key '.strongbox_keyring'`,
+					ErrorMessage: `failed setting up repository clone: Secret app-d-empty/strongbox-empty does not contain key '.strongbox_keyring'`,
 					Finished:     metav1.Time{},
 					Output:       "",
 					Started:      metav1.Time{},
@@ -478,18 +472,18 @@ deployment.apps/test-deployment created
 			// construct expected waybill list
 			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
 			for i := range wbList {
-				expected[i] = wbList[i]
+				expected[i] = *wbList[i]
 				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
 			}
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, &wbList[i])
+				Enqueue(testRunQueue, PollingRun, wbList[i])
 			}
 
 			Eventually(
 				func() bool {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: ns.Name, Name: "test-deployment"}, deployment) == nil
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment) == nil
 				},
 				time.Second*15,
 				time.Second,
@@ -499,16 +493,171 @@ deployment.apps/test-deployment created
 
 			for i := range wbList {
 				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
-				Expect(wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(&wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
-				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-d"} 1`,
+				`kube_applier_kubectl_exit_code_count{exit_code="1",namespace="app-d-missing"} 1`,
 				`kube_applier_last_run_timestamp_seconds{namespace="app-d"}`,
-				`kube_applier_namespace_apply_count{namespace="app-d",success="false"} 1`,
-				`kube_applier_namespace_apply_count{namespace="app-d",success="true"} 2`,
+				`kube_applier_namespace_apply_count{namespace="app-d-missing",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-d",success="true"} 1`,
 				`kube_applier_run_latency_seconds`,
 				`kube_applier_run_queue{namespace="app-d",type="Git polling run"} 0`,
+			})
+		})
+	})
+
+	Context("When setting up the apply environment", func() {
+		It("Should properly validate the delegate Service Account secret", func() {
+			wbList := []*kubeapplierv1alpha1.Waybill{
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-notfound",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-notfound"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-wrongtype",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-wrongtype"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e-notoken",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-notoken"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-e",
+						Namespace: "app-e",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						DelegateServiceAccountSecretRef: pointer.StringPtr("ka"),
+						RepositoryPath:                  pointer.StringPtr("app-e"),
+					},
+				},
+			}
+
+			testEnsureWaybills(wbList)
+
+			// Manipulate the delegate Secrets that have been create above
+			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
+			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"},
+				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+			Expect(testKubeClient.Update(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "app-e-notoken",
+					Name:        "ka-notoken",
+					Annotations: map[string]string{corev1.ServiceAccountNameKey: "ka-notoken"},
+				},
+				Type: corev1.SecretTypeServiceAccountToken,
+				Data: map[string][]byte{},
+			})).To(BeNil())
+
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-e")
+			Expect(err).To(BeNil())
+			Expect(headCommitHash).ToNot(BeEmpty())
+
+			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed fetching delegate token: secrets "ka-notfound" not found`,
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed fetching delegate token: Secret app-e-wrongtype/ka-wrongtype is not of type ` + string(corev1.SecretTypeServiceAccountToken),
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "^.*$",
+					Commit:       "",
+					ErrorMessage: `failed fetching delegate token: Secret app-e-notoken/ka-notoken does not contain key 'token'`,
+					Finished:     metav1.Time{},
+					Output:       "",
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
+				},
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-e configured
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
+			}
+
+			// construct expected waybill list
+			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
+			for i := range wbList {
+				expected[i] = *wbList[i]
+				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
+			}
+
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, wbList[i])
+			}
+
+			Eventually(
+				func() bool {
+					deployment := &appsv1.Deployment{}
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment) == nil
+				},
+				time.Second*15,
+				time.Second,
+			).Should(BeTrue())
+
+			testRunner.Stop()
+
+			for i := range wbList {
+				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+			}
+
+			testMetrics([]string{
+				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-e"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-e",success="true"} 1`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="app-e-notfound",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e-wrongtype",type="Git polling run"} 0`,
+				`kube_applier_run_queue{namespace="app-e",type="Git polling run"} 0`,
 			})
 		})
 	})
@@ -519,12 +668,10 @@ deployment.apps/test-deployment created
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "queued-ok"},
-				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
-				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			testMetrics([]string{
 				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 1`,
@@ -532,7 +679,6 @@ deployment.apps/test-deployment created
 			Enqueue(smallRunQueue, PollingRun, &kubeapplierv1alpha1.Waybill{
 				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 				ObjectMeta: metav1.ObjectMeta{Name: "appD", Namespace: "failed-to-queue"},
-				Spec:       kubeapplierv1alpha1.WaybillSpec{AutoApply: pointer.BoolPtr(true)},
 			})
 			testMetrics([]string{
 				`kube_applier_run_queue_failures{namespace="failed-to-queue",type="Git polling run"} 2`,
@@ -551,9 +697,10 @@ var _ = Describe("Run Queue", func() {
 					Namespace: "waybill-auto-apply-disabled",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(false),
-					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a",
+					AutoApply:                       pointer.BoolPtr(false),
+					DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
+					Prune:                           pointer.BoolPtr(true),
+					RepositoryPath:                  pointer.StringPtr("app-a"),
 				},
 			}
 
@@ -592,7 +739,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
 				kubectlPath,
 				testConfig.Host,
-				expected.Spec.RepositoryPath,
+				*expected.Spec.RepositoryPath,
 				expected.Namespace,
 				commandExtraArgs,
 			)
@@ -600,7 +747,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			commandMatcher = MatchRegexp(
 				"^%s build [^ ]+/%s | %s --server %s apply -f - -R -n %s%s",
 				kustomizePath,
-				expected.Spec.RepositoryPath,
+				*expected.Spec.RepositoryPath,
 				kubectlPath,
 				testConfig.Host,
 				expected.Namespace,
