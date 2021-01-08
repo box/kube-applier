@@ -16,9 +16,9 @@ type WaybillSpec struct {
 	// kubernetes.io/service-account-token in the same namespace as the Waybill
 	// that will be passed by kube-applier to kubectl when performing apply
 	// runs.
-	// +required
+	// +optional
 	// +kubebuilder:default=kube-applier-delegate-token
-	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef"`
+	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef,omitempty"`
 
 	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional

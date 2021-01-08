@@ -127,7 +127,6 @@ spec:
                   the files before applying.
                 type: string
             required:
-            - delegateServiceAccountSecretRef
             - repositoryPath
             type: object
           status:
