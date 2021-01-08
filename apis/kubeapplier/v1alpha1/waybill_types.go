@@ -18,6 +18,7 @@ type WaybillSpec struct {
 	// runs.
 	// +optional
 	// +kubebuilder:default=kube-applier-delegate-token
+	// +kubebuilder:validation:MinLength=1
 	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef,omitempty"`
 
 	// DryRun enables the dry-run flag when applying this Waybill.

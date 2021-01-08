@@ -85,6 +85,7 @@ spec:
                   type kubernetes.io/service-account-token in the same namespace as
                   the Waybill that will be passed by kube-applier to kubectl when
                   performing apply runs.
+                minLength: 1
                 type: string
               dryRun:
                 default: false
