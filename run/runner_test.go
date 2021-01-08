@@ -547,17 +547,6 @@ deployment.apps/test-deployment created
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "app-e",
-						Namespace: "app-e-noca",
-					},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("ka-noca"),
-						RepositoryPath:                  pointer.StringPtr("app-e"),
-					},
-				},
-				{
-					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "app-e",
 						Namespace: "app-e",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
@@ -585,15 +574,6 @@ deployment.apps/test-deployment created
 				Type: corev1.SecretTypeServiceAccountToken,
 				Data: map[string][]byte{},
 			})).To(BeNil())
-			Expect(testKubeClient.Update(context.TODO(), &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "app-e-noca",
-					Name:        "ka-noca",
-					Annotations: map[string]string{corev1.ServiceAccountNameKey: "ka-noca"},
-				},
-				Type: corev1.SecretTypeServiceAccountToken,
-				Data: map[string][]byte{"token": []byte{}},
-			})).To(BeNil())
 
 			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-e")
 			Expect(err).To(BeNil())
@@ -603,7 +583,7 @@ deployment.apps/test-deployment created
 				{
 					Command:      "^.*$",
 					Commit:       "",
-					ErrorMessage: `failed setting up kubeconfig: secrets "ka-notfound" not found`,
+					ErrorMessage: `failed fetching delegate token: secrets "ka-notfound" not found`,
 					Finished:     metav1.Time{},
 					Output:       "",
 					Started:      metav1.Time{},
@@ -613,7 +593,7 @@ deployment.apps/test-deployment created
 				{
 					Command:      "^.*$",
 					Commit:       "",
-					ErrorMessage: `failed setting up kubeconfig: Secret app-e-wrongtype/ka-wrongtype is not of type ` + string(corev1.SecretTypeServiceAccountToken),
+					ErrorMessage: `failed fetching delegate token: Secret app-e-wrongtype/ka-wrongtype is not of type ` + string(corev1.SecretTypeServiceAccountToken),
 					Finished:     metav1.Time{},
 					Output:       "",
 					Started:      metav1.Time{},
@@ -623,17 +603,7 @@ deployment.apps/test-deployment created
 				{
 					Command:      "^.*$",
 					Commit:       "",
-					ErrorMessage: `failed setting up kubeconfig: Secret app-e-notoken/ka-notoken does not contain key 'token'`,
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed setting up kubeconfig: Secret app-e-noca/ka-noca does not contain key 'ca.crt'`,
+					ErrorMessage: `failed fetching delegate token: Secret app-e-notoken/ka-notoken does not contain key 'token'`,
 					Finished:     metav1.Time{},
 					Output:       "",
 					Started:      metav1.Time{},
@@ -687,8 +657,6 @@ deployment.apps/test-deployment created
 				`kube_applier_run_latency_seconds`,
 				`kube_applier_run_queue{namespace="app-e-notfound",type="Git polling run"} 0`,
 				`kube_applier_run_queue{namespace="app-e-wrongtype",type="Git polling run"} 0`,
-				`kube_applier_run_queue{namespace="app-e-notoken",type="Git polling run"} 0`,
-				`kube_applier_run_queue{namespace="app-e-noca",type="Git polling run"} 0`,
 				`kube_applier_run_queue{namespace="app-e",type="Git polling run"} 0`,
 			})
 		})

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,11 +26,18 @@ import (
 var (
 	// To make testing possible
 	execCommand = exec.Command
-	// The output is omitted if it contains any of these terms
-	// when there is an error running `kubectl apply -f <path>`
+	// The output is omitted if it contains any of these terms when there is an
+	// error running `kubectl apply -f <path>`
 	omitErrOutputTerms   = []string{"Secret", "base64"}
 	omitErrOutputMessage = "Some error output has been omitted because it may contain sensitive data\n"
+
+	// Used in sanitiseCmdStr
+	sanitiseCmdStrRe = regexp.MustCompile(`--token=[\S]+`)
 )
+
+func sanitiseCmdStr(cmdStr string) string {
+	return sanitiseCmdStrRe.ReplaceAllString(cmdStr, "--token=<omitted>")
+}
 
 // ApplyFlags configure kubectl apply
 type ApplyFlags struct {
@@ -37,11 +45,16 @@ type ApplyFlags struct {
 	Namespace      string
 	PruneWhitelist []string
 	ServerSide     bool
+	Token          string
 }
 
 // Args returns the flags as args that can be provided to exec.Command
 func (f *ApplyFlags) Args() []string {
 	args := []string{}
+
+	if f.Token != "" {
+		args = append(args, fmt.Sprintf("--token=%s", f.Token))
+	}
 
 	if f.Namespace != "" {
 		args = append(args, []string{"-n", f.Namespace}...)
@@ -74,7 +87,7 @@ type Client struct {
 
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
-func (c *Client) Apply(environment []string, path string, flags ApplyFlags) (string, string, error) {
+func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
 	var kustomize bool
 	if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
 		kustomize = true
@@ -83,11 +96,10 @@ func (c *Client) Apply(environment []string, path string, flags ApplyFlags) (str
 	} else if _, err := os.Stat(path + "/Kustomization"); err == nil {
 		kustomize = true
 	}
-
 	if kustomize {
-		return c.applyKustomize(environment, path, flags)
+		return c.applyKustomize(path, flags)
 	}
-	return c.applyPath(environment, path, flags)
+	return c.applyPath(path, flags)
 }
 
 // KubectlPath returns the filesystem path to the kubectl binary
@@ -103,18 +115,18 @@ func (c *Client) KustomizePath() string {
 }
 
 // applyPath runs `kubectl apply -f <path>`
-func (c *Client) applyPath(environment []string, path string, flags ApplyFlags) (string, string, error) {
-	cmdStr, out, err := c.apply(environment, path, []byte{}, flags)
+func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error) {
+	cmdStr, out, err := c.apply(path, []byte{}, flags)
 	if err != nil {
 		// Filter potential secret leaks out of the output
 		return cmdStr, filterErrOutput(out), err
 	}
 
-	return cmdStr, out, nil
+	return sanitiseCmdStr(cmdStr), out, nil
 }
 
 // applyKustomize does a `kustomize build | kubectl apply -f -` on the path
-func (c *Client) applyKustomize(environment []string, path string, flags ApplyFlags) (string, string, error) {
+func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, error) {
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
@@ -171,7 +183,7 @@ func (c *Client) applyKustomize(environment []string, path string, flags ApplyFl
 		resourcesFlags := flags
 		resourcesFlags.PruneWhitelist = resourcesPruneWhitelist
 
-		_, out, err := c.apply(environment, "-", resources, resourcesFlags)
+		_, out, err := c.apply("-", resources, resourcesFlags)
 		kubectlOut = kubectlOut + out
 		if err != nil {
 			return cmdStr, kubectlOut, err
@@ -190,7 +202,7 @@ func (c *Client) applyKustomize(environment []string, path string, flags ApplyFl
 		secretsFlags := flags
 		secretsFlags.PruneWhitelist = secretsPruneWhitelist
 
-		_, out, err := c.apply(environment, "-", secrets, secretsFlags)
+		_, out, err := c.apply("-", secrets, secretsFlags)
 		if err != nil {
 			// Don't append the actual output, as the error output
 			// from kubectl can leak the content of secrets
@@ -200,11 +212,11 @@ func (c *Client) applyKustomize(environment []string, path string, flags ApplyFl
 		kubectlOut = kubectlOut + out
 	}
 
-	return cmdStr, kubectlOut, nil
+	return sanitiseCmdStr(cmdStr), kubectlOut, nil
 }
 
 // apply runs `kubectl apply`
-func (c *Client) apply(environment []string, path string, stdin []byte, flags ApplyFlags) (string, string, error) {
+func (c *Client) apply(path string, stdin []byte, flags ApplyFlags) (string, string, error) {
 	args := []string{}
 	if c.Host != "" {
 		args = append(args, "--server", c.Host)
@@ -224,9 +236,6 @@ func (c *Client) apply(environment []string, path string, stdin []byte, flags Ap
 			return "", "", fmt.Errorf("path can't be %s when stdin is empty", path)
 		}
 		kubectlCmd.Stdin = bytes.NewReader(stdin)
-	}
-	if len(environment) > 0 {
-		kubectlCmd.Env = append(os.Environ(), environment...)
 	}
 	out, err := kubectlCmd.CombinedOutput()
 	if err != nil {
