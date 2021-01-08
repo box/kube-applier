@@ -203,7 +203,7 @@ func (r *Runner) Stop() {
 }
 
 func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string, error) {
-	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, *waybill.Spec.DelegateServiceAccountSecretRef)
+	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.DelegateServiceAccountSecretRef)
 	if err != nil {
 		return "", err
 	}

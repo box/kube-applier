@@ -88,9 +88,8 @@ var _ = Describe("Scheduler", func() {
 						Namespace: "foo",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("foo"),
-						RunInterval:                     5,
+						RepositoryPath: pointer.StringPtr("foo"),
+						RunInterval:    5,
 					},
 				},
 				{ // no runs should be triggered for this resource, with autoApply false
@@ -100,10 +99,9 @@ var _ = Describe("Scheduler", func() {
 						Namespace: "foo-disabled-auto-apply",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:                       pointer.BoolPtr(false),
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("foo"),
-						RunInterval:                     5,
+						AutoApply:      pointer.BoolPtr(false),
+						RepositoryPath: pointer.StringPtr("foo"),
+						RunInterval:    5,
 					},
 				},
 			}
@@ -120,8 +118,7 @@ var _ = Describe("Scheduler", func() {
 					Namespace: "bar",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-					RepositoryPath:                  pointer.StringPtr("bar"),
+					RepositoryPath: pointer.StringPtr("bar"),
 				},
 			})
 			testEnsureWaybills(wbList)
@@ -188,8 +185,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "ignored"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("ignored"),
+						RepositoryPath: pointer.StringPtr("ignored"),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -202,8 +198,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "up-to-date"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("up-to-date"),
+						RepositoryPath: pointer.StringPtr("up-to-date"),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -217,8 +212,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("app-a"),
+						RepositoryPath: pointer.StringPtr("app-a"),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -232,8 +226,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("app-a-kustomize"),
+						RepositoryPath: pointer.StringPtr("app-a-kustomize"),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -247,9 +240,8 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "scheduler-polling-app-a-kustomize-no-auto-apply"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("app-a-kustomize"),
-						AutoApply:                       pointer.BoolPtr(false),
+						RepositoryPath: pointer.StringPtr("app-a-kustomize"),
+						AutoApply:      pointer.BoolPtr(false),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -291,8 +283,7 @@ var _ = Describe("Scheduler", func() {
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-foo"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("foo"),
+						RepositoryPath: pointer.StringPtr("foo"),
 					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
@@ -312,8 +303,7 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-bar"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("foo"),
+						RepositoryPath: pointer.StringPtr("foo"),
 					},
 				},
 			}
@@ -338,27 +328,24 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-foo"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("foo"),
-						RunInterval:                     5,
+						RepositoryPath: pointer.StringPtr("foo"),
+						RunInterval:    5,
 					},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-bar"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("bar"),
-						DryRun:                          true,
+						RepositoryPath: pointer.StringPtr("bar"),
+						DryRun:         true,
 					},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-baz"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						DelegateServiceAccountSecretRef: pointer.StringPtr("foo"),
-						RepositoryPath:                  pointer.StringPtr("baz"),
-						AutoApply:                       pointer.BoolPtr(false),
+						RepositoryPath: pointer.StringPtr("baz"),
+						AutoApply:      pointer.BoolPtr(false),
 					},
 				},
 			}
@@ -412,19 +399,19 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		// Get and Create (which updates the struct) do not.
 		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
 		// Add the kube-applier delegate Secret, if it doesn't exist
-		_, err = testKubeClient.GetSecret(context.TODO(), wbList[i].Namespace, *wbList[i].Spec.DelegateServiceAccountSecretRef)
+		_, err = testKubeClient.GetSecret(context.TODO(), wbList[i].Namespace, wbList[i].Spec.DelegateServiceAccountSecretRef)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				err = testKubeClient.Create(context.TODO(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      *wbList[i].Spec.DelegateServiceAccountSecretRef,
+						Name:      wbList[i].Spec.DelegateServiceAccountSecretRef,
 						Namespace: wbList[i].Namespace,
 						Annotations: map[string]string{
 							// This is to satisfy validation. The SA does not
 							// exist and is not needed either. The Secret is not
 							// populated with data so we need to put some values
 							// in. Every[one|thing] is cluster-admin in envtest.
-							corev1.ServiceAccountNameKey: *wbList[i].Spec.DelegateServiceAccountSecretRef,
+							corev1.ServiceAccountNameKey: wbList[i].Spec.DelegateServiceAccountSecretRef,
 						},
 					},
 					Type: corev1.SecretTypeServiceAccountToken,

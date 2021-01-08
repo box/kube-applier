@@ -75,11 +75,6 @@ func (in *WaybillSpec) DeepCopyInto(out *WaybillSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.DelegateServiceAccountSecretRef != nil {
-		in, out := &in.DelegateServiceAccountSecretRef, &out.DelegateServiceAccountSecretRef
-		*out = new(string)
-		**out = **in
-	}
 	if in.Prune != nil {
 		in, out := &in.Prune, &out.Prune
 		*out = new(bool)

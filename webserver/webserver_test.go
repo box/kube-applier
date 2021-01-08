@@ -67,7 +67,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "foo",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("foo")},
 			},
 			{
 				TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
@@ -75,7 +75,7 @@ var _ = Describe("WebServer", func() {
 					Name:      "main",
 					Namespace: "bar",
 				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("bar"), DelegateServiceAccountSecretRef: pointer.StringPtr("foo")},
+				Spec: kubeapplierv1alpha1.WaybillSpec{RepositoryPath: pointer.StringPtr("bar")},
 			},
 		}
 
