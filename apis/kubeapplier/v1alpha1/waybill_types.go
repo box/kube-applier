@@ -43,7 +43,9 @@ type WaybillSpec struct {
 	PruneBlacklist []string `json:"pruneBlacklist,omitempty"`
 
 	// RepositoryPath defines the relative path inside the Repository where the
-	// configuration for this Waybill is stored.
+	// configuration for this Waybill is stored. Accepted values are absolute
+	// or relative paths (relative to the root of the repository), such as:
+	// 'foo', '/foo', 'foo/bar', '/foo/bar' etc.
 	// +required
 	// +kubebuilder:validation:Pattern=^\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?$
 	RepositoryPath string `json:"repositoryPath"`
