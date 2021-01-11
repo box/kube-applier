@@ -723,7 +723,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 		}
 		if kustomizePath == "" {
 			commandMatcher = MatchRegexp(
-				"^%s --server %s apply -f [^ ]+/%s -R -n %s%s",
+				`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
 				kubectlPath,
 				testConfig.Host,
 				expected.Spec.RepositoryPath,
@@ -732,7 +732,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			)
 		} else {
 			commandMatcher = MatchRegexp(
-				"^%s build [^ ]+/%s | %s --server %s apply -f - -R -n %s%s",
+				`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
 				kustomizePath,
 				expected.Spec.RepositoryPath,
 				kubectlPath,

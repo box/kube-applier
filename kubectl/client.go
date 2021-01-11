@@ -97,9 +97,11 @@ func (c *Client) Apply(path string, flags ApplyFlags) (string, string, error) {
 		kustomize = true
 	}
 	if kustomize {
-		return c.applyKustomize(path, flags)
+		cmd, out, err := c.applyKustomize(path, flags)
+		return sanitiseCmdStr(cmd), out, err
 	}
-	return c.applyPath(path, flags)
+	cmd, out, err := c.applyPath(path, flags)
+	return sanitiseCmdStr(cmd), out, err
 }
 
 // KubectlPath returns the filesystem path to the kubectl binary
@@ -122,7 +124,7 @@ func (c *Client) applyPath(path string, flags ApplyFlags) (string, string, error
 		return cmdStr, filterErrOutput(out), err
 	}
 
-	return sanitiseCmdStr(cmdStr), out, nil
+	return cmdStr, out, nil
 }
 
 // applyKustomize does a `kustomize build | kubectl apply -f -` on the path
@@ -212,7 +214,7 @@ func (c *Client) applyKustomize(path string, flags ApplyFlags) (string, string, 
 		kubectlOut = kubectlOut + out
 	}
 
-	return sanitiseCmdStr(cmdStr), kubectlOut, nil
+	return cmdStr, kubectlOut, nil
 }
 
 // apply runs `kubectl apply`
