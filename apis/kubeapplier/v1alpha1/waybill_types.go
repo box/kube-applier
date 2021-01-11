@@ -16,9 +16,10 @@ type WaybillSpec struct {
 	// kubernetes.io/service-account-token in the same namespace as the Waybill
 	// that will be passed by kube-applier to kubectl when performing apply
 	// runs.
-	// +required
+	// +optional
 	// +kubebuilder:default=kube-applier-delegate-token
-	DelegateServiceAccountSecretRef *string `json:"delegateServiceAccountSecretRef"`
+	// +kubebuilder:validation:MinLength=1
+	DelegateServiceAccountSecretRef string `json:"delegateServiceAccountSecretRef,omitempty"`
 
 	// DryRun enables the dry-run flag when applying this Waybill.
 	// +optional
@@ -42,9 +43,12 @@ type WaybillSpec struct {
 	PruneBlacklist []string `json:"pruneBlacklist,omitempty"`
 
 	// RepositoryPath defines the relative path inside the Repository where the
-	// configuration for this Waybill is stored.
+	// configuration for this Waybill is stored. Accepted values are absolute
+	// or relative paths (relative to the root of the repository), such as:
+	// 'foo', '/foo', 'foo/bar', '/foo/bar' etc.
 	// +required
-	RepositoryPath *string `json:"repositoryPath"`
+	// +kubebuilder:validation:Pattern=^\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?$
+	RepositoryPath string `json:"repositoryPath"`
 
 	// RunInterval determines how often this Waybill is applied in seconds.
 	// +optional
