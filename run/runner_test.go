@@ -162,9 +162,8 @@ var _ = Describe("Runner", func() {
 						Namespace: "app-a",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(true),
-						Prune:          pointer.BoolPtr(true),
-						RepositoryPath: "app-a",
+						AutoApply: pointer.BoolPtr(true),
+						Prune:     pointer.BoolPtr(true),
 					},
 				},
 				{
@@ -177,7 +176,6 @@ var _ = Describe("Runner", func() {
 						AutoApply:             pointer.BoolPtr(true),
 						Prune:                 pointer.BoolPtr(true),
 						PruneClusterResources: true,
-						RepositoryPath:        "app-b",
 					},
 				},
 				{
@@ -191,7 +189,6 @@ var _ = Describe("Runner", func() {
 						DryRun:         true,
 						Prune:          pointer.BoolPtr(true),
 						PruneBlacklist: []string{"core/v1/Pod"},
-						RepositoryPath: "app-c",
 					},
 				},
 			}
@@ -287,9 +284,8 @@ deployment.apps/test-deployment created (server dry run)
 					Namespace: "app-a-kustomize",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(true),
-					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a-kustomize",
+					AutoApply: pointer.BoolPtr(true),
+					Prune:     pointer.BoolPtr(true),
 				},
 			}
 
@@ -359,7 +355,6 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "invalid",
 					},
 				},
@@ -372,7 +367,6 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "strongbox-empty",
 					},
 				},
@@ -385,7 +379,6 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						RepositoryPath:            "app-d",
 						StrongboxKeyringSecretRef: "strongbox",
 					},
 				},
@@ -503,7 +496,6 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-notfound",
-						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -514,7 +506,6 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-wrongtype",
-						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -525,7 +516,6 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka-notoken",
-						RepositoryPath:                  "app-e",
 					},
 				},
 				{
@@ -536,7 +526,6 @@ deployment.apps/test-deployment created
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						DelegateServiceAccountSecretRef: "ka",
-						RepositoryPath:                  "app-e",
 					},
 				},
 			}
@@ -663,9 +652,8 @@ var _ = Describe("Run Queue", func() {
 					Namespace: "waybill-auto-apply-disabled",
 				},
 				Spec: kubeapplierv1alpha1.WaybillSpec{
-					AutoApply:      pointer.BoolPtr(false),
-					Prune:          pointer.BoolPtr(true),
-					RepositoryPath: "app-a",
+					AutoApply: pointer.BoolPtr(false),
+					Prune:     pointer.BoolPtr(true),
 				},
 			}
 

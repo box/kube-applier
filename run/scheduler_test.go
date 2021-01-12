@@ -88,8 +88,7 @@ var _ = Describe("Scheduler", func() {
 						Namespace: "foo",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "foo",
-						RunInterval:    5,
+						RunInterval: 5,
 					},
 				},
 				{ // no runs should be triggered for this resource, with autoApply false
@@ -99,9 +98,8 @@ var _ = Describe("Scheduler", func() {
 						Namespace: "foo-disabled-auto-apply",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						AutoApply:      pointer.BoolPtr(false),
-						RepositoryPath: "foo",
-						RunInterval:    5,
+						AutoApply:   pointer.BoolPtr(false),
+						RunInterval: 5,
 					},
 				},
 			}
@@ -116,9 +114,6 @@ var _ = Describe("Scheduler", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "main",
 					Namespace: "bar",
-				},
-				Spec: kubeapplierv1alpha1.WaybillSpec{
-					RepositoryPath: "bar",
 				},
 			})
 			testEnsureWaybills(wbList)
@@ -184,9 +179,6 @@ var _ = Describe("Scheduler", func() {
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "ignored"},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "ignored",
-					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
@@ -197,9 +189,6 @@ var _ = Describe("Scheduler", func() {
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "up-to-date"},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "up-to-date",
-					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
@@ -282,9 +271,6 @@ var _ = Describe("Scheduler", func() {
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-foo"},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "foo",
-					},
 					Status: kubeapplierv1alpha1.WaybillStatus{
 						LastRun: &kubeapplierv1alpha1.WaybillStatusRun{
 							Finished: metav1.NewTime(time.Now()),
@@ -302,9 +288,6 @@ Some error output has been omitted because it may contain sensitive data
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "metrics-bar"},
-					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "foo",
-					},
 				},
 			}
 			testEnsureWaybills(wbList)
@@ -328,24 +311,21 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-foo"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "foo",
-						RunInterval:    5,
+						RunInterval: 5,
 					},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-bar"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "bar",
-						DryRun:         true,
+						DryRun: true,
 					},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{Name: "main", Namespace: "spec-baz"},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
-						RepositoryPath: "baz",
-						AutoApply:      pointer.BoolPtr(false),
+						AutoApply: pointer.BoolPtr(false),
 					},
 				},
 			}
