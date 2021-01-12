@@ -21,17 +21,17 @@ type formattingTestCases struct {
 
 var formattingTestCasess = []formattingTestCases{
 	// Unfinished
-	{time.Time{}, time.Time{}, "0.000 sec", "0001-01-01 00:00:00 +0000 UTC", false},
+	{time.Time{}, time.Time{}, "0 sec", "0001-01-01 00:00:00 +0000 UTC", false},
 	// Zero
-	{time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(), "0.000 sec", "1970-01-01 00:00:00 +0000 UTC", true},
+	{time.Unix(0, 0).UTC(), time.Unix(0, 0).UTC(), "0 sec", "1970-01-01 00:00:00 +0000 UTC", true},
 	// Integer
-	{time.Unix(0, 0).UTC(), time.Unix(5, 0).UTC(), "5.000 sec", "1970-01-01 00:00:05 +0000 UTC", true},
+	{time.Unix(0, 0).UTC(), time.Unix(5, 0).UTC(), "5 sec", "1970-01-01 00:00:05 +0000 UTC", true},
 	// Simple float
-	{time.Unix(0, 0).UTC(), time.Unix(2, 500000000).UTC(), "2.500 sec", "1970-01-01 00:00:02 +0000 UTC", true},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 500000000).UTC(), "2 sec", "1970-01-01 00:00:02 +0000 UTC", true},
 	// Complex float - round down
-	{time.Unix(0, 0).UTC(), time.Unix(2, 137454234).UTC(), "2.137 sec", "1970-01-01 00:00:02 +0000 UTC", true},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 137454234).UTC(), "2 sec", "1970-01-01 00:00:02 +0000 UTC", true},
 	// Complex float - round up
-	{time.Unix(0, 0).UTC(), time.Unix(2, 137554234).UTC(), "2.138 sec", "1970-01-01 00:00:02 +0000 UTC", true},
+	{time.Unix(0, 0).UTC(), time.Unix(2, 537554234).UTC(), "3 sec", "1970-01-01 00:00:02 +0000 UTC", true},
 }
 
 func TestResultFormattedTime(t *testing.T) {
