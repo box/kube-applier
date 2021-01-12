@@ -51,10 +51,9 @@ func (r *Result) FormattedTime(t metav1.Time) string {
 	return t.Time.Truncate(time.Second).String()
 }
 
-// Latency returns the latency between the two Times in seconds, truncated to 3
-// decimal places.
+// Latency returns the latency between the two Times in seconds.
 func (r *Result) Latency(t1, t2 metav1.Time) string {
-	return fmt.Sprintf("%.3f sec", t2.Time.Sub(t1.Time).Seconds())
+	return fmt.Sprintf("%.0f sec", t2.Time.Sub(t1.Time).Seconds())
 }
 
 // CommitLink returns a URL for the commit most recently applied or it returns
