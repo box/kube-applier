@@ -113,7 +113,7 @@ spec:
   prune: true
   pruneClusterResources: false
   pruneBlacklist: []
-  repositoryPath: sys-kube-applier
+  repositoryPath: <namespace-name>
   runInterval: 3600
   serverSideApply: false
   strongboxKeyringSecretRef: ""

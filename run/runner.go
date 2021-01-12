@@ -138,7 +138,11 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			continue
 		}
-		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(request.Waybill.Spec.RepositoryPath)
+		repositoryPath := request.Waybill.Spec.RepositoryPath
+		if repositoryPath == "" {
+			repositoryPath = request.Waybill.Namespace
+		}
+		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(repositoryPath)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("could not determine HEAD hash: %w", err))
 			os.RemoveAll(tmpRepoPath)
@@ -233,7 +237,11 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (str
 		os.RemoveAll(tmpRepoDir)
 		return "", err
 	}
-	subpath := filepath.Join(sub, waybill.Spec.RepositoryPath)
+	repositoryPath := waybill.Spec.RepositoryPath
+	if repositoryPath == "" {
+		repositoryPath = waybill.Namespace
+	}
+	subpath := filepath.Join(sub, repositoryPath)
 	if err := git.CloneRepository(root, tmpRepoDir, subpath, env); err != nil {
 		os.RemoveAll(tmpRepoDir)
 		return "", err
@@ -244,7 +252,11 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (str
 // Apply takes a list of files and attempts an apply command on each.
 func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
-	path := filepath.Join(rootPath, waybill.Spec.RepositoryPath)
+	repositoryPath := waybill.Spec.RepositoryPath
+	if repositoryPath == "" {
+		repositoryPath = waybill.Namespace
+	}
+	path := filepath.Join(rootPath, repositoryPath)
 	log.Logger("runner").Info("Applying files", "path", path)
 
 	dryRunStrategy := "none"

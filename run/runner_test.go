@@ -239,7 +239,11 @@ deployment.apps/test-deployment created (server dry run)
 			for i := range wbList {
 				expected[i] = *wbList[i]
 				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(expected[i].Spec.RepositoryPath)
+				repositoryPath := expected[i].Spec.RepositoryPath
+				if repositoryPath == "" {
+					repositoryPath = expected[i].Namespace
+				}
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(repositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -291,7 +295,11 @@ deployment.apps/test-deployment created (server dry run)
 
 			testEnsureWaybills([]*kubeapplierv1alpha1.Waybill{&waybill})
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(waybill.Spec.RepositoryPath)
+			repositoryPath := waybill.Spec.RepositoryPath
+			if repositoryPath == "" {
+				repositoryPath = waybill.Namespace
+			}
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(repositoryPath)
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -693,12 +701,16 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			if pointer.BoolPtrDerefOr(expected.Spec.Prune, true) {
 				commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
 			}
+			repositoryPath := expected.Spec.RepositoryPath
+			if repositoryPath == "" {
+				repositoryPath = expected.Namespace
+			}
 			if kustomizePath == "" {
 				commandMatcher = MatchRegexp(
 					`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
 					kubectlPath,
 					testConfig.Host,
-					expected.Spec.RepositoryPath,
+					repositoryPath,
 					expected.Namespace,
 					commandExtraArgs,
 				)
@@ -706,7 +718,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				commandMatcher = MatchRegexp(
 					`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
 					kustomizePath,
-					expected.Spec.RepositoryPath,
+					repositoryPath,
 					kubectlPath,
 					testConfig.Host,
 					expected.Namespace,

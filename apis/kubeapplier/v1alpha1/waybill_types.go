@@ -45,9 +45,11 @@ type WaybillSpec struct {
 	// RepositoryPath defines the relative path inside the Repository where the
 	// configuration for this Waybill is stored. Accepted values are absolute
 	// or relative paths (relative to the root of the repository), such as:
-	// 'foo', '/foo', 'foo/bar', '/foo/bar' etc.
-	// +required
-	// +kubebuilder:validation:Pattern=^\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?$
+	// 'foo', '/foo', 'foo/bar', '/foo/bar' etc., as well as an empty string.
+	// If not specified, it will default to the name of the namespace where the
+	// Waybill is created.
+	// +optional
+	// +kubebuilder:validation:Pattern=^(\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?)?$
 	RepositoryPath string `json:"repositoryPath"`
 
 	// RunInterval determines how often this Waybill is applied in seconds.
