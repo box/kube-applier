@@ -7,6 +7,8 @@
 * [Usage](#usage)
     * [Environment variables](#environment-variables)
     * [Waybill CRD](#waybill-crd)
+        * [Delegate ServiceAccount](#delegate-serviceaccount)
+        * [Integration with `strongbox`](#integration-with-strongbox)
     * [Mounting the Git Repository](#mounting-the-git-repository)
     * [Resource pruning](#resource-pruning)
 * [Deploying](#deploying)

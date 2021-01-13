@@ -115,16 +115,13 @@ func (r *Runner) Start() chan<- Request {
 func (r *Runner) applyWorker() {
 	defer r.workerGroup.Done()
 	for request := range r.workerQueue {
-		// TODO: for brevity, we could do:
-		// wb := request.Waybill
 		wbId := fmt.Sprintf("%s/%s", request.Waybill.Namespace, request.Waybill.Name)
 		log.Logger("runner").Info("Started apply run", "waybill", wbId)
 		metrics.UpdateRunRequest(request.Type.String(), request.Waybill, -1)
 
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
-			log.Logger("runner").Error("Could not compute list of prunable resources", "waybill", wbId, "error", err)
-			r.setRequestFailure(request, err)
+			r.captureRequestFailure(request, fmt.Errorf("could not compute list of prunable resources: %w", err))
 			continue
 		}
 		applyOptions := &ApplyOptions{
@@ -133,27 +130,23 @@ func (r *Runner) applyWorker() {
 		}
 		delegateToken, err := r.getDelegateToken(request.Waybill)
 		if err != nil {
-			log.Logger("runner").Error("Could not fetch delegate token", "waybill", wbId, "error", err)
-			r.setRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
+			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
 			continue
 		}
 		tmpRepoPath, err := r.setupRepositoryClone(request.Waybill)
 		if err != nil {
-			log.Logger("runner").Error("Could not setup apply environment", "waybill", wbId, "error", err)
-			r.setRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
+			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			continue
 		}
 		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(request.Waybill.Spec.RepositoryPath)
 		if err != nil {
-			log.Logger("runner").Error("Could not determine HEAD hash", "waybill", wbId, "error", err)
-			r.setRequestFailure(request, err)
+			r.captureRequestFailure(request, fmt.Errorf("could not determine HEAD hash: %w", err))
 			os.RemoveAll(tmpRepoPath)
 			continue
 		}
 
 		r.apply(tmpRepoPath, delegateToken, request.Waybill, applyOptions)
 
-		// TODO: move these in apply()
 		request.Waybill.Status.LastRun.Commit = hash
 		request.Waybill.Status.LastRun.Type = request.Type.String()
 
@@ -174,22 +167,13 @@ func (r *Runner) applyWorker() {
 	}
 }
 
-// setRequestFailure is used to update the status of a Waybill when the request
-// failed to setup and before attempting to apply.
-// TODO: it might be preferrable to convert these to events
-func (r *Runner) setRequestFailure(req Request, err error) {
-	req.Waybill.Status.LastRun = &kubeapplierv1alpha1.WaybillStatusRun{
-		Command:      "", // These fields are not available since the request
-		Commit:       "", // failed before even attempting an apply
-		Output:       "",
-		ErrorMessage: err.Error(),
-		// We don't need to provide accurate timestamps here, the request failed
-		// during setup, before attempting to apply
-		Finished: metav1.NewTime(r.Clock.Now()),
-		Started:  metav1.NewTime(r.Clock.Now()),
-		Success:  false,
-		Type:     req.Type.String(),
-	}
+// captureRequestFailure is used to capture a request failure that occured
+// before attempting to apply. The reason is logged and emitted as a kubernetes
+// event.
+func (r *Runner) captureRequestFailure(req Request, err error) {
+	wbId := fmt.Sprintf("%s/%s", req.Waybill.Namespace, req.Waybill.Name)
+	log.Logger("runner").Error("Run request failed", "waybill", wbId, "error", err)
+	r.KubeClient.EmitWaybillEvent(req.Waybill, corev1.EventTypeWarning, "WaybillRunRequestFailed", err.Error())
 }
 
 // Stop gracefully shuts down the Runner.
@@ -208,11 +192,11 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 		return "", err
 	}
 	if secret.Type != corev1.SecretTypeServiceAccountToken {
-		return "", fmt.Errorf("Secret %s/%s is not of type %s", secret.Namespace, secret.Name, corev1.SecretTypeServiceAccountToken)
+		return "", fmt.Errorf(`secret "%s/%s" is not of type %s`, secret.Namespace, secret.Name, corev1.SecretTypeServiceAccountToken)
 	}
 	delegateToken, ok := secret.Data["token"]
 	if !ok {
-		return "", fmt.Errorf("Secret %s/%s does not contain key 'token'", secret.Namespace, secret.Name)
+		return "", fmt.Errorf(`secret "%s/%s" does not contain key 'token'`, secret.Namespace, secret.Name)
 	}
 	return string(delegateToken), nil
 }
@@ -227,7 +211,7 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (str
 		}
 		strongboxData, ok := secret.Data[".strongbox_keyring"]
 		if !ok {
-			return "", fmt.Errorf("Secret %s/%s does not contain key '.strongbox_keyring'", secret.Namespace, secret.Name)
+			return "", fmt.Errorf(`secret "%s/%s" does not contain key '.strongbox_keyring'`, secret.Namespace, secret.Name)
 		}
 		tmpHomeDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 		if err != nil {
