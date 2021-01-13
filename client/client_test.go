@@ -300,7 +300,7 @@ func matchEvent(waybill kubeapplierv1alpha1.Waybill, eventType, reason, message 
 		"Message": MatchRegexp(message),
 		"Reason":  Equal(reason),
 		"Source": MatchFields(IgnoreExtras, Fields{
-			"Component": Equal(clientName),
+			"Component": Equal(Name),
 		}),
 		"Type": Equal(eventType),
 	})

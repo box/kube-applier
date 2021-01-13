@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	clientName = "kube-applier"
+	// Name identifies this client and is used for ownership-related fields.
+	Name = "kube-applier"
 )
 
 var (
@@ -44,7 +45,6 @@ func init() {
 		log.Fatalf("Cannot setup client scheme: %v", err)
 	}
 	// +kubebuilder:scaffold:scheme
-
 }
 
 // Client encapsulates a kubernetes client for interacting with the apiserver.
@@ -85,7 +85,7 @@ func newClient(cfg *rest.Config) (*Client, error) {
 		kubeapplierlog.Logger("eventBroadcaster").Debug(fmt.Sprintf(format, args...))
 	})
 	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: clientName})
+	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: Name})
 	return &Client{
 		Client:    c,
 		clientset: clientset,
