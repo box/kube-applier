@@ -423,26 +423,8 @@ error: error validating "../testdata/manifests/app-d/deployment.yaml": error val
 					Success: false,
 					Type:    PollingRun.String(),
 				},
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed setting up repository clone: secrets "invalid" not found`,
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed setting up repository clone: Secret app-d-empty/strongbox-empty does not contain key '.strongbox_keyring'`,
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
+				nil,
+				nil,
 				{
 					Command:      "",
 					Commit:       headCommitHash,
@@ -477,10 +459,17 @@ deployment.apps/test-deployment created
 				time.Second,
 			).Should(BeTrue())
 
+			testMatchEvents([]gomegatypes.GomegaMatcher{
+				matchEvent(*wbList[1], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed setting up repository clone: secrets "invalid" not found`),
+				matchEvent(*wbList[2], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed setting up repository clone: secret "app-d-empty/strongbox-empty" does not contain key '.strongbox_keyring'`),
+			})
+
 			testRunner.Stop()
 
 			for i := range wbList {
-				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				if wbList[i].Status.LastRun != nil {
+					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				}
 				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
 			}
 
@@ -568,36 +557,9 @@ deployment.apps/test-deployment created
 			Expect(headCommitHash).ToNot(BeEmpty())
 
 			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed fetching delegate token: secrets "ka-notfound" not found`,
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed fetching delegate token: Secret app-e-wrongtype/ka-wrongtype is not of type ` + string(corev1.SecretTypeServiceAccountToken),
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
-				{
-					Command:      "^.*$",
-					Commit:       "",
-					ErrorMessage: `failed fetching delegate token: Secret app-e-notoken/ka-notoken does not contain key 'token'`,
-					Finished:     metav1.Time{},
-					Output:       "",
-					Started:      metav1.Time{},
-					Success:      false,
-					Type:         PollingRun.String(),
-				},
+				nil,
+				nil,
+				nil,
 				{
 					Command:      "",
 					Commit:       headCommitHash,
@@ -632,10 +594,18 @@ deployment.apps/test-deployment created
 				time.Second,
 			).Should(BeTrue())
 
+			testMatchEvents([]gomegatypes.GomegaMatcher{
+				matchEvent(*wbList[0], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed fetching delegate token: secrets "ka-notfound" not found`),
+				matchEvent(*wbList[1], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed fetching delegate token: secret "app-e-wrongtype/ka-wrongtype" is not of type `+string(corev1.SecretTypeServiceAccountToken)),
+				matchEvent(*wbList[2], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed fetching delegate token: secret "app-e-notoken/ka-notoken" does not contain key 'token'`),
+			})
+
 			testRunner.Stop()
 
 			for i := range wbList {
-				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				if wbList[i].Status.LastRun != nil {
+					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				}
 				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
 			}
 
@@ -710,44 +680,40 @@ var _ = Describe("Run Queue", func() {
 })
 
 func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
-	commandMatcher := Ignore()
-	if expected.Status.LastRun.Command != "^.*$" {
-		commandExtraArgs := expected.Status.LastRun.Command
-		if expected.Spec.DryRun {
-			commandExtraArgs += " --dry-run=server"
-		} else {
-			commandExtraArgs += " --dry-run=none"
-		}
-		if pointer.BoolPtrDerefOr(expected.Spec.Prune, true) {
-			commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
-		}
-		if kustomizePath == "" {
-			commandMatcher = MatchRegexp(
-				`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
-				kubectlPath,
-				testConfig.Host,
-				expected.Spec.RepositoryPath,
-				expected.Namespace,
-				commandExtraArgs,
-			)
-		} else {
-			commandMatcher = MatchRegexp(
-				`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
-				kustomizePath,
-				expected.Spec.RepositoryPath,
-				kubectlPath,
-				testConfig.Host,
-				expected.Namespace,
-				commandExtraArgs,
-			)
-		}
-	}
-	return MatchAllFields(Fields{
-		"TypeMeta":   Equal(expected.TypeMeta),
-		"ObjectMeta": Equal(expected.ObjectMeta),
-		"Spec":       Equal(expected.Spec),
-		"Status": MatchAllFields(Fields{
-			"LastRun": PointTo(MatchAllFields(Fields{
+	lastRunMatcher := BeNil()
+	if expected.Status.LastRun != nil {
+		commandMatcher := Ignore()
+		if expected.Status.LastRun.Command != "^.*$" {
+			commandExtraArgs := expected.Status.LastRun.Command
+			if expected.Spec.DryRun {
+				commandExtraArgs += " --dry-run=server"
+			} else {
+				commandExtraArgs += " --dry-run=none"
+			}
+			if pointer.BoolPtrDerefOr(expected.Spec.Prune, true) {
+				commandExtraArgs += fmt.Sprintf(" --prune --all --prune-whitelist=%s", strings.Join(pruneWhitelist, " --prune-whitelist="))
+			}
+			if kustomizePath == "" {
+				commandMatcher = MatchRegexp(
+					`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
+					kubectlPath,
+					testConfig.Host,
+					expected.Spec.RepositoryPath,
+					expected.Namespace,
+					commandExtraArgs,
+				)
+			} else {
+				commandMatcher = MatchRegexp(
+					`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
+					kustomizePath,
+					expected.Spec.RepositoryPath,
+					kubectlPath,
+					testConfig.Host,
+					expected.Namespace,
+					commandExtraArgs,
+				)
+			}
+			lastRunMatcher = PointTo(MatchAllFields(Fields{
 				"Command":      commandMatcher,
 				"Commit":       Equal(expected.Status.LastRun.Commit),
 				"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
@@ -768,7 +734,15 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				"Started": Equal(expected.Status.LastRun.Started),
 				"Success": Equal(expected.Status.LastRun.Success),
 				"Type":    Equal(expected.Status.LastRun.Type),
-			})),
+			}))
+		}
+	}
+	return MatchAllFields(Fields{
+		"TypeMeta":   Equal(expected.TypeMeta),
+		"ObjectMeta": Equal(expected.ObjectMeta),
+		"Spec":       Equal(expected.Spec),
+		"Status": MatchAllFields(Fields{
+			"LastRun": lastRunMatcher,
 		}),
 	})
 }

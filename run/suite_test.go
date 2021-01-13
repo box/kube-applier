@@ -13,8 +13,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,4 +166,45 @@ func testRemoveAllWaybills() {
 		time.Second*60,
 		time.Second,
 	).Should(Equal(0))
+}
+
+func testMatchEvents(matchers []gomegatypes.GomegaMatcher) {
+	elements := make([]interface{}, len(matchers))
+	for i := range matchers {
+		elements[i] = matchers[i]
+	}
+	Eventually(
+		func() ([]corev1.Event, error) {
+			events := &corev1.EventList{}
+			if err := testKubeClient.List(context.TODO(), events); err != nil {
+				return nil, err
+			}
+			return events.Items, nil
+		},
+		time.Second*15,
+		time.Second,
+	).Should(ContainElements(elements...))
+}
+
+// matchEvent is duplicated from the client package.
+func matchEvent(waybill kubeapplierv1alpha1.Waybill, eventType, reason, message string) gomegatypes.GomegaMatcher {
+	return MatchFields(IgnoreExtras, Fields{
+		"TypeMeta": Ignore(),
+		"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+			"Namespace": Equal(waybill.ObjectMeta.Namespace),
+		}),
+		"InvolvedObject": MatchFields(IgnoreExtras, Fields{
+			"Kind":      Equal("Waybill"),
+			"Namespace": Equal(waybill.ObjectMeta.Namespace),
+			"Name":      Equal(waybill.ObjectMeta.Name),
+		}),
+		"Action":  BeEmpty(),
+		"Count":   BeNumerically(">", 0),
+		"Message": MatchRegexp(message),
+		"Reason":  Equal(reason),
+		"Source": MatchFields(IgnoreExtras, Fields{
+			"Component": Equal(client.Name),
+		}),
+		"Type": Equal(eventType),
+	})
 }
