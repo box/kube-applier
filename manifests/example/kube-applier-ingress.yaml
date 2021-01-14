@@ -12,6 +12,8 @@ spec:
     http:
       paths:
       - path: /
+        pathType: ImplementationSpecific
         backend:
-          serviceName: kube-applier
-          servicePort: 80
+          service:
+            name: kube-applier
+            port: 80

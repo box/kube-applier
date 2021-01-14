@@ -201,8 +201,10 @@ bases:
 - github.com/utilitywarehouse/kube-applier//manifests/base/server?ref=3.0.0-rc.3
 ```
 
-and patch as per example:
-[manifests/example/](manifests/example/)
+and patch as per example: [manifests/example/](manifests/example/)
+
+Note that the example also includes the client base, for kube-applier to manage
+its own namespace.
 
 Please note that if you enable kustomize for your namespace and you've enabled
 pruning in kube-applier, _all_ your resources need to be listed in your
