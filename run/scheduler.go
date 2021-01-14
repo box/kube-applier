@@ -193,6 +193,9 @@ func (s *Scheduler) gitPollingLoop() {
 				if s.waybills[i].Status.LastRun != nil && s.waybills[i].Status.LastRun.Commit != hash {
 					sinceHash := s.waybills[i].Status.LastRun.Commit
 					path := s.waybills[i].Spec.RepositoryPath
+					if path == "" {
+						path = s.waybills[i].Namespace
+					}
 					wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
 					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
 					if err != nil {

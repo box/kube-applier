@@ -112,8 +112,9 @@ spec:
                   Repository where the configuration for this Waybill is stored. Accepted
                   values are absolute or relative paths (relative to the root of the
                   repository), such as: ''foo'', ''/foo'', ''foo/bar'', ''/foo/bar''
-                  etc.'
-                pattern: ^\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?$
+                  etc., as well as an empty string. If not specified, it will default
+                  to the name of the namespace where the Waybill is created.'
+                pattern: ^(\/?[a-zA-Z0-9.\_\-]+(\/[a-zA-Z0-9.\_\-]+)*\/?)?$
                 type: string
               runInterval:
                 default: 3600
@@ -131,8 +132,6 @@ spec:
                   '.strongbox_keyring' with any strongbox keys required to decrypt
                   the files before applying.
                 type: string
-            required:
-            - repositoryPath
             type: object
           status:
             description: WaybillStatus defines the observed state of Waybill

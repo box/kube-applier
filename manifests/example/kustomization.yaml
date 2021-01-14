@@ -1,8 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-  - ../base/
+  - ../base/server
 #  - github.com/utilitywarehouse/kube-applier//manifests/base/server?ref=3.0.0-rc.3
+  - ../base/client
+#  - github.com/utilitywarehouse/kube-applier//manifests/base/client?ref=3.0.0-rc.3
 
 resources:
   - kube-applier-ingress.yaml
@@ -14,6 +16,7 @@ resources:
 patchesStrategicMerge:
 # generic patch to specify environment/namespaces
   - kube-applier-patch.yaml
+  - waybill-patch.yaml
 
 ## enable this patch if you want to use ssh to clone remote bases via Kustomize,
 ## for example if the bases are private and you are using a deploy user (with a
@@ -47,10 +50,13 @@ secretGenerator:
       - ssh=secrets/ssh
       - known_hosts=resources/known_hosts
 
-# strongbox keyring used by git-sync to decrypt Secrets
-  - name: strongbox
+# strongbox keyring is used to decrypt Secrets in this namespace
+  - name: strongbox-keyring
+    type: Opaque
     files:
-      - .strongbox_keyring=secrets/strongbox_keyring
+      - .strongbox_keyring=secrets/strongbox-keyring
+    options:
+      disableNameSuffixHash: true
 
 ## ssh keys used by kube-applier + Kustomize to clone remote bases,
 ## specify a single key if using kube-applier-kustomize-ssh-patch.yaml

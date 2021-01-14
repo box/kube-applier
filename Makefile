@@ -74,7 +74,7 @@ run:
 # https://stackoverflow.com/questions/6273608/how-to-pass-argument-to-makefile-from-command-line
 release:
 	sed -i 's#utilitywarehouse/kube-applier:.*#utilitywarehouse/kube-applier:$(filter-out $@,$(MAKECMDGOALS))#g' manifests/base/server/kube-applier.yaml
-	sed -i 's#kube-applier//manifests/base/server?ref=.*#kube-applier//manifests/base/server?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
+	sed -i -E 's#kube-applier//manifests/base/(client|server)\?ref=.*#kube-applier//manifests/base/\1?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
 
 %:		# matches any task name
 	@:	# empty recipe = do nothing
