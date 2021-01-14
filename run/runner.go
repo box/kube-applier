@@ -133,7 +133,7 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
 			continue
 		}
-		tmpRepoPath, err := r.setupRepositoryClone(request.Waybill)
+		tmpRepoPath, cleanupTemp, err := r.setupRepositoryClone(request.Waybill)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			continue
@@ -145,7 +145,7 @@ func (r *Runner) applyWorker() {
 		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(repositoryPath)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("could not determine HEAD hash: %w", err))
-			os.RemoveAll(tmpRepoPath)
+			cleanupTemp()
 			continue
 		}
 
@@ -167,7 +167,7 @@ func (r *Runner) applyWorker() {
 		metrics.UpdateFromLastRun(request.Waybill)
 
 		log.Logger("runner").Info("Finished apply run", "waybill", wbId)
-		os.RemoveAll(tmpRepoPath)
+		cleanupTemp()
 	}
 }
 
@@ -205,37 +205,37 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 	return string(delegateToken), nil
 }
 
-func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (string, error) {
+func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (string, func(), error) {
 	var env []string
 	// strongbox integration
 	if waybill.Spec.StrongboxKeyringSecretRef != "" {
 		secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		strongboxData, ok := secret.Data[".strongbox_keyring"]
 		if !ok {
-			return "", fmt.Errorf(`secret "%s/%s" does not contain key '.strongbox_keyring'`, secret.Namespace, secret.Name)
+			return "", nil, fmt.Errorf(`secret "%s/%s" does not contain key '.strongbox_keyring'`, secret.Namespace, secret.Name)
 		}
-		tmpHomeDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+		tmpHomeDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		defer os.RemoveAll(tmpHomeDir)
 		if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".strongbox_keyring"), strongboxData, 0400); err != nil {
-			return "", err
+			return "", nil, err
 		}
 		env = []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}
 	}
 	// repository clone
-	tmpRepoDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	tmpRepoDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_repo_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
 	if err != nil {
 		os.RemoveAll(tmpRepoDir)
-		return "", err
+		return "", nil, err
 	}
 	repositoryPath := waybill.Spec.RepositoryPath
 	if repositoryPath == "" {
@@ -244,9 +244,9 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (str
 	subpath := filepath.Join(sub, repositoryPath)
 	if err := git.CloneRepository(root, tmpRepoDir, subpath, env); err != nil {
 		os.RemoveAll(tmpRepoDir)
-		return "", err
+		return "", nil, err
 	}
-	return filepath.Join(tmpRepoDir, sub), nil
+	return filepath.Join(tmpRepoDir, sub), func() { os.RemoveAll(tmpRepoDir) }, nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.
