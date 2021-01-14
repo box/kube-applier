@@ -211,6 +211,14 @@ pruning in kube-applier, _all_ your resources need to be listed in your
 `kustomization.yaml` under `resources`. If you don't do this kube-applier will
 assume they have been removed and start pruning.
 
+Additionally, you will need to deploy the following kustomize base that includes
+cluster-level resources (also see this [section](#resource-pruning) if you are
+using the `pruneClusterResources` attribute):
+
+```
+github.com/utilitywarehouse/kube-applier//manifests/base/cluster?ref=3.0.0-rc.3
+```
+
 ## Monitoring
 
 ### Status UI

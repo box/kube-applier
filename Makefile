@@ -14,9 +14,9 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) \
 		crd:trivialVersions=true \
 		paths="./..." \
-		output:crd:artifacts:config=manifests/base/crd
+		output:crd:artifacts:config=manifests/base/cluster
 	@{ \
-	cd manifests/base/crd ;\
+	cd manifests/base/cluster ;\
 	kustomize edit add resource kube-applier.io_* ;\
 	}
 
@@ -74,7 +74,7 @@ run:
 # https://stackoverflow.com/questions/6273608/how-to-pass-argument-to-makefile-from-command-line
 release:
 	sed -i 's#utilitywarehouse/kube-applier:.*#utilitywarehouse/kube-applier:$(filter-out $@,$(MAKECMDGOALS))#g' manifests/base/server/kube-applier.yaml
-	sed -i -E 's#kube-applier//manifests/base/(client|server)\?ref=.*#kube-applier//manifests/base/\1?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
+	sed -i -E 's#kube-applier//manifests/base/(client|cluster|server)\?ref=.*#kube-applier//manifests/base/\1?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
 
 %:		# matches any task name
 	@:	# empty recipe = do nothing
