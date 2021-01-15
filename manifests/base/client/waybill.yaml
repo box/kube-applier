@@ -2,4 +2,3 @@ apiVersion: kube-applier.io/v1alpha1
 kind: Waybill
 metadata:
   name: main
-spec: {}

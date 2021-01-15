@@ -72,6 +72,8 @@ spec:
           metadata:
             type: object
           spec:
+            default:
+              autoApply: true
             description: WaybillSpec defines the desired state of Waybill
             properties:
               autoApply:
