@@ -127,6 +127,8 @@ type Waybill struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:default={autoApply:true}
+	// +optional
 	Spec   WaybillSpec   `json:"spec,omitempty"`
 	Status WaybillStatus `json:"status,omitempty"`
 }
