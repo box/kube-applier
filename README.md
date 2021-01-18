@@ -116,7 +116,9 @@ spec:
   repositoryPath: <namespace-name>
   runInterval: 3600
   serverSideApply: false
-  strongboxKeyringSecretRef: ""
+  strongboxKeyringSecretRef:
+    name: ""
+    namespace: ""
 ```
 
 See the documentation on the Waybill CRD
@@ -141,11 +143,17 @@ at first in order to bootstrap the kube-applier integration in a namespace.
 [strongbox](https://github.com/uw-labs/strongbox) is an encryption tool, geared
 towards git repositories and working as a git filter.
 
-If the Waybill spec contains a `strongboxKeyringSecretRef` value, the value
-should be the name of a Secret resource (in the namespace where the Waybill
-resides), which contains a key named `.strongbox_keyring` with its value being
-a valid strongbox keyring file. That keyring is subsequently used when applying
-the Waybill, allowing for decryption of files under the `repositoryPath`.
+If `stronboxKeyringSecretRef` is defined in the Waybill spec (it is an object
+that contains the attributes `name` and `namespace`), it should reference a
+Secret resource which contains a key named `.strongbox_keyring` with its value
+being a valid strongbox keyring file. That keyring is subsequently used when
+applying the Waybill, allowing for decryption of files under the
+`repositoryPath`. If the attribute `namespace` for `stronboxKeyringSecretRef` is
+not specified then it defaults to the same namespace as the Waybill itself.
+
+This secret will be retrieved when performing an apply run using the delegate
+ServiceAccount token (see the section above). Therefore this ServiceAccount
+should have read access to the Secret.
 
 The secret containing the strongbox keyring should itself be version controlled
 to prevent kube-applier from pruning it. However, since it is a secret itself
