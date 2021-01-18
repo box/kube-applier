@@ -208,8 +208,12 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (string, func(), error) {
 	var env []string
 	// strongbox integration
-	if waybill.Spec.StrongboxKeyringSecretRef != "" {
-		secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
+	if waybill.Spec.StrongboxKeyringSecretRef != nil {
+		sbNamespace := waybill.Spec.StrongboxKeyringSecretRef.Namespace
+		if sbNamespace == "" {
+			sbNamespace = waybill.Namespace
+		}
+		secret, err := r.KubeClient.GetSecret(context.TODO(), sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
 		if err != nil {
 			return "", nil, err
 		}

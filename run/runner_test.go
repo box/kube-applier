@@ -355,7 +355,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						StrongboxKeyringSecretRef: "invalid",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "invalid"},
 					},
 				},
 				{
@@ -367,7 +367,7 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						StrongboxKeyringSecretRef: "strongbox-empty",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox-empty"},
 					},
 				},
 				{
@@ -379,7 +379,20 @@ Some error output has been omitted because it may contain sensitive data
 					Spec: kubeapplierv1alpha1.WaybillSpec{
 						AutoApply:                 pointer.BoolPtr(true),
 						Prune:                     pointer.BoolPtr(true),
-						StrongboxKeyringSecretRef: "strongbox",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox"},
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d-strongbox-shared",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
+						Prune:                     pointer.BoolPtr(true),
+						RepositoryPath:            "app-d",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox", Namespace: "app-d"},
 					},
 				},
 			}
@@ -426,6 +439,18 @@ error: error validating "../testdata/manifests/app-d/deployment.yaml": error val
 				},
 				nil,
 				nil,
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-d unchanged
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
 				{
 					Command:      "",
 					Commit:       headCommitHash,
