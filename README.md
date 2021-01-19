@@ -153,7 +153,40 @@ not specified then it defaults to the same namespace as the Waybill itself.
 
 This secret will be retrieved when performing an apply run using the delegate
 ServiceAccount token (see the section above). Therefore this ServiceAccount
-should have read access to the Secret.
+should have read access to the Secret. If the Secret is in the same namespace
+with the Waybill, the delegate account should have access to it since it will
+be bound to the `admin` ClusterRole. However, in cases where a shared strongbox
+keyring is setup, you will need to set it up like so (in the namespace where
+the Secret is created):
+
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-applier-strongbox-keyring-ro
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["strongbox-keyring"]
+    verbs: ["get"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-applier-strongbox-keyring-ro
+roleRef:
+  kind: Role
+  name: kube-applier-strongbox-keyring-ro
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kube-applier-delegate
+    namespace: namespace-a
+  - kind: ServiceAccount
+    name: kube-applier-delegate
+    namespace: namespace-b
+[ ... ]
+```
 
 The secret containing the strongbox keyring should itself be version controlled
 to prevent kube-applier from pruning it. However, since it is a secret itself
