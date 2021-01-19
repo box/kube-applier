@@ -129,11 +129,20 @@ spec:
                   flag is enabled for this Waybill.
                 type: boolean
               strongboxKeyringSecretRef:
-                description: StrongboxKeyringSecretRef references a Secret in the
-                  same namespace as the Waybill that contains a single item, named
-                  '.strongbox_keyring' with any strongbox keys required to decrypt
-                  the files before applying.
-                type: string
+                description: StrongboxKeyringSecretRef references a Secret that contains
+                  an item named '.strongbox_keyring' with any strongbox keys required
+                  to decrypt the files before applying. See the strongbox documentation
+                  for the format of the keyring data.
+                properties:
+                  name:
+                    description: Name of the resource being referred to.
+                    type: string
+                  namespace:
+                    description: Namespace of the resource being referred to.
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           status:
             description: WaybillStatus defines the observed state of Waybill

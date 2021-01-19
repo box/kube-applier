@@ -63,11 +63,12 @@ type WaybillSpec struct {
 	// +kubebuilder:default=false
 	ServerSideApply bool `json:"serverSideApply,omitempty"`
 
-	// StrongboxKeyringSecretRef references a Secret in the same namespace as
-	// the Waybill that contains a single item, named '.strongbox_keyring' with
-	// any strongbox keys required to decrypt the files before applying.
+	// StrongboxKeyringSecretRef references a Secret that contains an item named
+	// '.strongbox_keyring' with any strongbox keys required to decrypt the
+	// files before applying. See the strongbox documentation for the format of
+	// the keyring data.
 	// +optional
-	StrongboxKeyringSecretRef string `json:"strongboxKeyringSecretRef,omitempty"`
+	StrongboxKeyringSecretRef *ObjectReference `json:"strongboxKeyringSecretRef,omitempty"`
 }
 
 // WaybillStatus defines the observed state of Waybill

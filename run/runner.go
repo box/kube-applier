@@ -133,7 +133,7 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
 			continue
 		}
-		tmpRepoPath, cleanupTemp, err := r.setupRepositoryClone(request.Waybill)
+		tmpRepoPath, cleanupTemp, err := r.setupRepositoryClone(request.Waybill, delegateToken)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			continue
@@ -205,11 +205,19 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 	return string(delegateToken), nil
 }
 
-func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (string, func(), error) {
+func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, delegateToken string) (string, func(), error) {
 	var env []string
 	// strongbox integration
-	if waybill.Spec.StrongboxKeyringSecretRef != "" {
-		secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.StrongboxKeyringSecretRef)
+	if waybill.Spec.StrongboxKeyringSecretRef != nil {
+		sbNamespace := waybill.Spec.StrongboxKeyringSecretRef.Namespace
+		if sbNamespace == "" {
+			sbNamespace = waybill.Namespace
+		}
+		delegateClient, err := r.KubeClient.WithToken(delegateToken)
+		if err != nil {
+			return "", nil, err
+		}
+		secret, err := delegateClient.GetSecret(context.TODO(), sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
 		if err != nil {
 			return "", nil, err
 		}

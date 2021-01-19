@@ -51,6 +51,7 @@ func init() {
 type Client struct {
 	client.Client
 	clientset kubernetes.Interface
+	cfg       *rest.Config
 	recorder  record.EventRecorder
 }
 
@@ -89,8 +90,17 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	return &Client{
 		Client:    c,
 		clientset: clientset,
+		cfg:       cfg,
 		recorder:  recorder,
 	}, nil
+}
+
+// WithToken returns a copy of the Client that will perform actions using the
+// provided token.
+func (c *Client) WithToken(token string) (*Client, error) {
+	cfg := rest.AnonymousClientConfig(c.cfg)
+	cfg.BearerToken = token
+	return newClient(cfg)
 }
 
 // EmitWaybillEvent creates an Event for the provided Waybill.
