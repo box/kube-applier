@@ -55,15 +55,15 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 10m
-              memory: 25Mi
+              cpu: 100m
+              memory: 256Mi
             limits:
               cpu: 500m
-              memory: 400Mi
+              memory: 512Mi
           ports:
             - containerPort: 8080
         - name: git-sync
-          image: k8s.gcr.io/git-sync/git-sync:v3.1.7
+          image: k8s.gcr.io/git-sync/git-sync:v3.2.2
           securityContext:
             runAsUser: 65533 # git-sync user
             runAsGroup: 0 # root group to read mounted Secrets
@@ -76,6 +76,8 @@ spec:
               value: "true"
             - name: GIT_SYNC_MAX_SYNC_FAILURES
               value: "5"
+            - name: GIT_SYNC_WAIT
+              value: "30"
           volumeMounts:
             - name: git-repo
               mountPath: /tmp/git
@@ -83,10 +85,10 @@ spec:
               mountPath: /etc/git-secret
           resources:
             requests:
-              cpu: 40m
-              memory: 48Mi
+              cpu: 20m
+              memory: 256Mi
             limits:
-              cpu: 500m
+              cpu: 100m
               memory: 512Mi
       volumes:
         - name: git-repo
