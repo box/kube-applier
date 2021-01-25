@@ -55,11 +55,11 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 10m
-              memory: 25Mi
+              cpu: 100m
+              memory: 256Mi
             limits:
               cpu: 500m
-              memory: 400Mi
+              memory: 512Mi
           ports:
             - containerPort: 8080
         - name: git-sync
@@ -85,10 +85,10 @@ spec:
               mountPath: /etc/git-secret
           resources:
             requests:
-              cpu: 40m
-              memory: 48Mi
+              cpu: 20m
+              memory: 256Mi
             limits:
-              cpu: 500m
+              cpu: 100m
               memory: 512Mi
       volumes:
         - name: git-repo
