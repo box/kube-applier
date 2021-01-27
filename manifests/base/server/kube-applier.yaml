@@ -55,10 +55,10 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 200m
+              memory: 128Mi
             limits:
-              cpu: 500m
+              cpu: 7000m
               memory: 512Mi
           ports:
             - containerPort: 8080
@@ -85,10 +85,10 @@ spec:
               mountPath: /etc/git-secret
           resources:
             requests:
-              cpu: 20m
+              cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 100m
+              cpu: 7000m
               memory: 512Mi
       volumes:
         - name: git-repo
