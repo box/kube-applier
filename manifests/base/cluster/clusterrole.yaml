@@ -11,7 +11,10 @@ rules:
     verbs: ["update"]
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["kube-applier-delegate-token", "kube-applier-strongbox-keyring"]
+    resourceNames:
+      - kube-applier-delegate-token
+      - kube-applier-git-ssh
+      - kube-applier-strongbox-keyring
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["events"]

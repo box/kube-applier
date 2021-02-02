@@ -11,6 +11,7 @@
     * [Waybill CRD](#waybill-crd)
         * [Delegate ServiceAccount](#delegate-serviceaccount)
         * [Integration with `strongbox`](#integration-with-strongbox)
+        * [Custom SSH Keys](#custom-ssh-keys)
     * [Mounting the Git Repository](#mounting-the-git-repository)
     * [Resource pruning](#resource-pruning)
 * [Deploying](#deploying)
@@ -114,6 +115,9 @@ spec:
   autoApply: true
   delegateServiceAccountSecretRef: kube-applier-delegate
   dryRun: false
+  gitSSHSecretRef:
+    name: ""
+    namespace: ""
   prune: true
   pruneClusterResources: false
   pruneBlacklist: []
@@ -177,16 +181,55 @@ metadata:
     kube-applier.io/allowed-namespaces: "ns-b, ns-c"
 stringData:
   .strongbox_keyring: |-
-      keyentries:
-      - description: mykey
-        key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    keyentries:
+    - description: mykey
+      key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 ```
 
 The secret containing the strongbox keyring should itself be version controlled
 to prevent kube-applier from pruning it. However, since it is a secret itself
 and would need be encrypted as well in git, it must be created manually the
 first time (or after any changes to its contents).
+
+#### Custom SSH Keys
+
+If you specifiy `gitSSHSecretRef` and the `Secret` it points to contains an SSH
+key named `key`, you can enable the use of remote `kustomize` bases from private
+repositories. The ssh key should of course have access to the private
+repository. Additionally you can define a value for `known_hosts` in that
+`Secret` to use with `git`. If ommitted, `git` will run with
+`StrictHostKeyChecking` disabled.
+
+To use the ssh key for `kustomize` bases, the bases should be defined with the
+`ssh://` scheme in `kustomization.yaml`. For example:
+```
+bases:
+  # https scheme (default if omitted), any SSH keys defined are ignored
+  - github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=master
+  # ssh scheme requires a valid SSH key to be defined
+  - ssh://github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=master
+```
+
+This `Secret` can be shared in the same way that a strongbox keyring can be
+shared, as shown in the example below:
+
+```
+kind: Secret
+apiVersion: v1
+metadata:
+  name: kube-applier-git-ssh
+  namespace: ns-a
+  annotations:
+    kube-applier.io/allowed-namespaces: "ns-b, ns-c"
+stringData:
+  key: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+    -----END OPENSSH PRIVATE KEY-----
+  known_hosts: |-
+    github.com ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+```
 
 ### Mounting the Git Repository
 

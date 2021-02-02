@@ -90,6 +90,11 @@ func (in *WaybillSpec) DeepCopyInto(out *WaybillSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.GitSSHSecretRef != nil {
+		in, out := &in.GitSSHSecretRef, &out.GitSSHSecretRef
+		*out = new(ObjectReference)
+		**out = **in
+	}
 	if in.Prune != nil {
 		in, out := &in.Prune, &out.Prune
 		*out = new(bool)

@@ -93,6 +93,22 @@ spec:
                 default: false
                 description: DryRun enables the dry-run flag when applying this Waybill.
                 type: boolean
+              gitSSHSecretRef:
+                description: GitSSHSecretRef references a Secret that contains an
+                  item named `key` and optionally an item named `known_hosts`. If
+                  present, these are passed to the apply runtime and are used by `kustomize`
+                  when cloning remote bases. This allows the use of bases from private
+                  repositories.
+                properties:
+                  name:
+                    description: Name of the resource being referred to.
+                    type: string
+                  namespace:
+                    description: Namespace of the resource being referred to.
+                    type: string
+                required:
+                - name
+                type: object
               prune:
                 default: true
                 description: Prune determines whether pruning is enabled for this

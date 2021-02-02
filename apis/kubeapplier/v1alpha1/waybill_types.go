@@ -26,6 +26,13 @@ type WaybillSpec struct {
 	// +kubebuilder:default=false
 	DryRun bool `json:"dryRun,omitempty"`
 
+	// GitSSHSecretRef references a Secret that contains an item named `key` and
+	// optionally an item named `known_hosts`. If present, these are passed to
+	// the apply runtime and are used by `kustomize` when cloning remote bases.
+	// This allows the use of bases from private repositories.
+	// +optional
+	GitSSHSecretRef *ObjectReference `json:"gitSSHSecretRef,omitempty"`
+
 	// Prune determines whether pruning is enabled for this Waybill.
 	// +optional
 	// +kubebuilder:default=true
