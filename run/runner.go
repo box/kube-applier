@@ -224,7 +224,7 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (str
 			sbAllowedNamespaces := strings.Split(secret.Annotations[strongboxKeyringAllowedNamespacesAnnotation], ",")
 			sbAllowed := false
 			for _, v := range sbAllowedNamespaces {
-				if v == waybill.Namespace {
+				if strings.TrimSpace(v) == waybill.Namespace {
 					sbAllowed = true
 					break
 				}
