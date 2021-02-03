@@ -95,14 +95,6 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	}, nil
 }
 
-// WithToken returns a copy of the Client that will perform actions using the
-// provided token.
-func (c *Client) WithToken(token string) (*Client, error) {
-	cfg := rest.AnonymousClientConfig(c.cfg)
-	cfg.BearerToken = token
-	return newClient(cfg)
-}
-
 // EmitWaybillEvent creates an Event for the provided Waybill.
 func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
 	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
