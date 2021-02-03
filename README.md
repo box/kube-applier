@@ -4,6 +4,8 @@
 
 # Table of Contents
 
+<!-- vim-markdown-toc GFM -->
+
 * [Usage](#usage)
     * [Environment variables](#environment-variables)
     * [Waybill CRD](#waybill-crd)
@@ -18,6 +20,8 @@
 * [Running locally](#running-locally)
 * [Running tests](#running-tests)
 * [Copyright and License](#copyright-and-license)
+
+<!-- vim-markdown-toc -->
 
 Forked from: https://github.com/box/kube-applier
 
@@ -151,41 +155,32 @@ applying the Waybill, allowing for decryption of files under the
 `repositoryPath`. If the attribute `namespace` for `stronboxKeyringSecretRef` is
 not specified then it defaults to the same namespace as the Waybill itself.
 
-This secret will be retrieved when performing an apply run using the delegate
-ServiceAccount token (see the section above). Therefore this ServiceAccount
-should have read access to the Secret. If the Secret is in the same namespace
-with the Waybill, the delegate account should have access to it since it will
-be bound to the `admin` ClusterRole. However, in cases where a shared strongbox
-keyring is setup, you will need to set it up like so (in the namespace where
-the Secret is created):
+This secret should be readable by the ServiceAccount of kube-applier. If
+deployed using the provided kustomize bases, kube-applier's ServiceAccount will
+have read access to secrets named `"kube-applier-stronbox-keyring"` by default.
+Alternatively, if you need to use a different name, you will need to create a
+Role and a RoleBinding to give `"get"` permission to it.
+
+If you need to deploy a shared strongbox keyring to use in multiple namespaces,
+the Secret should have an annotation called
+`"kube-applier.io/allowed-namespaces"` which contains a comma-seperated list of
+all the namespaces that are allowed to use it. For example, the following secret
+can be used by namespaces "ns-a", "ns-b" and "ns-c":
 
 ```
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: Secret
+apiVersion: v1
 metadata:
-  name: kube-applier-strongbox-keyring-ro
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    resourceNames: ["strongbox-keyring"]
-    verbs: ["get"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kube-applier-strongbox-keyring-ro
-roleRef:
-  kind: Role
-  name: kube-applier-strongbox-keyring-ro
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kube-applier-delegate
-    namespace: namespace-a
-  - kind: ServiceAccount
-    name: kube-applier-delegate
-    namespace: namespace-b
-[ ... ]
+  name: kube-applier-strongbox-keyring
+  namespace: ns-a
+  annotations:
+    kube-applier.io/allowed-namespaces: "ns-b,ns-c"
+stringData:
+  .strongbox_keyring: |-
+      keyentries:
+      - description: mykey
+        key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 ```
 
 The secret containing the strongbox keyring should itself be version controlled

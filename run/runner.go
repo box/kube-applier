@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,8 @@ import (
 const (
 	defaultRunnerWorkerCount = 2
 	defaultWorkerQueueSize   = 512
+
+	strongboxKeyringAllowedNamespacesAnnotation = "kube-applier.io/allowed-namespaces"
 )
 
 // Request defines an apply run request
@@ -133,7 +136,7 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
 			continue
 		}
-		tmpRepoPath, cleanupTemp, err := r.setupRepositoryClone(request.Waybill, delegateToken)
+		tmpRepoPath, cleanupTemp, err := r.setupRepositoryClone(request.Waybill)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			continue
@@ -205,7 +208,7 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 	return string(delegateToken), nil
 }
 
-func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, delegateToken string) (string, func(), error) {
+func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill) (string, func(), error) {
 	var env []string
 	// strongbox integration
 	if waybill.Spec.StrongboxKeyringSecretRef != nil {
@@ -213,13 +216,22 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, dele
 		if sbNamespace == "" {
 			sbNamespace = waybill.Namespace
 		}
-		delegateClient, err := r.KubeClient.WithToken(delegateToken)
+		secret, err := r.KubeClient.GetSecret(context.TODO(), sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
 		if err != nil {
 			return "", nil, err
 		}
-		secret, err := delegateClient.GetSecret(context.TODO(), sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
-		if err != nil {
-			return "", nil, err
+		if sbNamespace != waybill.Namespace {
+			sbAllowedNamespaces := strings.Split(secret.Annotations[strongboxKeyringAllowedNamespacesAnnotation], ",")
+			sbAllowed := false
+			for _, v := range sbAllowedNamespaces {
+				if v == waybill.Namespace {
+					sbAllowed = true
+					break
+				}
+			}
+			if !sbAllowed {
+				return "", nil, fmt.Errorf(`secret "%s/%s" cannot be used in namespace "%s", the namespace must be listed in the '%s' annotation`, secret.Namespace, secret.Name, waybill.Namespace, strongboxKeyringAllowedNamespacesAnnotation)
+			}
 		}
 		strongboxData, ok := secret.Data[".strongbox_keyring"]
 		if !ok {

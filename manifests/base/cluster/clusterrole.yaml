@@ -11,7 +11,7 @@ rules:
     verbs: ["update"]
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["kube-applier-delegate-token"]
+    resourceNames: ["kube-applier-delegate-token", "kube-applier-stronbox-keyring"]
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["events"]

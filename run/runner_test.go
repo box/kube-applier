@@ -386,6 +386,19 @@ Some error output has been omitted because it may contain sensitive data
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "app-d",
+						Namespace: "app-d-strongbox-shared-not-allowed",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
+						Prune:                     pointer.BoolPtr(true),
+						RepositoryPath:            "app-d",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox", Namespace: "app-d"},
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
 						Namespace: "app-d-strongbox-shared",
 					},
 					Spec: kubeapplierv1alpha1.WaybillSpec{
@@ -401,8 +414,9 @@ Some error output has been omitted because it may contain sensitive data
 
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "strongbox",
-					Namespace: "app-d",
+					Name:        "strongbox",
+					Namespace:   "app-d",
+					Annotations: map[string]string{strongboxKeyringAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
 				},
 				StringData: map[string]string{
 					".strongbox_keyring": `keyentries:
@@ -451,6 +465,7 @@ deployment.apps/test-deployment created
 					Success: true,
 					Type:    PollingRun.String(),
 				},
+				nil,
 				{
 					Command:      "",
 					Commit:       headCommitHash,
