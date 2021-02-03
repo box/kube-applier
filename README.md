@@ -174,7 +174,7 @@ metadata:
   name: kube-applier-strongbox-keyring
   namespace: ns-a
   annotations:
-    kube-applier.io/allowed-namespaces: "ns-b,ns-c"
+    kube-applier.io/allowed-namespaces: "ns-b, ns-c"
 stringData:
   .strongbox_keyring: |-
       keyentries:
