@@ -162,10 +162,10 @@ Alternatively, if you need to use a different name, you will need to create a
 Role and a RoleBinding to give `"get"` permission to it.
 
 If you need to deploy a shared strongbox keyring to use in multiple namespaces,
-the Secret should have an annotation called `"allowed-namespaces"` which
-contains a comma-seperated list of all the namespaces that are allowed to use
-it. For example, the following secret can be used by namespaces "ns-a", "ns-b"
-and "ns-c":
+the Secret should have an annotation called
+`"kube-applier.io/allowed-namespaces"` which contains a comma-seperated list of
+all the namespaces that are allowed to use it. For example, the following secret
+can be used by namespaces "ns-a", "ns-b" and "ns-c":
 
 ```
 kind: Secret
@@ -174,7 +174,7 @@ metadata:
   name: kube-applier-strongbox-keyring
   namespace: ns-a
   annotations:
-    allowed-namespaces: "ns-b,ns-c"
+    kube-applier.io/allowed-namespaces: "ns-b,ns-c"
 stringData:
   .strongbox_keyring: |-
       keyentries:

@@ -30,7 +30,7 @@ const (
 	defaultRunnerWorkerCount = 2
 	defaultWorkerQueueSize   = 512
 
-	strongboxKeyringAllowedNamespacesAnnotation = "allowed-namespaces"
+	strongboxKeyringAllowedNamespacesAnnotation = "kube-applier.io/allowed-namespaces"
 )
 
 // Request defines an apply run request
