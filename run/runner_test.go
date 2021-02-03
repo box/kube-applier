@@ -416,7 +416,7 @@ Some error output has been omitted because it may contain sensitive data
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
-					Annotations: map[string]string{strongboxKeyringAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
+					Annotations: map[string]string{secretAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
 				},
 				StringData: map[string]string{
 					".strongbox_keyring": `keyentries:
