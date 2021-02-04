@@ -147,17 +147,17 @@ at first in order to bootstrap the kube-applier integration in a namespace.
 [strongbox](https://github.com/uw-labs/strongbox) is an encryption tool, geared
 towards git repositories and working as a git filter.
 
-If `stronboxKeyringSecretRef` is defined in the Waybill spec (it is an object
+If `strongboxKeyringSecretRef` is defined in the Waybill spec (it is an object
 that contains the attributes `name` and `namespace`), it should reference a
 Secret resource which contains a key named `.strongbox_keyring` with its value
 being a valid strongbox keyring file. That keyring is subsequently used when
 applying the Waybill, allowing for decryption of files under the
-`repositoryPath`. If the attribute `namespace` for `stronboxKeyringSecretRef` is
-not specified then it defaults to the same namespace as the Waybill itself.
+`repositoryPath`. If the attribute `namespace` for `strongboxKeyringSecretRef`
+is not specified then it defaults to the same namespace as the Waybill itself.
 
 This secret should be readable by the ServiceAccount of kube-applier. If
 deployed using the provided kustomize bases, kube-applier's ServiceAccount will
-have read access to secrets named `"kube-applier-stronbox-keyring"` by default.
+have read access to secrets named `"kube-applier-strongbox-keyring"` by default.
 Alternatively, if you need to use a different name, you will need to create a
 Role and a RoleBinding to give `"get"` permission to it.
 
