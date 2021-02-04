@@ -39,7 +39,7 @@ spec:
       serviceAccountName: kube-applier
       containers:
         - name: kube-applier
-          image: quay.io/utilitywarehouse/kube-applier:3.0.0-rc.8
+          image: quay.io/utilitywarehouse/kube-applier:3.0.0-rc.9
           env:
             - name: NAMESPACES_DIR
               value: "base"
