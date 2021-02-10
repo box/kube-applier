@@ -306,7 +306,7 @@ func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Wayb
 
 	cmd, output, err := r.KubectlClient.Apply(
 		path,
-		kubectl.ApplyFlags{
+		kubectl.ApplyOptions{
 			Namespace:      waybill.Namespace,
 			DryRunStrategy: dryRunStrategy,
 			PruneWhitelist: options.pruneWhitelist(waybill, r.PruneBlacklist),
