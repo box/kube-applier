@@ -416,7 +416,7 @@ Some error output has been omitted because it may contain sensitive data
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
-					Annotations: map[string]string{strongboxKeyringAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
+					Annotations: map[string]string{secretAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
 				},
 				StringData: map[string]string{
 					".strongbox_keyring": `keyentries:
@@ -492,13 +492,13 @@ deployment.apps/test-deployment created
 			}
 
 			Eventually(
-				func() bool {
+				func() error {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment) == nil
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
-			).Should(BeTrue())
+			).Should(BeNil())
 
 			testMatchEvents([]gomegatypes.GomegaMatcher{
 				matchEvent(*wbList[1], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed setting up repository clone: secrets "invalid" not found`),
@@ -623,13 +623,13 @@ deployment.apps/test-deployment created
 			}
 
 			Eventually(
-				func() bool {
+				func() error {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment) == nil
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
-			).Should(BeTrue())
+			).Should(BeNil())
 
 			testMatchEvents([]gomegatypes.GomegaMatcher{
 				matchEvent(*wbList[0], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed fetching delegate token: secrets "ka-notfound" not found`),
