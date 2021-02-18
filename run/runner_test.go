@@ -718,8 +718,10 @@ var _ = Describe("Run Queue", func() {
 func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePath, repoPath string, pruneWhitelist []string) gomegatypes.GomegaMatcher {
 	lastRunMatcher := BeNil()
 	if expected.Status.LastRun != nil {
-		commandMatcher := Ignore()
-		if expected.Status.LastRun.Command != "^.*$" {
+		var commandMatcher gomegatypes.GomegaMatcher
+		if strings.HasPrefix(expected.Status.LastRun.Command, "^") {
+			commandMatcher = MatchRegexp(expected.Status.LastRun.Command)
+		} else {
 			commandExtraArgs := expected.Status.LastRun.Command
 			if expected.Spec.DryRun {
 				commandExtraArgs += " --dry-run=server"
@@ -753,29 +755,35 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 					commandExtraArgs,
 				)
 			}
-			lastRunMatcher = PointTo(MatchAllFields(Fields{
-				"Command":      commandMatcher,
-				"Commit":       Equal(expected.Status.LastRun.Commit),
-				"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
-				"Finished": And(
-					Equal(expected.Status.LastRun.Finished),
-					// Ideally we would be comparing to actual's Started but since it
-					// should be equal to expected' Started, this is equivalent.
-					MatchAllFields(Fields{
-						"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
-					}),
-				),
-				"Output": MatchRegexp("^%s$", strings.Replace(
-					regexp.QuoteMeta(expected.Status.LastRun.Output),
-					regexp.QuoteMeta(repoPath),
-					"[^ ]+",
-					-1,
-				)),
-				"Started": Equal(expected.Status.LastRun.Started),
-				"Success": Equal(expected.Status.LastRun.Success),
-				"Type":    Equal(expected.Status.LastRun.Type),
-			}))
 		}
+		var outputMatcher gomegatypes.GomegaMatcher
+		if strings.HasPrefix(expected.Status.LastRun.Output, "^") {
+			outputMatcher = MatchRegexp(expected.Status.LastRun.Output)
+		} else {
+			outputMatcher = MatchRegexp("^%s$", strings.Replace(
+				regexp.QuoteMeta(expected.Status.LastRun.Output),
+				regexp.QuoteMeta(repoPath),
+				"[^ ]+",
+				-1,
+			))
+		}
+		lastRunMatcher = PointTo(MatchAllFields(Fields{
+			"Command":      commandMatcher,
+			"Commit":       Equal(expected.Status.LastRun.Commit),
+			"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
+			"Finished": And(
+				Equal(expected.Status.LastRun.Finished),
+				// Ideally we would be comparing to actual's Started but since it
+				// should be equal to expected' Started, this is equivalent.
+				MatchAllFields(Fields{
+					"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
+				}),
+			),
+			"Output":  outputMatcher,
+			"Started": Equal(expected.Status.LastRun.Started),
+			"Success": Equal(expected.Status.LastRun.Success),
+			"Type":    Equal(expected.Status.LastRun.Type),
+		}))
 	}
 	return MatchAllFields(Fields{
 		"TypeMeta":   Equal(expected.TypeMeta),
