@@ -753,29 +753,29 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 					commandExtraArgs,
 				)
 			}
-			lastRunMatcher = PointTo(MatchAllFields(Fields{
-				"Command":      commandMatcher,
-				"Commit":       Equal(expected.Status.LastRun.Commit),
-				"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
-				"Finished": And(
-					Equal(expected.Status.LastRun.Finished),
-					// Ideally we would be comparing to actual's Started but since it
-					// should be equal to expected' Started, this is equivalent.
-					MatchAllFields(Fields{
-						"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
-					}),
-				),
-				"Output": MatchRegexp("^%s$", strings.Replace(
-					regexp.QuoteMeta(expected.Status.LastRun.Output),
-					regexp.QuoteMeta(repoPath),
-					"[^ ]+",
-					-1,
-				)),
-				"Started": Equal(expected.Status.LastRun.Started),
-				"Success": Equal(expected.Status.LastRun.Success),
-				"Type":    Equal(expected.Status.LastRun.Type),
-			}))
 		}
+		lastRunMatcher = PointTo(MatchAllFields(Fields{
+			"Command":      commandMatcher,
+			"Commit":       Equal(expected.Status.LastRun.Commit),
+			"ErrorMessage": Equal(expected.Status.LastRun.ErrorMessage),
+			"Finished": And(
+				Equal(expected.Status.LastRun.Finished),
+				// Ideally we would be comparing to actual's Started but since it
+				// should be equal to expected' Started, this is equivalent.
+				MatchAllFields(Fields{
+					"Time": BeTemporally(">=", expected.Status.LastRun.Started.Time),
+				}),
+			),
+			"Output": MatchRegexp("^%s$", strings.Replace(
+				regexp.QuoteMeta(expected.Status.LastRun.Output),
+				regexp.QuoteMeta(repoPath),
+				"[^ ]+",
+				-1,
+			)),
+			"Started": Equal(expected.Status.LastRun.Started),
+			"Success": Equal(expected.Status.LastRun.Success),
+			"Type":    Equal(expected.Status.LastRun.Type),
+		}))
 	}
 	return MatchAllFields(Fields{
 		"TypeMeta":   Equal(expected.TypeMeta),
