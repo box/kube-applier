@@ -719,7 +719,8 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 	lastRunMatcher := BeNil()
 	if expected.Status.LastRun != nil {
 		var commandMatcher gomegatypes.GomegaMatcher
-		if strings.HasPrefix(expected.Status.LastRun.Command, "^") {
+		if strings.HasPrefix(expected.Status.LastRun.Command, "^") ||
+			strings.HasPrefix(expected.Status.LastRun.Command, "(?") {
 			commandMatcher = MatchRegexp(expected.Status.LastRun.Command)
 		} else {
 			commandExtraArgs := expected.Status.LastRun.Command
@@ -757,7 +758,8 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			}
 		}
 		var outputMatcher gomegatypes.GomegaMatcher
-		if strings.HasPrefix(expected.Status.LastRun.Output, "^") {
+		if strings.HasPrefix(expected.Status.LastRun.Output, "(") ||
+			strings.HasPrefix(expected.Status.LastRun.Output, "(?") {
 			outputMatcher = MatchRegexp(expected.Status.LastRun.Output)
 		} else {
 			outputMatcher = MatchRegexp("^%s$", strings.Replace(
