@@ -2,7 +2,7 @@ FROM golang:1.15-alpine AS build
 
 WORKDIR /src
 
-RUN apk --no-cache add git gcc musl-dev curl bash
+RUN apk --no-cache add git gcc musl-dev curl bash openssh-client
 
 ENV \
   STRONGBOX_VERSION=0.2.0 \
