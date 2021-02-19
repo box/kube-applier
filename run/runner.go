@@ -4,6 +4,7 @@
 package run
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -319,6 +320,11 @@ func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir st
 	gitSSHKey, ok := secret.Data["key"]
 	if !ok {
 		return "", fmt.Errorf(`secret "%s/%s" does not contain key 'key'`, secret.Namespace, secret.Name)
+	}
+	// if the file containing the ssh key does not have a newline at the end,
+	// ssh does not complain about it but the key will not work properly
+	if !bytes.HasSuffix(gitSSHKey, []byte("\n")) {
+		gitSSHKey = append(gitSSHKey, byte('\n'))
 	}
 	if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".ssh_key"), gitSSHKey, 0400); err != nil {
 		return "", err
