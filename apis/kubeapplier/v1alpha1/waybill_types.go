@@ -64,6 +64,11 @@ type WaybillSpec struct {
 	// +kubebuilder:default=3600
 	RunInterval int `json:"runInterval,omitempty"`
 
+	// RunTimeout specifies the timeout for performing an apply run.
+	// +optional
+	// +kubebuilder:default=900
+	RunTimeout int `json:"runTimeout,omitempty"`
+
 	// ServerSideApply determines whether the server-side apply flag is enabled
 	// for this Waybill.
 	// +optional

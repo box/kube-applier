@@ -139,6 +139,11 @@ spec:
                 description: RunInterval determines how often this Waybill is applied
                   in seconds.
                 type: integer
+              runTimeout:
+                default: 900
+                description: RunTimeout specifies the timeout for performing an apply
+                  run.
+                type: integer
               serverSideApply:
                 default: false
                 description: ServerSideApply determines whether the server-side apply
