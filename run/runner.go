@@ -144,6 +144,9 @@ func (r *Runner) applyWorker() {
 		log.Logger("runner").Info("Started apply run", "waybill", wbId)
 		metrics.UpdateRunRequest(request.Type.String(), request.Waybill, -1)
 
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(request.Waybill.Spec.RunTimeout)*time.Second)
+		defer cancel()
+
 		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("could not compute list of prunable resources: %w", err))
@@ -153,7 +156,7 @@ func (r *Runner) applyWorker() {
 			ClusterResources:    clusterResources,
 			NamespacedResources: namespacedResources,
 		}
-		delegateToken, err := r.getDelegateToken(request.Waybill)
+		delegateToken, err := r.getDelegateToken(ctx, request.Waybill)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
 			continue
@@ -164,33 +167,33 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("could not setup temporary directories: %w", err))
 			continue
 		}
-		gitSSHCommand, err := r.setupGitSSH(request.Waybill, tmpHomeDir)
+		gitSSHCommand, err := r.setupGitSSH(ctx, request.Waybill, tmpHomeDir)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			cleanupTemp()
 			continue
 		}
 		applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
-		tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(request.Waybill, tmpHomeDir, tmpRepoDir)
+		tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
 			cleanupTemp()
 			continue
 		}
 
-		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(repositoryPath)
+		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(ctx, repositoryPath)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("could not determine HEAD hash: %w", err))
 			cleanupTemp()
 			continue
 		}
 
-		r.apply(tmpRepoPath, delegateToken, request.Waybill, applyOptions)
+		r.apply(ctx, tmpRepoPath, delegateToken, request.Waybill, applyOptions)
 
 		request.Waybill.Status.LastRun.Commit = hash
 		request.Waybill.Status.LastRun.Type = request.Type.String()
 
-		if err := r.KubeClient.UpdateWaybillStatus(context.TODO(), request.Waybill); err != nil {
+		if err := r.KubeClient.UpdateWaybillStatus(ctx, request.Waybill); err != nil {
 			log.Logger("runner").Warn("Could not update Waybill run info", "waybill", wbId, "error", err)
 		}
 
@@ -226,8 +229,8 @@ func (r *Runner) Stop() {
 	r.workerGroup = nil
 }
 
-func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string, error) {
-	secret, err := r.KubeClient.GetSecret(context.TODO(), waybill.Namespace, waybill.Spec.DelegateServiceAccountSecretRef)
+func (r *Runner) getDelegateToken(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) (string, error) {
+	secret, err := r.KubeClient.GetSecret(ctx, waybill.Namespace, waybill.Spec.DelegateServiceAccountSecretRef)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +257,7 @@ func (r *Runner) setupTempDirs(waybill *kubeapplierv1alpha1.Waybill) (string, st
 	return tmpHomeDir, tmpRepoDir, func() { os.RemoveAll(tmpHomeDir); os.RemoveAll(tmpRepoDir) }, nil
 }
 
-func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) error {
+func (r *Runner) setupStrongboxKeyring(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) error {
 	if waybill.Spec.StrongboxKeyringSecretRef == nil {
 		return nil
 	}
@@ -262,7 +265,7 @@ func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill, tmp
 	if sbNamespace == "" {
 		sbNamespace = waybill.Namespace
 	}
-	secret, err := r.KubeClient.GetSecret(context.TODO(), sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
+	secret, err := r.KubeClient.GetSecret(ctx, sbNamespace, waybill.Spec.StrongboxKeyringSecretRef.Name)
 	if err != nil {
 		return err
 	}
@@ -279,11 +282,11 @@ func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill, tmp
 	return nil
 }
 
-func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir, tmpRepoDir string) (string, string, error) {
-	if err := r.setupStrongboxKeyring(waybill, tmpHomeDir); err != nil {
+func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir, tmpRepoDir string) (string, string, error) {
+	if err := r.setupStrongboxKeyring(ctx, waybill, tmpHomeDir); err != nil {
 		return "", "", err
 	}
-	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath()
+	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath(ctx)
 	if err != nil {
 		return "", "", err
 	}
@@ -292,13 +295,13 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, tmpH
 		repositoryPath = waybill.Namespace
 	}
 	subpath := filepath.Join(sub, repositoryPath)
-	if err := git.CloneRepository(root, tmpRepoDir, subpath, []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}); err != nil {
+	if err := git.CloneRepository(ctx, root, tmpRepoDir, subpath, []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}); err != nil {
 		return "", "", err
 	}
 	return filepath.Join(tmpRepoDir, sub), repositoryPath, nil
 }
 
-func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
+func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
 	// Using IdentitiesOnly=yes and passing the key with IdentityFile= ensures
 	// that ssh will not try to fallback to the standard key locations for the
 	// user, accidentally using a key that it should not.
@@ -310,7 +313,7 @@ func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir st
 	if gsNamespace == "" {
 		gsNamespace = waybill.Namespace
 	}
-	secret, err := r.KubeClient.GetSecret(context.TODO(), gsNamespace, waybill.Spec.GitSSHSecretRef.Name)
+	secret, err := r.KubeClient.GetSecret(ctx, gsNamespace, waybill.Spec.GitSSHSecretRef.Name)
 	if err != nil {
 		return "", err
 	}
@@ -340,7 +343,7 @@ func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir st
 }
 
 // Apply takes a list of files and attempts an apply command on each.
-func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
+func (r *Runner) apply(ctx context.Context, rootPath, token string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
 	repositoryPath := waybill.Spec.RepositoryPath
 	if repositoryPath == "" {
@@ -355,6 +358,7 @@ func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Wayb
 	}
 
 	cmd, output, err := r.KubectlClient.Apply(
+		ctx,
 		path,
 		kubectl.ApplyOptions{
 			Namespace:      waybill.Namespace,

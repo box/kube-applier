@@ -165,13 +165,13 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should trigger runs for Waybills that have had their source change in git", func() {
 			gitUtil := &git.Util{RepoPath: "../testdata/manifests"}
-			headHash, err := gitUtil.HeadHashForPaths(".")
+			headHash, err := gitUtil.HeadHashForPaths(context.TODO(), ".")
 			Expect(err).To(BeNil())
 			Expect(headHash).ToNot(BeEmpty())
-			appAHeadHash, err := gitUtil.HeadHashForPaths("app-a")
+			appAHeadHash, err := gitUtil.HeadHashForPaths(context.TODO(), "app-a")
 			Expect(err).To(BeNil())
 			Expect(appAHeadHash).ToNot(BeEmpty())
-			appAKHeadHash, err := gitUtil.HeadHashForPaths("app-a-kustomize")
+			appAKHeadHash, err := gitUtil.HeadHashForPaths(context.TODO(), "app-a-kustomize")
 			Expect(err).To(BeNil())
 			Expect(appAKHeadHash).ToNot(BeEmpty())
 

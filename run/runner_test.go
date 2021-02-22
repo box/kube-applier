@@ -238,7 +238,7 @@ deployment.apps/test-deployment created (server dry run)
 				if repositoryPath == "" {
 					repositoryPath = expected[i].Namespace
 				}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(repositoryPath)
+				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), repositoryPath)
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -293,7 +293,7 @@ deployment.apps/test-deployment created (server dry run)
 			if repositoryPath == "" {
 				repositoryPath = waybill.Namespace
 			}
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(repositoryPath)
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), repositoryPath)
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -447,7 +447,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-b-kustomize")
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-b-kustomize")
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -657,7 +657,7 @@ deployment.apps/test-deployment created
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-d")
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-d")
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -812,7 +812,7 @@ deployment.apps/test-deployment created
 				Data: map[string][]byte{},
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-e")
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-e")
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 

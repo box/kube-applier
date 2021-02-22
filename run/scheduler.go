@@ -108,7 +108,10 @@ func (s *Scheduler) Stop() {
 }
 
 func (s *Scheduler) updateWaybills() {
-	waybills, err := s.KubeClient.ListWaybills(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), s.WaybillPollInterval-time.Second)
+	defer cancel()
+
+	waybills, err := s.KubeClient.ListWaybills(ctx)
 	if err != nil {
 		log.Logger("scheduler").Error("Could not list Waybills", "error", err)
 		return
@@ -169,9 +172,12 @@ func (s *Scheduler) gitPollingLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			hash, err := s.gitUtil.HeadHashForPaths(".")
+			ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
+
+			hash, err := s.gitUtil.HeadHashForPaths(ctx, ".")
 			if err != nil {
 				log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
+				cancel()
 				break
 			}
 			// This check prevents the Scheduler from queueing multiple runs for
@@ -185,6 +191,7 @@ func (s *Scheduler) gitPollingLoop() {
 			s.waybillsMutex.Lock()
 			if hash == s.gitLastQueuedHash {
 				s.waybillsMutex.Unlock()
+				cancel()
 				break
 			}
 			for i := range s.waybills {
@@ -197,7 +204,7 @@ func (s *Scheduler) gitPollingLoop() {
 						path = s.waybills[i].Namespace
 					}
 					wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
-					changed, err := s.gitUtil.HasChangesForPath(path, sinceHash)
+					changed, err := s.gitUtil.HasChangesForPath(ctx, path, sinceHash)
 					if err != nil {
 						log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "waybill", wbId, "path", path, "since", sinceHash, "error", err)
 						continue

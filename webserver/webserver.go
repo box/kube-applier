@@ -106,7 +106,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		waybills, err := f.KubeClient.ListWaybills(context.TODO())
+		waybills, err := f.KubeClient.ListWaybills(r.Context())
 		if err != nil {
 			data.Result = "error"
 			data.Message = "Cannot list Waybills"
@@ -225,13 +225,15 @@ func (ws *WebServer) Start() error {
 func (ws *WebServer) Shutdown() error {
 	close(ws.stop)
 	<-ws.stopped
-	err := ws.server.Shutdown(context.TODO())
+	err := ws.server.Shutdown(context.Background())
 	ws.server = nil
 	return err
 }
 
 func (ws *WebServer) updateResult() error {
-	waybills, err := ws.KubeClient.ListWaybills(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), ws.StatusUpdateInterval-time.Second)
+	defer cancel()
+	waybills, err := ws.KubeClient.ListWaybills(ctx)
 	if err != nil {
 		return fmt.Errorf("Could not list Waybill resources: %v", err)
 	}
