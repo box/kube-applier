@@ -331,6 +331,225 @@ Some error output has been omitted because it may contain sensitive data
 		})
 	})
 
+	Context("When operating on a Waybill that defines a git ssh Secret", func() {
+		It("Should be able to use it to pull remote kustomize bases", func() {
+			wbList := []*kubeapplierv1alpha1.Waybill{
+				{ // when trying to pull a base over ssh without specifying a key, kustomize will return an error
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-b-kustomize",
+						Namespace: "app-b-kustomize-nokey",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:      pointer.BoolPtr(true),
+						Prune:          pointer.BoolPtr(true),
+						RepositoryPath: "app-b-kustomize",
+					},
+				},
+				{ // if they key Secret does not exist, we should get an event
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-b-kustomize",
+						Namespace: "app-b-kustomize-notfound",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:       pointer.BoolPtr(true),
+						Prune:           pointer.BoolPtr(true),
+						RepositoryPath:  "app-b-kustomize",
+						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
+					},
+				},
+				{ // if the key does not have access to the repository, kustomize will return an error
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-b-kustomize",
+						Namespace: "app-b-kustomize-noaccess",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:       pointer.BoolPtr(true),
+						Prune:           pointer.BoolPtr(true),
+						RepositoryPath:  "app-b-kustomize",
+						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
+					},
+				},
+				{ // this namespace has a deploy key configured
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-b-kustomize",
+						Namespace: "app-b-kustomize",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:       pointer.BoolPtr(true),
+						Prune:           pointer.BoolPtr(true),
+						RepositoryPath:  "app-b-kustomize",
+						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
+					},
+				},
+				{ // the key is irrelevant if the https (default) scheme is used
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-c-kustomize",
+						Namespace: "app-c-kustomize-withkey",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:       pointer.BoolPtr(true),
+						Prune:           pointer.BoolPtr(true),
+						RepositoryPath:  "app-c-kustomize",
+						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
+					},
+				},
+			}
+
+			testEnsureWaybills(wbList)
+
+			randomKey := `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACCn0+AL5o3CSX7Se0969IH/ag8oheRBdQypwWW7S47SLQAAAJAaSK2lGkit
+pQAAAAtzc2gtZWQyNTUxOQAAACCn0+AL5o3CSX7Se0969IH/ag8oheRBdQypwWW7S47SLQ
+AAAEBS1JI6xpkIX7Rq+sgsV23akcQAxaCiB8J37oFJVEbPxKfT4AvmjcJJftJ7T3r0gf9q
+DyiF5EF1DKnBZbtLjtItAAAADGFsa2FyQGt1amlyYQE=
+-----END OPENSSH PRIVATE KEY-----`
+
+			deployKey := `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACD2yATaZdvF9qoAOPZy+z0Rhr7vmHuVwZWoRApb8ngxKAAAAJB2mcVVdpnF
+VQAAAAtzc2gtZWQyNTUxOQAAACD2yATaZdvF9qoAOPZy+z0Rhr7vmHuVwZWoRApb8ngxKA
+AAAEB5T0h+3FWBt3LZezr/M+g7yCcmhqcadPWGSF9mP8u/mfbIBNpl28X2qgA49nL7PRGG
+vu+Ye5XBlahEClvyeDEoAAAADGFsa2FyQGt1amlyYQE=
+-----END OPENSSH PRIVATE KEY-----`
+
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "git-ssh",
+					Namespace: "app-b-kustomize-noaccess",
+				},
+				StringData: map[string]string{"key": randomKey},
+				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "git-ssh",
+					Namespace: "app-b-kustomize",
+				},
+				StringData: map[string]string{"key": deployKey},
+				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "git-ssh",
+					Namespace: "app-c-kustomize-withkey",
+				},
+				StringData: map[string]string{"key": randomKey},
+				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+
+			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths("app-b-kustomize")
+			Expect(err).To(BeNil())
+			Expect(headCommitHash).ToNot(BeEmpty())
+
+			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
+				{
+					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
+					Commit:       headCommitHash,
+					ErrorMessage: "exit status 1",
+					Finished:     metav1.Time{},
+					Output: `(?m)^.*Error cloning git repo: Cloning into '[^']+'...
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+Error: accumulating resources:.*$`,
+					Started: metav1.Time{},
+					Success: false,
+					Type:    PollingRun.String(),
+				},
+				nil,
+				{
+					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
+					Commit:       headCommitHash,
+					ErrorMessage: "exit status 1",
+					Finished:     metav1.Time{},
+					Output: `(?m)^.*Error cloning git repo: Cloning into '[^']+'...
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+Error: accumulating resources:.*$`,
+					Started: metav1.Time{},
+					Success: false,
+					Type:    PollingRun.String(),
+				},
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-b-kustomize configured
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-c-kustomize created
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
+			}
+
+			// construct expected waybill list
+			expected := make([]kubeapplierv1alpha1.Waybill, len(wbList))
+			for i := range wbList {
+				expected[i] = *wbList[i]
+				expected[i].Status = kubeapplierv1alpha1.WaybillStatus{LastRun: expectedStatus[i]}
+			}
+
+			for i := range wbList {
+				Enqueue(testRunQueue, PollingRun, wbList[i])
+			}
+
+			Eventually(
+				func() error {
+					deployment := &appsv1.Deployment{}
+					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
+				},
+				time.Second*120,
+				time.Second,
+			).Should(BeNil())
+
+			testRunner.Stop()
+
+			for i := range wbList {
+				if wbList[i].Status.LastRun != nil {
+					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
+				}
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+			}
+
+			testMatchEvents([]gomegatypes.GomegaMatcher{
+				matchEvent(*wbList[1], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed setting up repository clone: secrets "git-ssh" not found`),
+			})
+
+			testMetrics([]string{
+				`kube_applier_last_run_timestamp_seconds`,
+				`kube_applier_namespace_apply_count{namespace="app-b-kustomize-nokey",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-b-kustomize-noaccess",success="false"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-b-kustomize",success="true"} 1`,
+				`kube_applier_namespace_apply_count{namespace="app-c-kustomize-withkey",success="true"} 1`,
+				`kube_applier_run_latency_seconds`,
+				`kube_applier_run_queue{namespace="[^"]+",type="Git polling run"} 0`,
+			})
+		})
+	})
+
 	Context("When operating on a Waybill that defines a strongbox keyring", func() {
 		It("Should be able to apply encrypted files, given a strongbox keyring secret", func() {
 			wbList := []*kubeapplierv1alpha1.Waybill{
@@ -719,7 +938,8 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 	lastRunMatcher := BeNil()
 	if expected.Status.LastRun != nil {
 		var commandMatcher gomegatypes.GomegaMatcher
-		if strings.HasPrefix(expected.Status.LastRun.Command, "^") {
+		if strings.HasPrefix(expected.Status.LastRun.Command, "^") ||
+			strings.HasPrefix(expected.Status.LastRun.Command, "(?") {
 			commandMatcher = MatchRegexp(expected.Status.LastRun.Command)
 		} else {
 			commandExtraArgs := expected.Status.LastRun.Command
@@ -757,7 +977,8 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			}
 		}
 		var outputMatcher gomegatypes.GomegaMatcher
-		if strings.HasPrefix(expected.Status.LastRun.Output, "^") {
+		if strings.HasPrefix(expected.Status.LastRun.Output, "(") ||
+			strings.HasPrefix(expected.Status.LastRun.Output, "(?") {
 			outputMatcher = MatchRegexp(expected.Status.LastRun.Output)
 		} else {
 			outputMatcher = MatchRegexp("^%s$", strings.Replace(

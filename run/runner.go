@@ -4,6 +4,7 @@
 package run
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -61,8 +62,9 @@ type Request struct {
 
 // ApplyOptions contains global configuration for Apply
 type ApplyOptions struct {
-	ClusterResources    []string
-	NamespacedResources []string
+	ClusterResources     []string
+	NamespacedResources  []string
+	EnvironmentVariables []string
 }
 
 func (o *ApplyOptions) pruneWhitelist(waybill *kubeapplierv1alpha1.Waybill, pruneBlacklist []string) []string {
@@ -162,6 +164,13 @@ func (r *Runner) applyWorker() {
 			r.captureRequestFailure(request, fmt.Errorf("could not setup temporary directories: %w", err))
 			continue
 		}
+		gitSSHCommand, err := r.setupGitSSH(request.Waybill, tmpHomeDir)
+		if err != nil {
+			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
+			cleanupTemp()
+			continue
+		}
+		applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
 		tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(request.Waybill, tmpHomeDir, tmpRepoDir)
 		if err != nil {
 			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
@@ -289,6 +298,47 @@ func (r *Runner) setupRepositoryClone(waybill *kubeapplierv1alpha1.Waybill, tmpH
 	return filepath.Join(tmpRepoDir, sub), repositoryPath, nil
 }
 
+func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
+	// Using IdentitiesOnly=yes and passing the key with IdentityFile= ensures
+	// that ssh will not try to fallback to the standard key locations for the
+	// user, accidentally using a key that it should not.
+	gitSSHCommand := `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%[1]s/.ssh_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
+	if waybill.Spec.GitSSHSecretRef == nil {
+		return fmt.Sprintf(gitSSHCommand, tmpHomeDir), nil
+	}
+	gsNamespace := waybill.Spec.GitSSHSecretRef.Namespace
+	if gsNamespace == "" {
+		gsNamespace = waybill.Namespace
+	}
+	secret, err := r.KubeClient.GetSecret(context.TODO(), gsNamespace, waybill.Spec.GitSSHSecretRef.Name)
+	if err != nil {
+		return "", err
+	}
+	if err := checkSecretIsAllowed(waybill, secret); err != nil {
+		return "", err
+	}
+	gitSSHKey, ok := secret.Data["key"]
+	if !ok {
+		return "", fmt.Errorf(`secret "%s/%s" does not contain key 'key'`, secret.Namespace, secret.Name)
+	}
+	// if the file containing the ssh key does not have a newline at the end,
+	// ssh does not complain about it but the key will not work properly
+	if !bytes.HasSuffix(gitSSHKey, []byte("\n")) {
+		gitSSHKey = append(gitSSHKey, byte('\n'))
+	}
+	if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".ssh_key"), gitSSHKey, 0400); err != nil {
+		return "", err
+	}
+	gitSSHKnownHosts, ok := secret.Data["known_hosts"]
+	if ok {
+		if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), gitSSHKnownHosts, 0400); err != nil {
+			return "", err
+		}
+		gitSSHCommand = `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%[1]s/.ssh_key -o UserKnownHostsFile=%[1]s/.ssh_known_hosts`
+	}
+	return fmt.Sprintf(gitSSHCommand, tmpHomeDir), nil
+}
+
 // Apply takes a list of files and attempts an apply command on each.
 func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Waybill, options *ApplyOptions) {
 	start := r.Clock.Now()
@@ -306,9 +356,10 @@ func (r *Runner) apply(rootPath, token string, waybill *kubeapplierv1alpha1.Wayb
 
 	cmd, output, err := r.KubectlClient.Apply(
 		path,
-		kubectl.ApplyFlags{
+		kubectl.ApplyOptions{
 			Namespace:      waybill.Namespace,
 			DryRunStrategy: dryRunStrategy,
+			Environment:    options.EnvironmentVariables,
 			PruneWhitelist: options.pruneWhitelist(waybill, r.PruneBlacklist),
 			ServerSide:     waybill.Spec.ServerSideApply,
 			Token:          token,

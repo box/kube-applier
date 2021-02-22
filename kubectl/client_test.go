@@ -105,13 +105,13 @@ The request is invalid: patch: Invalid value: "map[data:map[invalid:map[]] metad
 	}
 }
 
-func TestApplyFlagsArgs(t *testing.T) {
+func TestApplyOptionsArgs(t *testing.T) {
 	testCases := []struct {
-		flags ApplyFlags
-		want  []string
+		options ApplyOptions
+		want    []string
 	}{
 		{
-			flags: ApplyFlags{
+			options: ApplyOptions{
 				Namespace:      "example",
 				DryRunStrategy: "server",
 				PruneWhitelist: []string{
@@ -131,7 +131,7 @@ func TestApplyFlagsArgs(t *testing.T) {
 			},
 		},
 		{
-			flags: ApplyFlags{
+			options: ApplyOptions{
 				Namespace:      "example",
 				DryRunStrategy: "server",
 				PruneWhitelist: []string{
@@ -148,7 +148,7 @@ func TestApplyFlagsArgs(t *testing.T) {
 			},
 		},
 		{
-			flags: ApplyFlags{
+			options: ApplyOptions{
 				Namespace: "example",
 				PruneWhitelist: []string{
 					"core/v1/ConfigMap",
@@ -164,14 +164,14 @@ func TestApplyFlagsArgs(t *testing.T) {
 			},
 		},
 		{
-			flags: ApplyFlags{
+			options: ApplyOptions{
 				Namespace:      "example",
 				DryRunStrategy: "server",
 			},
 			want: []string{"-n", "example", "--dry-run=server"},
 		},
 		{
-			flags: ApplyFlags{
+			options: ApplyOptions{
 				PruneWhitelist: []string{
 					"core/v1/ConfigMap",
 					"core/v1/Pod",
@@ -187,7 +187,7 @@ func TestApplyFlagsArgs(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got := tc.flags.Args()
+		got := tc.options.Args()
 
 		if diff := deep.Equal(got, tc.want); diff != nil {
 			t.Error(diff)
