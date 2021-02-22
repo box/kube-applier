@@ -194,11 +194,12 @@ first time (or after any changes to its contents).
 
 #### Custom SSH Keys
 
-If you specifiy `gitSSHSecretRef` and the `Secret` it points to contains an SSH
-key named `key`, you can enable the use of remote `kustomize` bases from private
-repositories. The ssh key should of course have access to the private
-repository. Additionally you can define a value for `known_hosts` in that
-`Secret` to use with `git`. If ommitted, `git` will run with
+You can specify a custom SSH key to be used for fetching remote `kustomize`
+bases from private repositories. In order to do that, you will need to specify
+`gitSSHSecretRef`: it should reference a `Secret` that contains the SSH key in
+the value of the `"key"` item. The SSH key should of course have access to the
+private repository that contains the bases. Additionally this `Secret` can
+define a value for `"known_hosts"`. If ommitted, `git` will use `ssh` with
 `StrictHostKeyChecking` disabled.
 
 To use the ssh key for `kustomize` bases, the bases should be defined with the
