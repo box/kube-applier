@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine AS build
+FROM golang:1.16-alpine AS build
 
 WORKDIR /src
 
@@ -36,7 +36,7 @@ RUN go get -t ./... &&\
   CGO_ENABLED=1 && go test -race -count=1 ./... &&\
   CGO_ENABLED=0 && go build -o /kube-applier -ldflags '-s -w -extldflags "-static"' .
 
-FROM alpine:3.12
+FROM alpine:3.13
 RUN apk --no-cache add git openssh-client tini
 COPY templates/ /templates/
 COPY static/ /static/

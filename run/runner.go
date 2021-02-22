@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,11 +241,11 @@ func (r *Runner) getDelegateToken(waybill *kubeapplierv1alpha1.Waybill) (string,
 }
 
 func (r *Runner) setupTempDirs(waybill *kubeapplierv1alpha1.Waybill) (string, string, func(), error) {
-	tmpHomeDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_home_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	tmpHomeDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_%d_home_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
 		return "", "", nil, err
 	}
-	tmpRepoDir, err := ioutil.TempDir("", fmt.Sprintf("run_%s_%s_%d_repo_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	tmpRepoDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_%d_repo_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
 	if err != nil {
 		os.RemoveAll(tmpHomeDir)
 		return "", "", nil, err
@@ -273,7 +272,7 @@ func (r *Runner) setupStrongboxKeyring(waybill *kubeapplierv1alpha1.Waybill, tmp
 	if !ok {
 		return fmt.Errorf(`secret "%s/%s" does not contain key '.strongbox_keyring'`, secret.Namespace, secret.Name)
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".strongbox_keyring"), strongboxData, 0400); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpHomeDir, ".strongbox_keyring"), strongboxData, 0400); err != nil {
 		return err
 	}
 	return nil
@@ -326,12 +325,12 @@ func (r *Runner) setupGitSSH(waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir st
 	if !bytes.HasSuffix(gitSSHKey, []byte("\n")) {
 		gitSSHKey = append(gitSSHKey, byte('\n'))
 	}
-	if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".ssh_key"), gitSSHKey, 0400); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_key"), gitSSHKey, 0400); err != nil {
 		return "", err
 	}
 	gitSSHKnownHosts, ok := secret.Data["known_hosts"]
 	if ok {
-		if err := ioutil.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), gitSSHKnownHosts, 0400); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), gitSSHKnownHosts, 0400); err != nil {
 			return "", err
 		}
 		gitSSHCommand = `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%[1]s/.ssh_key -o UserKnownHostsFile=%[1]s/.ssh_known_hosts`
