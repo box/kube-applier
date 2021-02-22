@@ -106,13 +106,10 @@ var _ = Describe("Runner", func() {
 
 	BeforeEach(func() {
 		testRunner = Runner{
-			Clock:      &zeroClock{},
-			DryRun:     false,
-			KubeClient: testKubeClient,
-			KubectlClient: &kubectl.Client{
-				Host:    testConfig.Host,
-				Timeout: time.Duration(time.Minute),
-			},
+			Clock:          &zeroClock{},
+			DryRun:         false,
+			KubeClient:     testKubeClient,
+			KubectlClient:  &kubectl.Client{Host: testConfig.Host},
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
 			RepoPath:       "../testdata/manifests",
 			WorkerCount:    1, // limit to one to prevent race issues
