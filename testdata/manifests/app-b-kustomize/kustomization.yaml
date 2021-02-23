@@ -1,4 +1,4 @@
 bases:
-  - ssh://github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=ssh-keys
+  - ssh://github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=master
 resources:
   - 00-namespace.yaml
