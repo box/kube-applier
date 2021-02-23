@@ -2,7 +2,6 @@ package sysutil
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 // ListDirs returns a list of all the subdirectories of the rootPath.
 func ListDirs(rootPath string) ([]string, error) {
 	var dirs []string
-	files, err := ioutil.ReadDir(rootPath)
+	files, err := os.ReadDir(rootPath)
 	if err != nil {
 		return dirs, fmt.Errorf("Could not read %s error=(%v)", rootPath, err)
 	}

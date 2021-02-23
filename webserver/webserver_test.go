@@ -3,7 +3,7 @@ package webserver
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -103,14 +103,14 @@ var _ = Describe("WebServer", func() {
 			v := url.Values{}
 			res, err := http.Get(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort))
 			Expect(err).To(BeNil())
-			body, err := ioutil.ReadAll(res.Body)
+			body, err := io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Must be a POST request"}`))
 
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
 			Expect(err).To(BeNil())
-			body, err = ioutil.ReadAll(res.Body)
+			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Empty namespace value"}`))
@@ -118,7 +118,7 @@ var _ = Describe("WebServer", func() {
 			v.Set("namespace", "invalid")
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
 			Expect(err).To(BeNil())
-			body, err = ioutil.ReadAll(res.Body)
+			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Cannot find Waybills in namespace 'invalid'"}`))
@@ -126,7 +126,7 @@ var _ = Describe("WebServer", func() {
 			v.Set("namespace", wbList[0].Namespace)
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
 			Expect(err).To(BeNil())
-			body, err = ioutil.ReadAll(res.Body)
+			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
 			Expect(body).To(MatchJSON(`{"result":  "success", "message": "Run queued"}`))
@@ -155,7 +155,7 @@ var _ = Describe("WebServer", func() {
 				time.Second,
 			).Should(BeNil())
 
-			body, err := ioutil.ReadAll(res.Body)
+			body, err := io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
 			Expect(body).ToNot(BeEmpty())

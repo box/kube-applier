@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -155,7 +154,7 @@ func (c *Client) applyKustomize(path string, options ApplyOptions) (string, stri
 	}
 
 	// Split the stdout into secrets and other resources
-	stdout, err := ioutil.ReadAll(&kustomizeStdout)
+	stdout, err := io.ReadAll(&kustomizeStdout)
 	if err != nil {
 		return kustomizeCmd.String(), "error reading kustomize output", err
 	}

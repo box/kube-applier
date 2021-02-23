@@ -3,7 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -107,7 +107,7 @@ func testMetrics(regex []string) {
 			if err != nil {
 				return err
 			}
-			body, err := ioutil.ReadAll(res.Body)
+			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				return err
 			}
