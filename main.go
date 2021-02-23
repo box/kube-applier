@@ -34,7 +34,6 @@ var (
 	dryRun               = os.Getenv("DRY_RUN")
 	logLevel             = os.Getenv("LOG_LEVEL")
 	pruneBlacklist       = os.Getenv("PRUNE_BLACKLIST")
-	execTimeout          = os.Getenv("EXEC_TIMEOUT")
 
 	// Github commit diff url
 	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
@@ -119,10 +118,6 @@ func validate() {
 		logLevel = "warn"
 	}
 
-	if execTimeout == "" {
-		execTimeout = "3m"
-	}
-
 	if workerCount == "" {
 		workerCount = "0"
 	}
@@ -153,14 +148,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	execTimeoutDuration, err := time.ParseDuration(execTimeout)
-	if err != nil {
-		log.Logger("kube-applier").Error("error parsing command exec timeout duration", "timeout", execTimeout, "error", err)
-		os.Exit(1)
-	}
-	kubectlClient := &kubectl.Client{
-		Timeout: execTimeoutDuration,
-	}
+	kubectlClient := &kubectl.Client{}
 
 	// Kubernetes copies annotations from StatefulSets, Deployments and
 	// Daemonsets to the corresponding ControllerRevision, including

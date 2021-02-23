@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,8 +22,6 @@ import (
 )
 
 var (
-	// To make testing possible
-	execCommand = exec.Command
 	// The output is omitted if it contains any of these terms when there is an
 	// error running `kubectl apply -f <path>`
 	omitErrOutputTerms   = []string{"Secret", "base64"}
@@ -86,14 +83,13 @@ func (o *ApplyOptions) SetCommandEnvironment(cmd *exec.Cmd) {
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 type Client struct {
-	Host    string
-	Label   string
-	Timeout time.Duration
+	Host  string
+	Label string
 }
 
 // Apply attempts to "kubectl apply" the files located at path. It returns the
 // full apply command and its output.
-func (c *Client) Apply(path string, options ApplyOptions) (string, string, error) {
+func (c *Client) Apply(ctx context.Context, path string, options ApplyOptions) (string, string, error) {
 	var kustomize bool
 	if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
 		kustomize = true
@@ -103,10 +99,10 @@ func (c *Client) Apply(path string, options ApplyOptions) (string, string, error
 		kustomize = true
 	}
 	if kustomize {
-		cmd, out, err := c.applyKustomize(path, options)
+		cmd, out, err := c.applyKustomize(ctx, path, options)
 		return sanitiseCmdStr(cmd), out, err
 	}
-	cmd, out, err := c.applyPath(path, options)
+	cmd, out, err := c.applyPath(ctx, path, options)
 	return sanitiseCmdStr(cmd), out, err
 }
 
@@ -123,8 +119,8 @@ func (c *Client) KustomizePath() string {
 }
 
 // applyPath runs `kubectl apply -f <path>`
-func (c *Client) applyPath(path string, options ApplyOptions) (string, string, error) {
-	cmdStr, out, err := c.apply(path, []byte{}, options)
+func (c *Client) applyPath(ctx context.Context, path string, options ApplyOptions) (string, string, error) {
+	cmdStr, out, err := c.apply(ctx, path, []byte{}, options)
 	if err != nil {
 		// Filter potential secret leaks out of the output
 		return cmdStr, filterErrOutput(out), err
@@ -134,11 +130,8 @@ func (c *Client) applyPath(path string, options ApplyOptions) (string, string, e
 }
 
 // applyKustomize does a `kustomize build | kubectl apply -f -` on the path
-func (c *Client) applyKustomize(path string, options ApplyOptions) (string, string, error) {
+func (c *Client) applyKustomize(ctx context.Context, path string, options ApplyOptions) (string, string, error) {
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-	defer cancel()
 
 	kustomizeCmd := exec.CommandContext(ctx, "kustomize", "build", path)
 	options.SetCommandEnvironment(kustomizeCmd)
@@ -192,7 +185,7 @@ func (c *Client) applyKustomize(path string, options ApplyOptions) (string, stri
 		resourcesOptions := options
 		resourcesOptions.PruneWhitelist = resourcesPruneWhitelist
 
-		_, out, err := c.apply("-", resources, resourcesOptions)
+		_, out, err := c.apply(ctx, "-", resources, resourcesOptions)
 		kubectlOut = kubectlOut + out
 		if err != nil {
 			return cmdStr, kubectlOut, err
@@ -211,7 +204,7 @@ func (c *Client) applyKustomize(path string, options ApplyOptions) (string, stri
 		secretsOptions := options
 		secretsOptions.PruneWhitelist = secretsPruneWhitelist
 
-		_, out, err := c.apply("-", secrets, secretsOptions)
+		_, out, err := c.apply(ctx, "-", secrets, secretsOptions)
 		if err != nil {
 			// Don't append the actual output, as the error output
 			// from kubectl can leak the content of secrets
@@ -225,7 +218,7 @@ func (c *Client) applyKustomize(path string, options ApplyOptions) (string, stri
 }
 
 // apply runs `kubectl apply`
-func (c *Client) apply(path string, stdin []byte, options ApplyOptions) (string, string, error) {
+func (c *Client) apply(ctx context.Context, path string, stdin []byte, options ApplyOptions) (string, string, error) {
 	args := []string{}
 	if c.Host != "" {
 		args = append(args, "--server", c.Host)
@@ -235,9 +228,6 @@ func (c *Client) apply(path string, stdin []byte, options ApplyOptions) (string,
 		args = append(args, "-R")
 	}
 	args = append(args, options.Args()...)
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-	defer cancel()
 
 	kubectlCmd := exec.CommandContext(ctx, "kubectl", args...)
 	options.SetCommandEnvironment(kubectlCmd)
