@@ -3,4 +3,5 @@ kind: Waybill
 metadata:
   name: main
 spec:
-  strongboxKeyringSecretRef: strongbox-keyring
+  strongboxKeyringSecretRef:
+    name: kube-applier-strongbox-keyring
