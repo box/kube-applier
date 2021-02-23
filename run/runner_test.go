@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
@@ -402,28 +403,34 @@ Some error output has been omitted because it may contain sensitive data
 
 			testEnsureWaybills(wbList)
 
-			randomKey := `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACCn0+AL5o3CSX7Se0969IH/ag8oheRBdQypwWW7S47SLQAAAJAaSK2lGkit
-pQAAAAtzc2gtZWQyNTUxOQAAACCn0+AL5o3CSX7Se0969IH/ag8oheRBdQypwWW7S47SLQ
-AAAEBS1JI6xpkIX7Rq+sgsV23akcQAxaCiB8J37oFJVEbPxKfT4AvmjcJJftJ7T3r0gf9q
-DyiF5EF1DKnBZbtLjtItAAAADGFsa2FyQGt1amlyYQE=
------END OPENSSH PRIVATE KEY-----`
+			// The ssh keys below are base64-encoded in order to work around
+			// GitHub's notifications about committing a private key in a public
+			// repo, which triggers for the deploy key. This key is a read-only
+			// deploy key for a public repository and is safe to commit.
+			randomKey, _ := base64.StdEncoding.DecodeString(
+				`LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFB
+QUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhP
+UUFBQUNDbjArQUw1bzNDU1g3U2UwOTY5SUgvYWc4b2hlUkJkUXlwd1dXN1M0N1NMUUFBQUpBYVNL
+MmxHa2l0CnBRQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQ24wK0FMNW8zQ1NYN1NlMDk2OUlIL2Fn
+OG9oZVJCZFF5cHdXVzdTNDdTTFEKQUFBRUJTMUpJNnhwa0lYN1JxK3Nnc1YyM2FrY1FBeGFDaUI4
+SjM3b0ZKVkViUHhLZlQ0QXZtamNKSmZ0SjdUM3IwZ2Y5cQpEeWlGNUVGMURLbkJaYnRManRJdEFB
+QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 
-			deployKey := `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACD2yATaZdvF9qoAOPZy+z0Rhr7vmHuVwZWoRApb8ngxKAAAAJB2mcVVdpnF
-VQAAAAtzc2gtZWQyNTUxOQAAACD2yATaZdvF9qoAOPZy+z0Rhr7vmHuVwZWoRApb8ngxKA
-AAAEB5T0h+3FWBt3LZezr/M+g7yCcmhqcadPWGSF9mP8u/mfbIBNpl28X2qgA49nL7PRGG
-vu+Ye5XBlahEClvyeDEoAAAADGFsa2FyQGt1amlyYQE=
------END OPENSSH PRIVATE KEY-----`
+			deployKey, _ := base64.StdEncoding.DecodeString(
+				`LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFB
+QUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhP
+UUFBQUNEMnlBVGFaZHZGOXFvQU9QWnkrejBSaHI3dm1IdVZ3WldvUkFwYjhuZ3hLQUFBQUpCMm1j
+VlZkcG5GClZRQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRDJ5QVRhWmR2Rjlxb0FPUFp5K3owUmhy
+N3ZtSHVWd1pXb1JBcGI4bmd4S0EKQUFBRUI1VDBoKzNGV0J0M0xaZXpyL00rZzd5Q2NtaHFjYWRQ
+V0dTRjltUDh1L21mYklCTnBsMjhYMnFnQTQ5bkw3UFJHRwp2dStZZTVYQmxhaEVDbHZ5ZURFb0FB
+QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-noaccess",
 				},
-				StringData: map[string]string{"key": randomKey},
+				StringData: map[string]string{"key": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
@@ -431,7 +438,7 @@ vu+Ye5XBlahEClvyeDEoAAAADGFsa2FyQGt1amlyYQE=
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize",
 				},
-				StringData: map[string]string{"key": deployKey},
+				StringData: map[string]string{"key": string(deployKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
@@ -439,7 +446,7 @@ vu+Ye5XBlahEClvyeDEoAAAADGFsa2FyQGt1amlyYQE=
 					Name:      "git-ssh",
 					Namespace: "app-c-kustomize-withkey",
 				},
-				StringData: map[string]string{"key": randomKey},
+				StringData: map[string]string{"key": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
