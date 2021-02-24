@@ -123,6 +123,7 @@ spec:
   pruneBlacklist: []
   repositoryPath: <namespace-name>
   runInterval: 3600
+  runTimeout: 900
   serverSideApply: false
   strongboxKeyringSecretRef:
     name: ""
