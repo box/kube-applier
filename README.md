@@ -285,7 +285,7 @@ namespace:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
-- github.com/utilitywarehouse/kube-applier//manifests/base/server?ref=3.1.0-rc.1
+- github.com/utilitywarehouse/kube-applier//manifests/base/server?ref=3.1.0-rc.2
 ```
 
 and patch as per example: [manifests/example/](manifests/example/)
@@ -303,7 +303,7 @@ cluster-level resources (also see this [section](#resource-pruning) if you are
 using the `pruneClusterResources` attribute):
 
 ```
-github.com/utilitywarehouse/kube-applier//manifests/base/cluster?ref=3.1.0-rc.1
+github.com/utilitywarehouse/kube-applier//manifests/base/cluster?ref=3.1.0-rc.2
 ```
 
 ## Monitoring
