@@ -300,12 +300,20 @@ func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv
 	return filepath.Join(tmpRepoDir, sub), repositoryPath, nil
 }
 
+// setupGitSSH ensures that any custom SSH keys configured for the Waybill are
+// written to the temporary home directory and returns a value for
+// GIT_SSH_COMMAND (man git) that forces git (and therefore kustomize) to use
+// ssh with a particular set of flags. Specifically, using IdentitiesOnly=yes
+// and passing the key(s) with IdentityFile= ensures that ssh will not try to
+// fallback to the standard key locations for the user, accidentally using a
+// key that it should not (man ssh_config).
 func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
-	// Using IdentitiesOnly=yes and passing the key with IdentityFile= ensures
-	// that ssh will not try to fallback to the standard key locations for the
-	// user, accidentally using a key that it should not.
 	if waybill.Spec.GitSSHSecretRef == nil {
-		return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%s/.ssh_key_invalid -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`, tmpHomeDir), nil
+		// Even when there is no git SSH secret defined, we still override the
+		// git ssh command (pointing the key to /dev/null) in order to avoid
+		// using ssh keys in default system locations and to surface the error
+		// if bases over ssh have been configured.
+		return `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`, nil
 	}
 	gsNamespace := waybill.Spec.GitSSHSecretRef.Namespace
 	if gsNamespace == "" {
