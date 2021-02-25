@@ -304,9 +304,8 @@ func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.W
 	// Using IdentitiesOnly=yes and passing the key with IdentityFile= ensures
 	// that ssh will not try to fallback to the standard key locations for the
 	// user, accidentally using a key that it should not.
-	gitSSHCommand := `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%[1]s/.ssh_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
 	if waybill.Spec.GitSSHSecretRef == nil {
-		return fmt.Sprintf(gitSSHCommand, tmpHomeDir), nil
+		return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%s/.ssh_key_invalid -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`, tmpHomeDir), nil
 	}
 	gsNamespace := waybill.Spec.GitSSHSecretRef.Namespace
 	if gsNamespace == "" {
@@ -319,26 +318,34 @@ func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.W
 	if err := checkSecretIsAllowed(waybill, secret); err != nil {
 		return "", err
 	}
-	gitSSHKey, ok := secret.Data["key"]
-	if !ok {
-		return "", fmt.Errorf(`secret "%s/%s" does not contain key 'key'`, secret.Namespace, secret.Name)
-	}
-	// if the file containing the ssh key does not have a newline at the end,
-	// ssh does not complain about it but the key will not work properly
-	if !bytes.HasSuffix(gitSSHKey, []byte("\n")) {
-		gitSSHKey = append(gitSSHKey, byte('\n'))
-	}
-	if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_key"), gitSSHKey, 0400); err != nil {
-		return "", err
-	}
-	gitSSHKnownHosts, ok := secret.Data["known_hosts"]
-	if ok {
-		if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), gitSSHKnownHosts, 0400); err != nil {
-			return "", err
+	knownHostsFragment := `-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
+	keyFragments := []string{}
+	for k, v := range secret.Data {
+		if strings.HasPrefix(k, "key_") {
+			// if the file containing the ssh key does not have a newline at the end,
+			// ssh does not complain about it but the key will not work properly
+			if !bytes.HasSuffix(v, []byte("\n")) {
+				v = append(v, byte('\n'))
+			}
+			keyFilename := filepath.Join(tmpHomeDir, fmt.Sprintf(".ssh_%s", k))
+			if err := os.WriteFile(keyFilename, v, 0400); err != nil {
+				return "", err
+			}
+			// keys (identity files) are used by ssh sequentially (in the same
+			// order in which they are defined in the command line) until a
+			// valid key is found for a given remote
+			keyFragments = append(keyFragments, fmt.Sprintf(`-o IdentityFile=%s`, keyFilename))
+		} else if k == "known_hosts" {
+			if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), v, 0400); err != nil {
+				return "", err
+			}
+			knownHostsFragment = fmt.Sprintf(`-o UserKnownHostsFile=%[1]s/.ssh_known_hosts`, tmpHomeDir)
 		}
-		gitSSHCommand = `GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes -o IdentityFile=%[1]s/.ssh_key -o UserKnownHostsFile=%[1]s/.ssh_known_hosts`
 	}
-	return fmt.Sprintf(gitSSHCommand, tmpHomeDir), nil
+	if len(keyFragments) == 0 {
+		return "", fmt.Errorf(`secret "%s/%s" does not contain any keys`, secret.Namespace, secret.Name)
+	}
+	return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes %s %s`, strings.Join(keyFragments, " "), knownHostsFragment), nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.

@@ -383,6 +383,19 @@ Some error output has been omitted because it may contain sensitive data
 						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
 					},
 				},
+				{ // this namespace has a deploy key configured
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-b-kustomize",
+						Namespace: "app-b-kustomize-twokeys",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:       pointer.BoolPtr(true),
+						Prune:           pointer.BoolPtr(true),
+						RepositoryPath:  "app-b-kustomize",
+						GitSSHSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "git-ssh"},
+					},
+				},
 				{ // the key is irrelevant if the https (default) scheme is used
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
 					ObjectMeta: metav1.ObjectMeta{
@@ -427,7 +440,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-noaccess",
 				},
-				StringData: map[string]string{"key": string(randomKey)},
+				StringData: map[string]string{"key_random": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
@@ -435,15 +448,26 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize",
 				},
-				StringData: map[string]string{"key": string(deployKey)},
+				StringData: map[string]string{"key_deploy": string(deployKey)},
 				Type:       corev1.SecretTypeOpaque,
+			})).To(BeNil())
+			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "git-ssh",
+					Namespace: "app-b-kustomize-twokeys",
+				},
+				StringData: map[string]string{
+					"key_random": string(randomKey),
+					"key_deploy": string(deployKey),
+				},
+				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
 			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-c-kustomize-withkey",
 				},
-				StringData: map[string]string{"key": string(randomKey)},
+				StringData: map[string]string{"key_random": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
@@ -489,6 +513,18 @@ Error: accumulating resources:.*$`,
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-b-kustomize configured
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-b-kustomize unchanged
 deployment.apps/test-deployment created
 `,
 					Started: metav1.Time{},
