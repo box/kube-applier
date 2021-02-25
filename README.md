@@ -195,15 +195,17 @@ first time (or after any changes to its contents).
 
 #### Custom SSH Keys
 
-You can specify a custom SSH key to be used for fetching remote `kustomize`
-bases from private repositories. In order to do that, you will need to specify
-`gitSSHSecretRef`: it should reference a `Secret` that contains the SSH key in
-the value of the `"key"` item. The SSH key should of course have access to the
-private repository that contains the bases. Additionally this `Secret` can
+You can specify custom SSH keys to be used for fetching remote `kustomize` bases
+from private repositories. In order to do that, you will need to specify
+`gitSSHSecretRef`: it should reference a `Secret` that contains one or more SSH
+keys that provide access to the private repositories that contain these bases.
+
+In this `Secret`, items with a name that begins with `"key_*"` are treated as
+SSH keys to be used with `kustomize`. Additionally this `Secret` can optionally
 define a value for `"known_hosts"`. If ommitted, `git` will use `ssh` with
 `StrictHostKeyChecking` disabled.
 
-To use the ssh key for `kustomize` bases, the bases should be defined with the
+To use an ssh key for `kustomize` bases, the bases should be defined with the
 `ssh://` scheme in `kustomization.yaml`. For example:
 ```
 bases:
@@ -225,7 +227,11 @@ metadata:
   annotations:
     kube-applier.io/allowed-namespaces: "ns-b, ns-c"
 stringData:
-  key: |-
+  key_a: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+    -----END OPENSSH PRIVATE KEY-----
+  key_b: |-
     -----BEGIN OPENSSH PRIVATE KEY-----
     AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
     -----END OPENSSH PRIVATE KEY-----
