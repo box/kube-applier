@@ -172,55 +172,58 @@ func (s *Scheduler) gitPollingLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
-
-			hash, err := s.gitUtil.HeadHashForPaths(ctx, ".")
-			if err != nil {
-				log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
-				cancel()
-				break
-			}
-			// This check prevents the Scheduler from queueing multiple runs for
-			// a Waybill; without this check, when a new commit appears it will
-			// be eligible for new a run until it finishes the run and its
-			// status is updated.
-			// Waybills that are not in the Scheduler's cache when a new commit
-			// appears will not be retroactively checked against the latest
-			// commit when they are acknowledged. This is acceptable, since they
-			// will (eventually) trigger a scheduled run.
-			s.waybillsMutex.Lock()
-			if hash == s.gitLastQueuedHash {
-				s.waybillsMutex.Unlock()
-				cancel()
-				break
-			}
-			for i := range s.waybills {
-				// If LastRun is nil, we don't trigger the Polling run at all
-				// and instead rely on the Scheduled run to kickstart things.
-				if s.waybills[i].Status.LastRun != nil && s.waybills[i].Status.LastRun.Commit != hash {
-					sinceHash := s.waybills[i].Status.LastRun.Commit
-					path := s.waybills[i].Spec.RepositoryPath
-					if path == "" {
-						path = s.waybills[i].Namespace
-					}
-					wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
-					changed, err := s.gitUtil.HasChangesForPath(ctx, path, sinceHash)
-					if err != nil {
-						log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "waybill", wbId, "path", path, "since", sinceHash, "error", err)
-						continue
-					}
-					if !changed {
-						continue
-					}
-					Enqueue(s.RunQueue, PollingRun, s.waybills[i])
-				}
-			}
-			s.gitLastQueuedHash = hash
-			s.waybillsMutex.Unlock()
+			s.processGitChanges()
 		case <-s.stop:
 			return
 		}
 	}
+}
+
+func (s *Scheduler) processGitChanges() {
+	ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
+	defer cancel()
+
+	hash, err := s.gitUtil.HeadHashForPaths(ctx, ".")
+	if err != nil {
+		log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
+		return
+	}
+	// This check prevents the Scheduler from queueing multiple runs for
+	// a Waybill; without this check, when a new commit appears it will
+	// be eligible for new a run until it finishes the run and its
+	// status is updated.
+	// Waybills that are not in the Scheduler's cache when a new commit
+	// appears will not be retroactively checked against the latest
+	// commit when they are acknowledged. This is acceptable, since they
+	// will (eventually) trigger a scheduled run.
+	s.waybillsMutex.Lock()
+	if hash == s.gitLastQueuedHash {
+		s.waybillsMutex.Unlock()
+		return
+	}
+	for i := range s.waybills {
+		// If LastRun is nil, we don't trigger the Polling run at all
+		// and instead rely on the Scheduled run to kickstart things.
+		if s.waybills[i].Status.LastRun != nil && s.waybills[i].Status.LastRun.Commit != hash {
+			sinceHash := s.waybills[i].Status.LastRun.Commit
+			path := s.waybills[i].Spec.RepositoryPath
+			if path == "" {
+				path = s.waybills[i].Namespace
+			}
+			wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
+			changed, err := s.gitUtil.HasChangesForPath(ctx, path, sinceHash)
+			if err != nil {
+				log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "waybill", wbId, "path", path, "since", sinceHash, "error", err)
+				continue
+			}
+			if !changed {
+				continue
+			}
+			Enqueue(s.RunQueue, PollingRun, s.waybills[i])
+		}
+	}
+	s.gitLastQueuedHash = hash
+	s.waybillsMutex.Unlock()
 }
 
 func (s *Scheduler) newWaybillLoop(waybill *kubeapplierv1alpha1.Waybill) func() {
