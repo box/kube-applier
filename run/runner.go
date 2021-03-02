@@ -139,74 +139,72 @@ func (r *Runner) Start() chan<- Request {
 func (r *Runner) applyWorker() {
 	defer r.workerGroup.Done()
 	for request := range r.workerQueue {
-		wbId := fmt.Sprintf("%s/%s", request.Waybill.Namespace, request.Waybill.Name)
-		log.Logger("runner").Info("Started apply run", "waybill", wbId)
-		metrics.UpdateRunRequest(request.Type.String(), request.Waybill, -1)
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(request.Waybill.Spec.RunTimeout)*time.Second)
-		defer cancel()
-
-		clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("could not compute list of prunable resources: %w", err))
-			continue
+		if err := r.processRequest(request); err != nil {
+			r.captureRequestFailure(request, err)
 		}
-		applyOptions := &ApplyOptions{
-			ClusterResources:    clusterResources,
-			NamespacedResources: namespacedResources,
-		}
-		delegateToken, err := r.getDelegateToken(ctx, request.Waybill)
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("failed fetching delegate token: %w", err))
-			continue
-		}
-
-		tmpHomeDir, tmpRepoDir, cleanupTemp, err := r.setupTempDirs(request.Waybill)
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("could not setup temporary directories: %w", err))
-			continue
-		}
-		gitSSHCommand, err := r.setupGitSSH(ctx, request.Waybill, tmpHomeDir)
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
-			cleanupTemp()
-			continue
-		}
-		applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
-		tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("failed setting up repository clone: %w", err))
-			cleanupTemp()
-			continue
-		}
-
-		hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(ctx, repositoryPath)
-		if err != nil {
-			r.captureRequestFailure(request, fmt.Errorf("could not determine HEAD hash: %w", err))
-			cleanupTemp()
-			continue
-		}
-
-		r.apply(ctx, tmpRepoPath, delegateToken, request.Waybill, applyOptions)
-
-		request.Waybill.Status.LastRun.Commit = hash
-		request.Waybill.Status.LastRun.Type = request.Type.String()
-
-		if err := r.KubeClient.UpdateWaybillStatus(ctx, request.Waybill); err != nil {
-			log.Logger("runner").Warn("Could not update Waybill run info", "waybill", wbId, "error", err)
-		}
-
-		if request.Waybill.Status.LastRun.Success {
-			log.Logger("runner").Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", wbId, request.Waybill.Status.LastRun.Command, request.Waybill.Status.LastRun.Output))
-		} else {
-			log.Logger("runner").Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", wbId, request.Waybill.Status.LastRun.ErrorMessage))
-		}
-
-		metrics.UpdateFromLastRun(request.Waybill)
-
-		log.Logger("runner").Info("Finished apply run", "waybill", wbId)
-		cleanupTemp()
 	}
+}
+
+func (r *Runner) processRequest(request Request) error {
+	wbId := fmt.Sprintf("%s/%s", request.Waybill.Namespace, request.Waybill.Name)
+	log.Logger("runner").Info("Started apply run", "waybill", wbId)
+	metrics.UpdateRunRequest(request.Type.String(), request.Waybill, -1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(request.Waybill.Spec.RunTimeout)*time.Second)
+	defer cancel()
+
+	clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
+	if err != nil {
+		return fmt.Errorf("could not compute list of prunable resources: %w", err)
+	}
+	applyOptions := &ApplyOptions{
+		ClusterResources:    clusterResources,
+		NamespacedResources: namespacedResources,
+	}
+	delegateToken, err := r.getDelegateToken(ctx, request.Waybill)
+	if err != nil {
+		return fmt.Errorf("failed fetching delegate token: %w", err)
+	}
+
+	tmpHomeDir, tmpRepoDir, cleanupTemp, err := r.setupTempDirs(request.Waybill)
+	if err != nil {
+		return fmt.Errorf("could not setup temporary directories: %w", err)
+	}
+	defer cleanupTemp()
+	gitSSHCommand, err := r.setupGitSSH(ctx, request.Waybill, tmpHomeDir)
+	if err != nil {
+		return fmt.Errorf("failed setting up repository clone: %w", err)
+	}
+	applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
+	tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
+	if err != nil {
+		return fmt.Errorf("failed setting up repository clone: %w", err)
+	}
+
+	hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(ctx, repositoryPath)
+	if err != nil {
+		return fmt.Errorf("could not determine HEAD hash: %w", err)
+	}
+
+	r.apply(ctx, tmpRepoPath, delegateToken, request.Waybill, applyOptions)
+
+	request.Waybill.Status.LastRun.Commit = hash
+	request.Waybill.Status.LastRun.Type = request.Type.String()
+
+	if err := r.KubeClient.UpdateWaybillStatus(ctx, request.Waybill); err != nil {
+		log.Logger("runner").Warn("Could not update Waybill run info", "waybill", wbId, "error", err)
+	}
+
+	if request.Waybill.Status.LastRun.Success {
+		log.Logger("runner").Debug(fmt.Sprintf("Apply run output for %s:\n%s\n%s", wbId, request.Waybill.Status.LastRun.Command, request.Waybill.Status.LastRun.Output))
+	} else {
+		log.Logger("runner").Warn(fmt.Sprintf("Apply run for %s encountered errors:\n%s", wbId, request.Waybill.Status.LastRun.ErrorMessage))
+	}
+
+	metrics.UpdateFromLastRun(request.Waybill)
+
+	log.Logger("runner").Info("Finished apply run", "waybill", wbId)
+	return nil
 }
 
 // captureRequestFailure is used to capture a request failure that occured
