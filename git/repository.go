@@ -1,8 +1,11 @@
+// Package git provides methods for manipulating and querying git repositories
+// on disk.
 package git
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -130,9 +133,6 @@ func (r *Repository) StopSync() {
 }
 
 func (r *Repository) runGitCommand(ctx context.Context, environment []string, cwd string, args ...string) (string, error) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
 	cmdStr := "git " + strings.Join(args, " ")
 	log.Logger("repository").Info("running command", "cwd", cwd, "cmd", cmdStr)
 
@@ -172,6 +172,16 @@ func (r *Repository) localHash(ctx context.Context) (string, error) {
 	return strings.Trim(string(output), "\n"), nil
 }
 
+// localHashForPath returns the hash of the configured revision for the
+// specified path.
+func (r *Repository) localHashForPath(ctx context.Context, path string) (string, error) {
+	output, err := r.runGitCommand(ctx, nil, r.path, "log", "--pretty=format:%h", "-n", "1", "--", path)
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(string(output), "\n"), nil
+}
+
 // remoteHash returns the upstream hash for the ref that corresponds to the
 // configured Revision.
 func (r *Repository) remoteHash(ctx context.Context) (string, error) {
@@ -193,6 +203,9 @@ func (r *Repository) remoteHash(ctx context.Context) (string, error) {
 }
 
 func (r *Repository) sync(ctx context.Context) error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	gitRepoPath := filepath.Join(r.path, ".git")
 	_, err := os.Stat(gitRepoPath)
 	switch {
@@ -264,4 +277,54 @@ func (r *Repository) cloneRemote(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// CloneRepository creates a clone of the existing repository to a new location
+// on disk and only checkouts the specified subpath. On success, it returns the
+// hash of the new repository clone's HEAD.
+func (r *Repository) CloneLocal(ctx context.Context, environment []string, dst, subpath string) (string, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	hash, err := r.localHashForPath(ctx, subpath)
+	if err != nil {
+		return "", err
+	}
+
+	// git clone --no-checkout src dst
+	if _, err := r.runGitCommand(ctx, nil, "", "clone", "--no-checkout", r.path, dst); err != nil {
+		return "", err
+	}
+
+	// git checkout HEAD -- ./path
+	if _, err := r.runGitCommand(ctx, environment, dst, "checkout", r.repositoryConfig.Revision, "--", subpath); err != nil {
+		return "", err
+	}
+	return hash, nil
+}
+
+// HashForPath returns the hash of the configured revision for the specified
+// path.
+func (r *Repository) HashForPath(ctx context.Context, path string) (string, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.localHashForPath(ctx, path)
+}
+
+// HasChangesForPath returns true if there are changes that have been committed
+// since the commit hash provided, under the specified path.
+func (r *Repository) HasChangesForPath(ctx context.Context, path, sinceHash string) (bool, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	cmd := []string{"diff", "--quiet", sinceHash, r.repositoryConfig.Revision, "--", path}
+	_, err := r.runGitCommand(ctx, nil, r.path, cmd...)
+	if err == nil {
+		return false, nil
+	}
+	var e *exec.ExitError
+	if errors.As(err, &e) && e.ExitCode() == 1 {
+		return true, nil
+	}
+	return false, err
 }
