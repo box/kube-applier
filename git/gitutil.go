@@ -26,24 +26,6 @@ func (g *Util) HeadHashForPaths(ctx context.Context, args ...string) (string, er
 	return strings.Trim(hash, "\n"), err
 }
 
-// HeadCommitLogForPaths returns the log of the current HEAD commit, including a list
-// of the files that were modified for the filtered directories
-func (g *Util) HeadCommitLogForPaths(ctx context.Context, args ...string) (string, error) {
-	cmd := []string{"log", "-1", "--name-status", "--"}
-	cmd = append(cmd, args...)
-	log, err := runGitCmd(ctx, nil, g.RepoPath, cmd...)
-	return log, err
-}
-
-// CommitLog returns the log of the provided commit, including a list of the
-// files that were modified for the filtered directories
-func (g *Util) CommitLog(ctx context.Context, commit string) (string, error) {
-	cmd := []string{"log", "-1", "--name-status", commit}
-	cmd = append(cmd)
-	log, err := runGitCmd(ctx, nil, g.RepoPath, cmd...)
-	return log, err
-}
-
 // HasChangesForPath returns true if changes have been committed since the
 // commit hash provided, under the specified path.
 func (g *Util) HasChangesForPath(ctx context.Context, path, sinceHash string) (bool, error) {
