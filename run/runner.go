@@ -113,6 +113,7 @@ type Runner struct {
 	KubectlClient  *kubectl.Client
 	PruneBlacklist []string
 	RepoPath       string
+	Repository     *git.Repository
 	WorkerCount    int
 	workerGroup    *sync.WaitGroup
 	workerQueue    chan Request
@@ -176,14 +177,9 @@ func (r *Runner) processRequest(request Request) error {
 		return fmt.Errorf("failed setting up repository clone: %w", err)
 	}
 	applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
-	tmpRepoPath, repositoryPath, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
+	tmpRepoPath, hash, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
 	if err != nil {
 		return fmt.Errorf("failed setting up repository clone: %w", err)
-	}
-
-	hash, err := (&git.Util{RepoPath: tmpRepoPath}).HeadHashForPaths(ctx, repositoryPath)
-	if err != nil {
-		return fmt.Errorf("could not determine HEAD hash: %w", err)
 	}
 
 	r.apply(ctx, tmpRepoPath, delegateToken, request.Waybill, applyOptions)
@@ -283,19 +279,16 @@ func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv
 	if err := r.setupStrongboxKeyring(ctx, waybill, tmpHomeDir); err != nil {
 		return "", "", err
 	}
-	root, sub, err := (&git.Util{RepoPath: r.RepoPath}).SplitPath(ctx)
-	if err != nil {
-		return "", "", err
-	}
 	repositoryPath := waybill.Spec.RepositoryPath
 	if repositoryPath == "" {
 		repositoryPath = waybill.Namespace
 	}
-	subpath := filepath.Join(sub, repositoryPath)
-	if err := git.CloneRepository(ctx, root, tmpRepoDir, subpath, []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}); err != nil {
+	subpath := filepath.Join(r.RepoPath, repositoryPath)
+	hash, err := r.Repository.CloneLocal(ctx, []string{fmt.Sprintf("STRONGBOX_HOME=%s", tmpHomeDir)}, tmpRepoDir, subpath)
+	if err != nil {
 		return "", "", err
 	}
-	return filepath.Join(tmpRepoDir, sub), repositoryPath, nil
+	return filepath.Join(tmpRepoDir, r.RepoPath), hash, nil
 }
 
 // setupGitSSH ensures that any custom SSH keys configured for the Waybill are

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -21,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
-	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
@@ -111,7 +111,8 @@ var _ = Describe("Runner", func() {
 			KubeClient:     testKubeClient,
 			KubectlClient:  &kubectl.Client{Host: testConfig.Host},
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
-			RepoPath:       "../testdata/manifests",
+			Repository:     testRepository,
+			RepoPath:       "testdata/manifests",
 			WorkerCount:    1, // limit to one to prevent race issues
 		}
 		testRunQueue = testRunner.Start()
@@ -210,7 +211,7 @@ deployment.apps/test-deployment created
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-b configured
-error: error validating "../testdata/manifests/app-b/deployment.yaml": error validating data: ValidationError(Deployment.spec.template.spec): missing required field "containers" in io.k8s.api.core.v1.PodSpec; if you choose to ignore these errors, turn validation off with --validate=false
+error: error validating "testdata/manifests/app-b/deployment.yaml": error validating data: ValidationError(Deployment.spec.template.spec): missing required field "containers" in io.k8s.api.core.v1.PodSpec; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
 					Success: false,
@@ -238,7 +239,7 @@ deployment.apps/test-deployment created (server dry run)
 				if repositoryPath == "" {
 					repositoryPath = expected[i].Namespace
 				}
-				headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), repositoryPath)
+				headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, repositoryPath))
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -293,7 +294,7 @@ deployment.apps/test-deployment created (server dry run)
 			if repositoryPath == "" {
 				repositoryPath = waybill.Namespace
 			}
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), repositoryPath)
+			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, repositoryPath))
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -471,7 +472,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-b-kustomize")
+			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-b-kustomize"))
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -693,7 +694,7 @@ deployment.apps/test-deployment created
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-d")
+			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-d"))
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -704,7 +705,7 @@ deployment.apps/test-deployment created
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-d configured
-error: error validating "../testdata/manifests/app-d/deployment.yaml": error validating data: invalid object to validate; if you choose to ignore these errors, turn validation off with --validate=false
+error: error validating "testdata/manifests/app-d/deployment.yaml": error validating data: invalid object to validate; if you choose to ignore these errors, turn validation off with --validate=false
 `,
 					Started: metav1.Time{},
 					Success: false,
@@ -848,7 +849,7 @@ deployment.apps/test-deployment created
 				Data: map[string][]byte{},
 			})).To(BeNil())
 
-			headCommitHash, err := (&git.Util{RepoPath: testRunner.RepoPath}).HeadHashForPaths(context.TODO(), "app-e")
+			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-e"))
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 

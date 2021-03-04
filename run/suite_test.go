@@ -27,6 +27,7 @@ import (
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	"github.com/utilitywarehouse/kube-applier/client"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	// +kubebuilder:scaffold:imports
 )
@@ -34,9 +35,17 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var testConfig *rest.Config
-var testKubeClient *client.Client
-var testEnv *envtest.Environment
+var (
+	testConfig     *rest.Config
+	testKubeClient *client.Client
+	testEnv        *envtest.Environment
+	testRepository *git.Repository
+)
+
+func init() {
+	repoPath, _ := filepath.Abs("..")
+	testRepository, _ = git.NewRepository(repoPath, git.RepositoryConfig{Remote: "foo"}, git.SyncOptions{})
+}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
