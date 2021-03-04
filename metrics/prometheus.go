@@ -1,6 +1,8 @@
 // Package metrics contains global structures for capturing kube-applier
 // metrics. The following metrics are implemented:
 //
+//   - kube_applier_git_last_sync_timestamp
+//   - kube_applier_git_sync_count{"success"}
 //   - kube_applier_kubectl_exit_code_count{"namespace", "exit_code"}
 //   - kube_applier_namespace_apply_count{"namespace"}
 //   - kube_applier_run_latency_seconds{"namespace", "success"}
@@ -17,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -34,6 +37,11 @@ var (
 	// Used to parse kubectl output
 	kubectlOutputPattern = regexp.MustCompile(`([\w.\-]+)\/([\w.\-:]+) ([\w-]+).*`)
 
+	// gitLastSyncTimestamp is a Gauge that captures the timestamp of the last
+	// successful git sync
+	gitLastSyncTimestamp prometheus.Gauge
+	// gitSyncCount is a Counter vector of git sync operations
+	gitSyncCount *prometheus.CounterVec
 	// kubectlExitCodeCount is a Counter vector of run exit codes
 	kubectlExitCodeCount *prometheus.CounterVec
 	// namespaceApplyCount is a Counter vector of runs success status
@@ -61,6 +69,21 @@ var (
 )
 
 func init() {
+	gitLastSyncTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "git_last_sync_timestamp",
+		Help:      "Timestamp of the last successful git sync",
+	})
+	gitSyncCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Name:      "git_sync_count",
+		Help:      "Count of git sync operations",
+	},
+		[]string{
+			// Whether the apply was successful or not
+			"success",
+		},
+	)
 	kubectlExitCodeCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Name:      "kubectl_exit_code_count",
@@ -224,6 +247,15 @@ func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 			"namespace": wb.Namespace,
 		}).Set(float64(wb.Status.LastRun.Finished.Unix()))
 	}
+}
+
+func RecordGitSync(success bool) {
+	if success {
+		gitLastSyncTimestamp.Set(float64(time.Now().Unix()))
+	}
+	gitSyncCount.With(prometheus.Labels{
+		"success": strconv.FormatBool(success),
+	}).Inc()
 }
 
 // UpdateFromLastRun takes information from a Waybill's LastRun status and
