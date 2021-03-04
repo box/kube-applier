@@ -12,7 +12,6 @@
         * [Delegate ServiceAccount](#delegate-serviceaccount)
         * [Integration with `strongbox`](#integration-with-strongbox)
         * [Custom SSH Keys](#custom-ssh-keys)
-    * [Mounting the Git Repository](#mounting-the-git-repository)
     * [Resource pruning](#resource-pruning)
 * [Deploying](#deploying)
 * [Monitoring](#monitoring)
@@ -238,15 +237,6 @@ stringData:
   known_hosts: |-
     github.com ssh-rsa AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 ```
-
-### Mounting the Git Repository
-
-Git-sync keeps a local directory up to date with a remote repo. The local
-directory resides in a shared emptyDir volume that is mounted in both the
-git-sync and kube-applier containers.
-
-Reference the [git-sync](https://github.com/kubernetes/git-sync) repo for setup
-and usage.
 
 ### Resource pruning
 

@@ -8,11 +8,9 @@ spec:
       containers:
       - name: kube-applier
         env:
-        - name: NAMESPACES_DIR
-          value: "example-env"
         - name: DIFF_URL_FORMAT
           value: "https://github.com/org/repo/commit/%s"
-      - name: git-sync
-        env:
-        - name: GIT_SYNC_REPO
+        - name: REPO_PATH
+          value: "example-env"
+        - name: REPO_REMOTE
           value: "git@github.com:org/repo.git"
