@@ -53,12 +53,12 @@ func (so SyncOptions) gitSSHCommand() string {
 // GitPolling type runs for namespaces. The implementation borrows heavily from
 // git-sync.
 type Repository struct {
-	lock             sync.Mutex
-	path             string
-	repositoryConfig RepositoryConfig
-	running          bool
-	stop, stopped    chan bool
-	syncOptions      SyncOptions
+	lock                  sync.Mutex
+	path                  string
+	repositoryConfig      RepositoryConfig
+	running               bool
+	stop, stopped, synced chan bool
+	syncOptions           SyncOptions
 }
 
 // NewRepository initialises a Repository struct.
@@ -107,6 +107,16 @@ func (r *Repository) StartSync() {
 	ticker := time.NewTicker(r.syncOptions.Interval)
 	defer ticker.Stop()
 	r.running = true
+	// The first sync is done outside of the loop, without any timeouts, since
+	// the first clone might take longer than usual depending on the size of the
+	// repository. Additionally, this leads to a simpler implementation for the
+	// WaitForInitialSync method.
+	r.synced = make(chan bool)
+	if err := r.sync(context.Background()); err != nil {
+		log.Logger("repository").Error("could not sync git repository", "error", err)
+		return
+	}
+	close(r.synced)
 	for {
 		select {
 		case <-ticker.C:
@@ -130,6 +140,19 @@ func (r *Repository) StopSync() {
 	close(r.stop)
 	<-r.stopped
 	r.running = false
+}
+
+// WaitForInitialSync returns when the Repository has finished performing the
+// initial sync operation.
+func (r *Repository) WaitForInitialSync(ctx context.Context) error {
+	for {
+		select {
+		case <-r.synced:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (r *Repository) runGitCommand(ctx context.Context, environment []string, cwd string, args ...string) (string, error) {
