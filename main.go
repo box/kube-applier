@@ -179,13 +179,10 @@ func main() {
 			Interval:             time.Duration(rsi) * time.Second,
 		},
 	)
-	go repo.StartSync()
-
 	rt, _ := strconv.Atoi(repoTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(rt)*time.Second)
-	log.Logger("kube-applier").Info("waiting for the repository to complete syncing")
-	if err := repo.WaitForInitialSync(ctx); err != nil {
-		log.Logger("kube-applier").Error("failed waiting for the repository to sync", "error", err)
+	if err := repo.StartSync(ctx); err != nil {
+		log.Logger("kube-applier").Error("could not sync git repository", "error", err)
 		os.Exit(1)
 	}
 	cancel()
