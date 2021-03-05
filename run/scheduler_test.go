@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
-	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
@@ -64,7 +64,8 @@ var _ = Describe("Scheduler", func() {
 			Clock:               &zeroClock{},
 			GitPollInterval:     time.Second * 5,
 			KubeClient:          testKubeClient,
-			RepoPath:            "../testdata/manifests",
+			Repository:          testRepository,
+			RepoPath:            "testdata/manifests",
 			RunQueue:            testRunQueue,
 		}
 		testScheduler.Start()
@@ -164,14 +165,13 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should trigger runs for Waybills that have had their source change in git", func() {
-			gitUtil := &git.Util{RepoPath: "../testdata/manifests"}
-			headHash, err := gitUtil.HeadHashForPaths(context.TODO(), ".")
+			headHash, err := testScheduler.Repository.HashForPath(context.TODO(), testScheduler.RepoPath)
 			Expect(err).To(BeNil())
 			Expect(headHash).ToNot(BeEmpty())
-			appAHeadHash, err := gitUtil.HeadHashForPaths(context.TODO(), "app-a")
+			appAHeadHash, err := testScheduler.Repository.HashForPath(context.TODO(), filepath.Join(testScheduler.RepoPath, "app-a"))
 			Expect(err).To(BeNil())
 			Expect(appAHeadHash).ToNot(BeEmpty())
-			appAKHeadHash, err := gitUtil.HeadHashForPaths(context.TODO(), "app-a-kustomize")
+			appAKHeadHash, err := testScheduler.Repository.HashForPath(context.TODO(), filepath.Join(testScheduler.RepoPath, "app-a-kustomize"))
 			Expect(err).To(BeNil())
 			Expect(appAKHeadHash).ToNot(BeEmpty())
 

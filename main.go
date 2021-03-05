@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/utilitywarehouse/kube-applier/client"
+	"github.com/utilitywarehouse/kube-applier/git"
 	"github.com/utilitywarehouse/kube-applier/kubectl"
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
@@ -25,27 +27,52 @@ const (
 )
 
 var (
-	repoPath             = os.Getenv("REPO_PATH")
-	repoTimeout          = os.Getenv("REPO_TIMEOUT_SECONDS")
-	listenPort           = os.Getenv("LISTEN_PORT")
-	gitPollInterval      = os.Getenv("GIT_POLL_INTERVAL_SECONDS")
-	waybillPollInterval  = os.Getenv("WAYBILL_POLL_INTERVAL_SECONDS")
-	statusUpdateInterval = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
-	dryRun               = os.Getenv("DRY_RUN")
-	logLevel             = os.Getenv("LOG_LEVEL")
-	pruneBlacklist       = os.Getenv("PRUNE_BLACKLIST")
-
-	// Github commit diff url
-	diffURLFormat = os.Getenv("DIFF_URL_FORMAT")
-	workerCount   = os.Getenv("WORKER_COUNT")
+	repoRemote            = os.Getenv("REPO_REMOTE")
+	repoBranch            = os.Getenv("REPO_BRANCH")
+	repoRevision          = os.Getenv("REPO_REVISION")
+	repoDepth             = os.Getenv("REPO_DEPTH")
+	repoDest              = os.Getenv("REPO_DEST")
+	repoGitSSHKeyPath     = os.Getenv("REPO_GIT_SSH_KEY_PATH")
+	repoGitKnownHostsPath = os.Getenv("REPO_GIT_KNOWN_HOSTS_PATH")
+	repoSyncInterval      = os.Getenv("REPO_SYNC_INTERVAL_SECONDS")
+	repoPath              = os.Getenv("REPO_PATH")
+	repoTimeout           = os.Getenv("REPO_TIMEOUT_SECONDS")
+	listenPort            = os.Getenv("LISTEN_PORT")
+	gitPollInterval       = os.Getenv("GIT_POLL_INTERVAL_SECONDS")
+	waybillPollInterval   = os.Getenv("WAYBILL_POLL_INTERVAL_SECONDS")
+	statusUpdateInterval  = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
+	dryRun                = os.Getenv("DRY_RUN")
+	logLevel              = os.Getenv("LOG_LEVEL")
+	pruneBlacklist        = os.Getenv("PRUNE_BLACKLIST")
+	diffURLFormat         = os.Getenv("DIFF_URL_FORMAT")
+	workerCount           = os.Getenv("WORKER_COUNT")
 
 	runnerWorkerCount int
 )
 
 func validate() {
-	if repoPath == "" {
-		fmt.Println("Need to export REPO_PATH")
-		os.Exit(1)
+	if repoDepth == "" {
+		repoDepth = "0"
+	} else {
+		_, err := strconv.Atoi(repoDepth)
+		if err != nil {
+			fmt.Println("REPO_DEPTH must be an int")
+			os.Exit(1)
+		}
+	}
+
+	if repoDest == "" {
+		repoDest = "/src"
+	}
+
+	if repoSyncInterval == "" {
+		repoSyncInterval = "0"
+	} else {
+		_, err := strconv.Atoi(repoSyncInterval)
+		if err != nil {
+			fmt.Println("REPO_SYNC_INTERVAL must be an int")
+			os.Exit(1)
+		}
 	}
 
 	if repoTimeout == "" {
@@ -136,11 +163,32 @@ func main() {
 
 	clock := &sysutil.Clock{}
 
+	rd, _ := strconv.Atoi(repoDepth)
+	rsi, _ := strconv.Atoi(repoSyncInterval)
+	repo, err := git.NewRepository(
+		repoDest,
+		git.RepositoryConfig{
+			Remote:   repoRemote,
+			Branch:   repoBranch,
+			Revision: repoRevision,
+			Depth:    rd,
+		},
+		git.SyncOptions{
+			GitSSHKeyPath:        repoGitSSHKeyPath,
+			GitSSHKnownHostsPath: repoGitKnownHostsPath,
+			Interval:             time.Duration(rsi) * time.Second,
+		},
+	)
+	go repo.StartSync()
+
 	rt, _ := strconv.Atoi(repoTimeout)
-	if err := sysutil.WaitForDir(repoPath, waitForRepoInterval, time.Duration(rt)*time.Second); err != nil {
-		log.Logger("kube-applier").Error("problem waiting for repo", "path", repoPath, "error", err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(rt)*time.Second)
+	log.Logger("kube-applier").Info("waiting for the repository to complete syncing")
+	if err := repo.WaitForInitialSync(ctx); err != nil {
+		log.Logger("kube-applier").Error("failed waiting for the repository to sync", "error", err)
 		os.Exit(1)
 	}
+	cancel()
 
 	kubeClient, err := client.New()
 	if err != nil {
@@ -169,6 +217,7 @@ func main() {
 		KubeClient:     kubeClient,
 		KubectlClient:  kubectlClient,
 		PruneBlacklist: pruneBlacklistSlice,
+		Repository:     repo,
 		RepoPath:       repoPath,
 		WorkerCount:    runnerWorkerCount,
 	}
@@ -181,6 +230,7 @@ func main() {
 		Clock:               clock,
 		GitPollInterval:     time.Duration(gpi) * time.Second,
 		KubeClient:          kubeClient,
+		Repository:          repo,
 		RepoPath:            repoPath,
 		RunQueue:            runQueue,
 		WaybillPollInterval: time.Duration(wpi) * time.Second,
@@ -202,12 +252,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := signals.SetupSignalHandler()
+	ctx = signals.SetupSignalHandler()
 	<-ctx.Done()
 	log.Logger("kube-applier").Info("Interrupted, shutting down...")
 	if err := webserver.Shutdown(); err != nil {
 		log.Logger("kube-applier").Error(fmt.Sprintf("Cannot shutdown webserver: %v", err))
 	}
+	repo.StopSync()
 	scheduler.Stop()
 	runner.Stop()
 }

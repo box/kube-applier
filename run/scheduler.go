@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
@@ -57,13 +58,13 @@ type Scheduler struct {
 	Clock               sysutil.ClockInterface
 	GitPollInterval     time.Duration
 	KubeClient          *client.Client
+	Repository          *git.Repository
 	RepoPath            string
 	RunQueue            chan<- Request
 	WaybillPollInterval time.Duration
 	waybills            map[string]*kubeapplierv1alpha1.Waybill
 	waybillSchedulers   map[string]func()
 	waybillsMutex       sync.Mutex
-	gitUtil             *git.Util
 	gitLastQueuedHash   string
 	stop                chan bool
 	waitGroup           *sync.WaitGroup
@@ -79,7 +80,6 @@ func (s *Scheduler) Start() {
 	}
 	s.stop = make(chan bool)
 	s.waitGroup = &sync.WaitGroup{}
-	s.gitUtil = &git.Util{RepoPath: s.RepoPath}
 	s.waybills = make(map[string]*kubeapplierv1alpha1.Waybill)
 	s.waybillSchedulers = make(map[string]func())
 
@@ -183,7 +183,7 @@ func (s *Scheduler) processGitChanges() {
 	ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
 	defer cancel()
 
-	hash, err := s.gitUtil.HeadHashForPaths(ctx, ".")
+	hash, err := s.Repository.HashForPath(ctx, s.RepoPath)
 	if err != nil {
 		log.Logger("scheduler").Warn("Git polling could not get HEAD hash", "error", err)
 		return
@@ -211,7 +211,7 @@ func (s *Scheduler) processGitChanges() {
 				path = s.waybills[i].Namespace
 			}
 			wbId := fmt.Sprintf("%s/%s", s.waybills[i].Namespace, s.waybills[i].Name)
-			changed, err := s.gitUtil.HasChangesForPath(ctx, path, sinceHash)
+			changed, err := s.Repository.HasChangesForPath(ctx, filepath.Join(s.RepoPath, path), sinceHash)
 			if err != nil {
 				log.Logger("scheduler").Warn("Could not check path for changes, skipping polling run", "waybill", wbId, "path", path, "since", sinceHash, "error", err)
 				continue

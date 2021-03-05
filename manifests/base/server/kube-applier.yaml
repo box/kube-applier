@@ -41,58 +41,29 @@ spec:
         - name: kube-applier
           image: quay.io/utilitywarehouse/kube-applier:3.1.0
           env:
-            - name: NAMESPACES_DIR
-              value: "base"
-            - name: REPO_PATH
-              value: "/src/manifests/$(NAMESPACES_DIR)"
             - name: DIFF_URL_FORMAT
               value: "https://github.com/org/repo/commit/%s"
             - name: LOG_LEVEL
-              value: warn
+              value: "warn"
+            - name: REPO_GIT_SSH_KEY_PATH
+              value: "/etc/git-secret/ssh"
+            - name: REPO_GIT_KNOWN_HOSTS_PATH
+              value: "/etc/git-secret/known_hosts"
+            - name: REPO_REMOTE
+              value: "git@github.com:org/repo.git"
           volumeMounts:
-            - name: git-repo
-              mountPath: /src
-              readOnly: true
+            - name: git-secret
+              mountPath: /etc/git-secret
           resources:
             requests:
-              cpu: 200m
-              memory: 128Mi
+              cpu: 250m
+              memory: 256Mi
             limits:
               cpu: 7000m
               memory: 512Mi
           ports:
             - containerPort: 8080
-        - name: git-sync
-          image: k8s.gcr.io/git-sync/git-sync:v3.2.2
-          securityContext:
-            runAsUser: 65533 # git-sync user
-            runAsGroup: 0 # root group to read mounted Secrets
-          env:
-            - name: GIT_SYNC_REPO
-              value: "git@github.com:org/repo.git"
-            - name: GIT_SYNC_DEST
-              value: "manifests"
-            - name: GIT_SYNC_SSH
-              value: "true"
-            - name: GIT_SYNC_MAX_SYNC_FAILURES
-              value: "5"
-            - name: GIT_SYNC_WAIT
-              value: "30"
-          volumeMounts:
-            - name: git-repo
-              mountPath: /tmp/git
-            - name: git-secret
-              mountPath: /etc/git-secret
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 7000m
-              memory: 512Mi
       volumes:
-        - name: git-repo
-          emptyDir: {}
         - name: git-secret
           secret:
             secretName: ssh
