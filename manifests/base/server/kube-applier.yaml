@@ -67,4 +67,4 @@ spec:
         - name: git-secret
           secret:
             secretName: ssh
-            defaultMode: 0440
+            defaultMode: 0400
