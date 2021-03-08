@@ -201,6 +201,7 @@ func (s *Scheduler) processGitChanges() {
 		s.waybillsMutex.Unlock()
 		return
 	}
+	log.Logger("scheduler").Debug("New HEAD hash detected, checking for Waybills that need to be applied", "hash", hash)
 	for i := range s.waybills {
 		// If LastRun is nil, we don't trigger the Polling run at all
 		// and instead rely on the Scheduled run to kickstart things.

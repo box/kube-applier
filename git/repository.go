@@ -152,7 +152,7 @@ func (r *Repository) StopSync() {
 
 func (r *Repository) runGitCommand(ctx context.Context, environment []string, cwd string, args ...string) (string, error) {
 	cmdStr := "git " + strings.Join(args, " ")
-	log.Logger("repository").Info("running command", "cwd", cwd, "cmd", cmdStr)
+	log.Logger("repository").Debug("running command", "cwd", cwd, "cmd", cmdStr)
 
 	cmd := exec.CommandContext(ctx, "git", args...)
 	if cwd != "" {
@@ -176,7 +176,7 @@ func (r *Repository) runGitCommand(ctx context.Context, environment []string, cw
 	if err != nil {
 		return "", fmt.Errorf("Run(%s): %w: { stdout: %q, stderr: %q }", cmdStr, err, stdout, stderr)
 	}
-	log.Logger("repository").Info("command result", "stdout", stdout, "stderr", stderr)
+	log.Logger("repository").Debug("command result", "stdout", stdout, "stderr", stderr)
 
 	return stdout, nil
 }

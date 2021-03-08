@@ -340,7 +340,7 @@ func parseKubectlOutput(output string) []applyObjectResult {
 		m := kubectlOutputPattern.FindAllStringSubmatch(line, -1)
 		// Should be only 1 match, and should contain 4 elements (0: whole match, 1: resource-type, 2: name, 3: action
 		if len(m) != 1 || len(m[0]) != 4 {
-			log.Logger("metrics").Warn("Could not parse output, expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
+			log.Logger("metrics").Debug("Could not parse output, expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
 			continue
 		}
 		results = append(results, applyObjectResult{
