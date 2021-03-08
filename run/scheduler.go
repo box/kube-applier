@@ -197,8 +197,8 @@ func (s *Scheduler) processGitChanges() {
 	// commit when they are acknowledged. This is acceptable, since they
 	// will (eventually) trigger a scheduled run.
 	s.waybillsMutex.Lock()
+	defer s.waybillsMutex.Unlock()
 	if hash == s.gitLastQueuedHash {
-		s.waybillsMutex.Unlock()
 		return
 	}
 	log.Logger("scheduler").Debug("New HEAD hash detected, checking for Waybills that need to be applied", "hash", hash)
@@ -224,7 +224,6 @@ func (s *Scheduler) processGitChanges() {
 		}
 	}
 	s.gitLastQueuedHash = hash
-	s.waybillsMutex.Unlock()
 }
 
 func (s *Scheduler) newWaybillLoop(waybill *kubeapplierv1alpha1.Waybill) func() {
