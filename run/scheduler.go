@@ -56,7 +56,7 @@ const (
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
 	Clock               sysutil.ClockInterface
-	GitPollInterval     time.Duration
+	GitPollWait         time.Duration
 	KubeClient          *client.Client
 	Repository          *git.Repository
 	RepoPath            string
@@ -166,12 +166,10 @@ func (s *Scheduler) updateWaybillsLoop() {
 }
 
 func (s *Scheduler) gitPollingLoop() {
-	ticker := time.NewTicker(s.GitPollInterval)
-	defer ticker.Stop()
 	defer s.waitGroup.Done()
 	for {
 		select {
-		case <-ticker.C:
+		case <-time.After(s.GitPollWait):
 			s.processGitChanges()
 		case <-s.stop:
 			return
@@ -180,7 +178,7 @@ func (s *Scheduler) gitPollingLoop() {
 }
 
 func (s *Scheduler) processGitChanges() {
-	ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	hash, err := s.Repository.HashForPath(ctx, s.RepoPath)
