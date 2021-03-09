@@ -19,6 +19,14 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
+var (
+	gitExecutablePath string
+)
+
+func init() {
+	gitExecutablePath = exec.Command("git").String()
+}
+
 // RepositoryConfig defines a remote git repository.
 type RepositoryConfig struct {
 	Remote   string
@@ -151,10 +159,10 @@ func (r *Repository) StopSync() {
 }
 
 func (r *Repository) runGitCommand(ctx context.Context, environment []string, cwd string, args ...string) (string, error) {
-	cmdStr := "git " + strings.Join(args, " ")
+	cmdStr := gitExecutablePath + " " + strings.Join(args, " ")
 	log.Logger("repository").Debug("running command", "cwd", cwd, "cmd", cmdStr)
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, gitExecutablePath, args...)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
