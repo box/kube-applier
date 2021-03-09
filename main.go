@@ -19,13 +19,6 @@ import (
 	"github.com/utilitywarehouse/kube-applier/webserver"
 )
 
-const (
-	// Number of seconds to wait in between attempts to locate the repo at the
-	// specified path. Git-sync atomically places the repo at the specified path
-	// once it is finished pulling, so it will not be present immediately.
-	waitForRepoInterval = 1 * time.Second
-)
-
 var (
 	repoRemote            = os.Getenv("REPO_REMOTE")
 	repoBranch            = os.Getenv("REPO_BRANCH")
