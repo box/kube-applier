@@ -305,8 +305,8 @@ func (r *Repository) cloneRemote(ctx context.Context) error {
 	return nil
 }
 
-// CloneRepository creates a clone of the existing repository to a new location
-// on disk and only checkouts the specified subpath. On success, it returns the
+// CloneLocal creates a clone of the existing repository to a new location on
+// disk and only checkouts the specified subpath. On success, it returns the
 // hash of the new repository clone's HEAD.
 func (r *Repository) CloneLocal(ctx context.Context, environment []string, dst, subpath string) (string, error) {
 	r.lock.Lock()

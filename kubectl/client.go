@@ -75,7 +75,7 @@ func (o *ApplyOptions) Args() []string {
 	return args
 }
 
-func (o *ApplyOptions) SetCommandEnvironment(cmd *exec.Cmd) {
+func (o *ApplyOptions) setCommandEnvironment(cmd *exec.Cmd) {
 	if len(o.Environment) > 0 {
 		cmd.Env = append(os.Environ(), o.Environment...)
 	}
@@ -134,7 +134,7 @@ func (c *Client) applyKustomize(ctx context.Context, path string, options ApplyO
 	var kustomizeStdout, kustomizeStderr bytes.Buffer
 
 	kustomizeCmd := exec.CommandContext(ctx, "kustomize", "build", path)
-	options.SetCommandEnvironment(kustomizeCmd)
+	options.setCommandEnvironment(kustomizeCmd)
 	kustomizeCmd.Stdout = &kustomizeStdout
 	kustomizeCmd.Stderr = &kustomizeStderr
 
@@ -230,7 +230,7 @@ func (c *Client) apply(ctx context.Context, path string, stdin []byte, options A
 	args = append(args, options.Args()...)
 
 	kubectlCmd := exec.CommandContext(ctx, "kubectl", args...)
-	options.SetCommandEnvironment(kubectlCmd)
+	options.setCommandEnvironment(kubectlCmd)
 	if path == "-" {
 		if len(stdin) == 0 {
 			return "", "", fmt.Errorf("path can't be %s when stdin is empty", path)

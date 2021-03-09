@@ -249,6 +249,8 @@ func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 	}
 }
 
+// RecordGitSync records a git repository sync attempt by updating all the
+// relevant metrics
 func RecordGitSync(success bool) {
 	if success {
 		gitLastSyncTimestamp.Set(float64(time.Now().Unix()))
