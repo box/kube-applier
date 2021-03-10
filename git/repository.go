@@ -241,6 +241,7 @@ func (r *Repository) sync(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	case err != nil:
 		return fmt.Errorf("error checking if repo exists %q: %v", gitRepoPath, err)
 	default:
@@ -272,6 +273,10 @@ func (r *Repository) sync(ctx context.Context) error {
 	}
 	// GC clone
 	if _, err := r.runGitCommand(ctx, nil, r.path, "gc", "--prune=all"); err != nil {
+		return err
+	}
+	// Reset HEAD
+	if _, err = r.runGitCommand(ctx, nil, r.path, "reset", "--soft", fmt.Sprintf("origin/%s", r.repositoryConfig.Branch)); err != nil {
 		return err
 	}
 	return nil
