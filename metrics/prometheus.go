@@ -249,6 +249,8 @@ func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 	}
 }
 
+// RecordGitSync records a git repository sync attempt by updating all the
+// relevant metrics
 func RecordGitSync(success bool) {
 	if success {
 		gitLastSyncTimestamp.Set(float64(time.Now().Unix()))
@@ -316,6 +318,7 @@ func UpdateRunRequest(t string, waybill *kubeapplierv1alpha1.Waybill, diff float
 
 // Reset deletes all metrics. This is exported for use in integration tests.
 func Reset() {
+	gitSyncCount.Reset()
 	kubectlExitCodeCount.Reset()
 	namespaceApplyCount.Reset()
 	runLatency.Reset()
@@ -340,7 +343,7 @@ func parseKubectlOutput(output string) []applyObjectResult {
 		m := kubectlOutputPattern.FindAllStringSubmatch(line, -1)
 		// Should be only 1 match, and should contain 4 elements (0: whole match, 1: resource-type, 2: name, 3: action
 		if len(m) != 1 || len(m[0]) != 4 {
-			log.Logger("metrics").Warn("Could not parse output, expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
+			log.Logger("metrics").Debug("Could not parse output, expected format: <resource-type>/<name> <action>", "line", line, "full output", output)
 			continue
 		}
 		results = append(results, applyObjectResult{

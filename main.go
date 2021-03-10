@@ -19,13 +19,6 @@ import (
 	"github.com/utilitywarehouse/kube-applier/webserver"
 )
 
-const (
-	// Number of seconds to wait in between attempts to locate the repo at the
-	// specified path. Git-sync atomically places the repo at the specified path
-	// once it is finished pulling, so it will not be present immediately.
-	waitForRepoInterval = 1 * time.Second
-)
-
 var (
 	repoRemote            = os.Getenv("REPO_REMOTE")
 	repoBranch            = os.Getenv("REPO_BRANCH")
@@ -38,7 +31,7 @@ var (
 	repoPath              = os.Getenv("REPO_PATH")
 	repoTimeout           = os.Getenv("REPO_TIMEOUT_SECONDS")
 	listenPort            = os.Getenv("LISTEN_PORT")
-	gitPollInterval       = os.Getenv("GIT_POLL_INTERVAL_SECONDS")
+	gitPollWait           = os.Getenv("GIT_POLL_WAIT_SECONDS")
 	waybillPollInterval   = os.Getenv("WAYBILL_POLL_INTERVAL_SECONDS")
 	statusUpdateInterval  = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
 	dryRun                = os.Getenv("DRY_RUN")
@@ -100,12 +93,12 @@ func validate() {
 		os.Exit(1)
 	}
 
-	if gitPollInterval == "" {
-		gitPollInterval = "5"
+	if gitPollWait == "" {
+		gitPollWait = "10"
 	} else {
-		_, err := strconv.Atoi(gitPollInterval)
+		_, err := strconv.Atoi(gitPollWait)
 		if err != nil {
-			fmt.Println("GIT_POLL_INTERVAL_SECONDS must be an int")
+			fmt.Println("GIT_POLL_WAIT_SECONDS must be an int")
 			os.Exit(1)
 		}
 	}
@@ -221,11 +214,11 @@ func main() {
 
 	runQueue := runner.Start()
 
-	gpi, _ := strconv.Atoi(gitPollInterval)
+	gpw, _ := strconv.Atoi(gitPollWait)
 	wpi, _ := strconv.Atoi(waybillPollInterval)
 	scheduler := &run.Scheduler{
 		Clock:               clock,
-		GitPollInterval:     time.Duration(gpi) * time.Second,
+		GitPollWait:         time.Duration(gpw) * time.Second,
 		KubeClient:          kubeClient,
 		Repository:          repo,
 		RepoPath:            repoPath,

@@ -19,6 +19,14 @@ import (
 	"github.com/utilitywarehouse/kube-applier/metrics"
 )
 
+var (
+	gitExecutablePath string
+)
+
+func init() {
+	gitExecutablePath = exec.Command("git").String()
+}
+
 // RepositoryConfig defines a remote git repository.
 type RepositoryConfig struct {
 	Remote   string
@@ -151,10 +159,10 @@ func (r *Repository) StopSync() {
 }
 
 func (r *Repository) runGitCommand(ctx context.Context, environment []string, cwd string, args ...string) (string, error) {
-	cmdStr := "git " + strings.Join(args, " ")
-	log.Logger("repository").Info("running command", "cwd", cwd, "cmd", cmdStr)
+	cmdStr := gitExecutablePath + " " + strings.Join(args, " ")
+	log.Logger("repository").Debug("running command", "cwd", cwd, "cmd", cmdStr)
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, gitExecutablePath, args...)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
@@ -176,7 +184,7 @@ func (r *Repository) runGitCommand(ctx context.Context, environment []string, cw
 	if err != nil {
 		return "", fmt.Errorf("Run(%s): %w: { stdout: %q, stderr: %q }", cmdStr, err, stdout, stderr)
 	}
-	log.Logger("repository").Info("command result", "stdout", stdout, "stderr", stderr)
+	log.Logger("repository").Debug("command result", "stdout", stdout, "stderr", stderr)
 
 	return stdout, nil
 }
@@ -233,6 +241,7 @@ func (r *Repository) sync(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	case err != nil:
 		return fmt.Errorf("error checking if repo exists %q: %v", gitRepoPath, err)
 	default:
@@ -266,6 +275,10 @@ func (r *Repository) sync(ctx context.Context) error {
 	if _, err := r.runGitCommand(ctx, nil, r.path, "gc", "--prune=all"); err != nil {
 		return err
 	}
+	// Reset HEAD
+	if _, err = r.runGitCommand(ctx, nil, r.path, "reset", "--soft", fmt.Sprintf("origin/%s", r.repositoryConfig.Branch)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -297,8 +310,8 @@ func (r *Repository) cloneRemote(ctx context.Context) error {
 	return nil
 }
 
-// CloneRepository creates a clone of the existing repository to a new location
-// on disk and only checkouts the specified subpath. On success, it returns the
+// CloneLocal creates a clone of the existing repository to a new location on
+// disk and only checkouts the specified subpath. On success, it returns the
 // hash of the new repository clone's HEAD.
 func (r *Repository) CloneLocal(ctx context.Context, environment []string, dst, subpath string) (string, error) {
 	r.lock.Lock()

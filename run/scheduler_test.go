@@ -62,7 +62,7 @@ var _ = Describe("Scheduler", func() {
 		testScheduler = Scheduler{
 			WaybillPollInterval: time.Second * 5,
 			Clock:               &zeroClock{},
-			GitPollInterval:     time.Second * 5,
+			GitPollWait:         time.Second * 5,
 			KubeClient:          testKubeClient,
 			Repository:          testRepository,
 			RepoPath:            "testdata/manifests",

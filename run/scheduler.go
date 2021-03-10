@@ -56,7 +56,7 @@ const (
 // Scheduler handles queueing apply runs.
 type Scheduler struct {
 	Clock               sysutil.ClockInterface
-	GitPollInterval     time.Duration
+	GitPollWait         time.Duration
 	KubeClient          *client.Client
 	Repository          *git.Repository
 	RepoPath            string
@@ -166,12 +166,10 @@ func (s *Scheduler) updateWaybillsLoop() {
 }
 
 func (s *Scheduler) gitPollingLoop() {
-	ticker := time.NewTicker(s.GitPollInterval)
-	defer ticker.Stop()
 	defer s.waitGroup.Done()
 	for {
 		select {
-		case <-ticker.C:
+		case <-time.After(s.GitPollWait):
 			s.processGitChanges()
 		case <-s.stop:
 			return
@@ -180,7 +178,7 @@ func (s *Scheduler) gitPollingLoop() {
 }
 
 func (s *Scheduler) processGitChanges() {
-	ctx, cancel := context.WithTimeout(context.Background(), s.GitPollInterval-time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	hash, err := s.Repository.HashForPath(ctx, s.RepoPath)
@@ -197,10 +195,11 @@ func (s *Scheduler) processGitChanges() {
 	// commit when they are acknowledged. This is acceptable, since they
 	// will (eventually) trigger a scheduled run.
 	s.waybillsMutex.Lock()
+	defer s.waybillsMutex.Unlock()
 	if hash == s.gitLastQueuedHash {
-		s.waybillsMutex.Unlock()
 		return
 	}
+	log.Logger("scheduler").Debug("New HEAD hash detected, checking for Waybills that need to be applied", "hash", hash)
 	for i := range s.waybills {
 		// If LastRun is nil, we don't trigger the Polling run at all
 		// and instead rely on the Scheduled run to kickstart things.
@@ -223,7 +222,6 @@ func (s *Scheduler) processGitChanges() {
 		}
 	}
 	s.gitLastQueuedHash = hash
-	s.waybillsMutex.Unlock()
 }
 
 func (s *Scheduler) newWaybillLoop(waybill *kubeapplierv1alpha1.Waybill) func() {
