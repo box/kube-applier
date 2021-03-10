@@ -40,7 +40,7 @@
                                         <div class="row">
                                             <div class="col-md-10">
                                                 <strong>Type: </strong>{{ $wb.Status.LastRun.Type }}<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ end }}<br/>
+                                                <strong>Commit: </strong>{{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ else }}{{ $wb.Status.LastRun.Commit }}{{ end }}<br/>
                                                 <strong>Started: </strong>{{ $.FormattedTime $wb.Status.LastRun.Started }} (took {{ $.Latency $wb.Status.LastRun.Started $wb.Status.LastRun.Finished }})
                                             </div>
                                             <div class="col-md-2"><button data-namespace="{{ $wb.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
@@ -82,7 +82,7 @@
                                         <div class="row">
                                             <div class="col-md-10">
                                                 <strong>Type: </strong>{{ $wb.Status.LastRun.Type }}<br/>
-                                                <strong>Commit: </strong> {{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ end }}<br/>
+                                                <strong>Commit: </strong>{{ if $.CommitLink $wb.Status.LastRun.Commit }}<a href="{{ $.CommitLink $wb.Status.LastRun.Commit }}">{{ $wb.Status.LastRun.Commit }}</a>{{ else }}{{ $wb.Status.LastRun.Commit }}{{ end }}<br/>
                                                 <strong>Started: </strong>{{ $.FormattedTime $wb.Status.LastRun.Started }} (took {{ $.Latency $wb.Status.LastRun.Started $wb.Status.LastRun.Finished }})
                                             </div>
                                             <div class="col-md-2"><button data-namespace="{{ $wb.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>

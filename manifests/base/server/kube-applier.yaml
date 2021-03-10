@@ -45,9 +45,9 @@ spec:
               value: "https://github.com/org/repo/commit/%s"
             - name: LOG_LEVEL
               value: "warn"
-            - name: REPO_GIT_SSH_KEY_PATH
+            - name: GIT_SSH_KEY_PATH
               value: "/etc/git-secret/ssh"
-            - name: REPO_GIT_KNOWN_HOSTS_PATH
+            - name: GIT_KNOWN_HOSTS_PATH
               value: "/etc/git-secret/known_hosts"
             - name: REPO_REMOTE
               value: "git@github.com:org/repo.git"

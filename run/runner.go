@@ -107,7 +107,6 @@ func uniqueStrings(in []string) []string {
 // appropriate files, running apply commands on them, and handling the results.
 type Runner struct {
 	Clock          sysutil.ClockInterface
-	DiffURLFormat  string
 	DryRun         bool
 	KubeClient     *client.Client
 	KubectlClient  *kubectl.Client
@@ -125,7 +124,7 @@ func (r *Runner) Start() chan<- Request {
 		log.Logger("runner").Info("Runner is already started, will not do anything")
 		return nil
 	}
-	if r.WorkerCount == 0 {
+	if r.WorkerCount <= 0 {
 		r.WorkerCount = defaultRunnerWorkerCount
 	}
 	r.workerQueue = make(chan Request, defaultWorkerQueueSize)
