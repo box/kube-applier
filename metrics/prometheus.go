@@ -318,6 +318,7 @@ func UpdateRunRequest(t string, waybill *kubeapplierv1alpha1.Waybill, diff float
 
 // Reset deletes all metrics. This is exported for use in integration tests.
 func Reset() {
+	gitSyncCount.Reset()
 	kubectlExitCodeCount.Reset()
 	namespaceApplyCount.Reset()
 	runLatency.Reset()
