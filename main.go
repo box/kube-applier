@@ -172,6 +172,10 @@ func main() {
 			Interval:             time.Duration(rsi) * time.Second,
 		},
 	)
+	if err != nil {
+		log.Logger("kube-applier").Error("could not create git repository", "error", err)
+		os.Exit(1)
+	}
 	rt, _ := strconv.Atoi(repoTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(rt)*time.Second)
 	if err := repo.StartSync(ctx); err != nil {
