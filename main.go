@@ -28,7 +28,7 @@ var (
 	fGitSSHKeyPath        = flag.String("git-ssh-key-path", getStringEnv("GIT_SSH_KEY_PATH", ""), "Path to the SSH key file used for fetching the repository")
 	fListenPort           = flag.Int("listen-port", getIntEnv("LISTEN_PORT", 8080), "Port that the http server is listening on")
 	fLogLevel             = flag.String("log-level", getStringEnv("LOG_LEVEL", "warn"), "Logging level: trace, debug, info, warn, error, off")
-	fPruneBlacklist       = flag.String("prune-blacklist", getStringEnv("PRUNE_BLACKLIST", ""), "Comma-seperated list of resources to add to the global prune blacklist")
+	fPruneBlacklist       = flag.String("prune-blacklist", getStringEnv("PRUNE_BLACKLIST", ""), "Comma-seperated list of resources to add to the global prune blacklist, in the <group>/<version>/<kind> format")
 	fRepoBranch           = flag.String("repo-branch", getStringEnv("REPO_BRANCH", "master"), "Branch of the git repository to use")
 	fRepoDepth            = flag.Int("repo-depth", getIntEnv("REPO_DEPTH", 0), "Depth of the git repository to fetch. Use zero to ignore")
 	fRepoDest             = flag.String("repo-dest", getStringEnv("REPO_DEST", "/src"), "Path under which the the git repository is fetched")

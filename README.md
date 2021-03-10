@@ -7,7 +7,6 @@
 <!-- vim-markdown-toc GFM -->
 
 * [Usage](#usage)
-    * [Environment variables](#environment-variables)
     * [Waybill CRD](#waybill-crd)
         * [Delegate ServiceAccount](#delegate-serviceaccount)
         * [Integration with `strongbox`](#integration-with-strongbox)
@@ -48,56 +47,12 @@ kube-applier serves a [status page](#status-ui) and provides
 
 ## Usage
 
-### Environment variables
+Please refer to the command line `-help` for information on the various
+configuration options. Each flag corresponds to an environment variable (eg.:
+`-repo-path` is `REPO_PATH`).
 
-**Required:**
-
-- `REPO_PATH` - (string) Absolute path to the directory containing
-  configuration files to be applied. It must be a Git repository or a path
-  within one.
-
-**Optional:**
-
-- `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports
-  linking to a commit hash. Replace the commit hash portion with "%s" so it can
-  be filled in by kube-applier (e.g.
-  `https://github.com/kubernetes/kubernetes/commit/%s`).
-
-- `LISTEN_PORT` - (int) Port for the container. This should be the same port
-  specified in the container spec. Default is 8080.
-
-- `REPO_TIMEOUT_SECONDS` - (int) Number of seconds to wait for the directory
-  indicated by `REPO_PATH` to exist (default is 120).
-
-- `GIT_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
-  check for new commits to the repo (default is 5).
-
-- `WAYBILL_POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each
-  poll of Waybill resources on the apiserver (default is 60).
-
-- `STATUS_UPDATE_INTERVAL_SECONDS` - (int) Number of seconds to wait between
-  each update of the status page data which is essentially done by polling the
-  apiserver (default is 60).
-
-- `DRY_RUN` - (bool) If true, kubectl command will be run with --dry-run=server
-  flag. This means live configuration of the cluster is not changed.
-
-- `LOG_LEVEL` - (string) trace|debug|info|warn|error|off case insensitive
-
-- `PRUNE_BLACKLIST` - (string) A comma separated list of resources in the format
-  `<group>/<version>/<kind>` that will be exempted from pruning. The blacklist
-  always contains `apps/v1/ControllerRevision`.
-
-- `EXEC_TIMEOUT` - (duration) Commands executed by kube-applier will be killed
-  if they exceed this duration. Default is `3m`.
-
-- `WORKER_COUNT` - (int) The number of apply workers to run in parallel. The
-  higher this number, the more namespaces can be applied at the same time but
-  at the same time, more resources will be used under high load (default 2).
-
-Additionally `KUBECONFIG` can be set as [described
-here](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#the-kubeconfig-environment-variable)
-to configure cluster access.
+They are all optional values expect for `-repo-remote` which is required for
+kube-applier to start.
 
 ### Waybill CRD
 
