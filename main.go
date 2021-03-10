@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -20,164 +21,96 @@ import (
 )
 
 var (
-	repoRemote            = os.Getenv("REPO_REMOTE")
-	repoBranch            = os.Getenv("REPO_BRANCH")
-	repoRevision          = os.Getenv("REPO_REVISION")
-	repoDepth             = os.Getenv("REPO_DEPTH")
-	repoDest              = os.Getenv("REPO_DEST")
-	repoGitSSHKeyPath     = os.Getenv("REPO_GIT_SSH_KEY_PATH")
-	repoGitKnownHostsPath = os.Getenv("REPO_GIT_KNOWN_HOSTS_PATH")
-	repoSyncInterval      = os.Getenv("REPO_SYNC_INTERVAL_SECONDS")
-	repoPath              = os.Getenv("REPO_PATH")
-	repoTimeout           = os.Getenv("REPO_TIMEOUT_SECONDS")
-	listenPort            = os.Getenv("LISTEN_PORT")
-	gitPollWait           = os.Getenv("GIT_POLL_WAIT_SECONDS")
-	waybillPollInterval   = os.Getenv("WAYBILL_POLL_INTERVAL_SECONDS")
-	statusUpdateInterval  = os.Getenv("STATUS_UPDATE_INTERVAL_SECONDS")
-	dryRun                = os.Getenv("DRY_RUN")
-	logLevel              = os.Getenv("LOG_LEVEL")
-	pruneBlacklist        = os.Getenv("PRUNE_BLACKLIST")
-	diffURLFormat         = os.Getenv("DIFF_URL_FORMAT")
-	workerCount           = os.Getenv("WORKER_COUNT")
-
-	runnerWorkerCount int
+	fDiffURLFormat        = flag.String("diff-url-format", getStringEnv("DIFF_URL_FORMAT", ""), "Used to generate commit links in the status page")
+	fDryRun               = flag.Bool("dry-run", getBoolEnv("DRY_RUN", false), "Whether kube-applier operates in dry-run mode globally")
+	fGitPollWait          = flag.Duration("git-poll-wait", getDurationEnv("GIT_POLL_WAIT", time.Second*5), "How long kube-applier waits before checking for changes in the repository")
+	fGitKnownHostsPath    = flag.String("git-ssh-known-hosts-path", getStringEnv("GIT_KNOWN_HOSTS_PATH", ""), "Path to the known hosts file used for fetching the repository")
+	fGitSSHKeyPath        = flag.String("git-ssh-key-path", getStringEnv("GIT_SSH_KEY_PATH", ""), "Path to the SSH key file used for fetching the repository")
+	fListenPort           = flag.Int("listen-port", getIntEnv("LISTEN_PORT", 8080), "Port that the http server is listening on")
+	fLogLevel             = flag.String("log-level", getStringEnv("LOG_LEVEL", "warn"), "Logging level: trace, debug, info, warn, error, off")
+	fPruneBlacklist       = flag.String("prune-blacklist", getStringEnv("PRUNE_BLACKLIST", ""), "Comma-seperated list of resources to add to the global prune blacklist")
+	fRepoBranch           = flag.String("repo-branch", getStringEnv("REPO_BRANCH", "master"), "Branch of the git repository to use")
+	fRepoDepth            = flag.Int("repo-depth", getIntEnv("REPO_DEPTH", 0), "Depth of the git repository to fetch. Use zero to ignore")
+	fRepoDest             = flag.String("repo-dest", getStringEnv("REPO_DEST", "/src"), "Path under which the the git repository is fetched")
+	fRepoPath             = flag.String("repo-path", getStringEnv("REPO_PATH", ""), "Path relative to the repository root that kube-applier operates in")
+	fRepoRemote           = flag.String("repo-remote", getStringEnv("REPO_REMOTE", ""), "Remote URL of the git repository that kube-applier uses as a source")
+	fRepoRevision         = flag.String("repo-revision", getStringEnv("REPO_REVISION", "HEAD"), "Revision of the git repository to use")
+	fRepoSyncInterval     = flag.Duration("repo-sync-interval", getDurationEnv("REPO_SYNC_INTERVAL", time.Second*30), "How often kube-applier will try to sync the local repository clone to the remote")
+	fRepoTimeout          = flag.Duration("repo-timeout", getDurationEnv("REPO_TIMEOUT", time.Minute*3), "How long kube-applier will wait for the initial repository sync to complete")
+	fStatusUpdateInterval = flag.Duration("status-update-interval", getDurationEnv("STATUS_UPDATE_INTERVAL", time.Minute), "How often the status page updates from the cluster state")
+	fWaybillPollInterval  = flag.Duration("waybill-poll-interval", getDurationEnv("WAYBILL_POLL_INTERVAL", time.Minute), "How often kube-applier updates the Waybills it tracks from the cluster")
+	fWorkerCount          = flag.Int("worker-count", getIntEnv("WORKER_COUNT", 2), "Number of apply worker goroutines that kube-applier uses")
 )
 
-func validate() {
-	if repoDepth == "" {
-		repoDepth = "0"
-	} else {
-		_, err := strconv.Atoi(repoDepth)
+func getStringEnv(name, defaultValue string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	return defaultValue
+}
+
+func getBoolEnv(name string, defaultValue bool) bool {
+	if v, ok := os.LookupEnv(name); ok {
+		vv, err := strconv.ParseBool(v)
 		if err != nil {
-			fmt.Println("REPO_DEPTH must be an int")
+			fmt.Printf("%s must be a boolean, got %v\n", name, v)
 			os.Exit(1)
 		}
+		return vv
 	}
+	return defaultValue
+}
 
-	if repoDest == "" {
-		repoDest = "/src"
-	}
-
-	if repoSyncInterval == "" {
-		repoSyncInterval = "0"
-	} else {
-		_, err := strconv.Atoi(repoSyncInterval)
+func getIntEnv(name string, defaultValue int) int {
+	if v, ok := os.LookupEnv(name); ok {
+		vv, err := strconv.Atoi(v)
 		if err != nil {
-			fmt.Println("REPO_SYNC_INTERVAL must be an int")
+			fmt.Printf("%s must be an integer, got %v\n", name, v)
 			os.Exit(1)
 		}
+		return vv
 	}
+	return defaultValue
+}
 
-	if repoTimeout == "" {
-		repoTimeout = "120"
-	} else {
-		_, err := strconv.Atoi(repoTimeout)
+func getDurationEnv(name string, defaultValue time.Duration) time.Duration {
+	if v, ok := os.LookupEnv(name); ok {
+		vv, err := time.ParseDuration(v)
 		if err != nil {
-			fmt.Println("REPO_TIMEOUT_SECONDS must be an int")
+			fmt.Printf("%s must be a duration, got %v\n", name, v)
 			os.Exit(1)
 		}
+		return vv
 	}
-
-	if listenPort == "" {
-		listenPort = "8080"
-	} else {
-		_, err := strconv.Atoi(listenPort)
-		if err != nil {
-			fmt.Println("LISTEN_PORT must be an int")
-			os.Exit(1)
-		}
-	}
-
-	if diffURLFormat != "" && !strings.Contains(diffURLFormat, "%s") {
-		fmt.Printf("Invalid DIFF_URL_FORMAT, must contain %q: %v\n", "%s", diffURLFormat)
-		os.Exit(1)
-	}
-
-	if gitPollWait == "" {
-		gitPollWait = "10"
-	} else {
-		_, err := strconv.Atoi(gitPollWait)
-		if err != nil {
-			fmt.Println("GIT_POLL_WAIT_SECONDS must be an int")
-			os.Exit(1)
-		}
-	}
-
-	if waybillPollInterval == "" {
-		waybillPollInterval = "60"
-	} else {
-		_, err := strconv.Atoi(waybillPollInterval)
-		if err != nil {
-			fmt.Println("WAYBILL_POLL_INTERVAL_SECONDS must be an int")
-			os.Exit(1)
-		}
-	}
-
-	if statusUpdateInterval == "" {
-		statusUpdateInterval = "60"
-	} else {
-		_, err := strconv.Atoi(statusUpdateInterval)
-		if err != nil {
-			fmt.Println("STATUS_UPDATE_INTERVAL_SECONDS must be an int")
-			os.Exit(1)
-		}
-	}
-
-	if dryRun == "" {
-		dryRun = "false"
-	} else {
-		_, err := strconv.ParseBool(dryRun)
-		if err != nil {
-			fmt.Println("DRY_RUN must be a boolean")
-			os.Exit(1)
-		}
-	}
-
-	// log level [trace|debug|info|warn|error] case insensitive
-	if logLevel == "" {
-		logLevel = "warn"
-	}
-
-	if workerCount == "" {
-		workerCount = "0"
-	}
-	i, err := strconv.Atoi(workerCount)
-	if err != nil {
-		fmt.Printf("Cannot parse WORKER_COUNT: %v\n", err)
-		os.Exit(1)
-	}
-	runnerWorkerCount = i
+	return defaultValue
 }
 
 func main() {
-	validate()
+	flag.Parse()
 
-	log.SetLevel(logLevel)
+	log.SetLevel(*fLogLevel)
 
 	clock := &sysutil.Clock{}
 
-	rd, _ := strconv.Atoi(repoDepth)
-	rsi, _ := strconv.Atoi(repoSyncInterval)
 	repo, err := git.NewRepository(
-		repoDest,
+		*fRepoDest,
 		git.RepositoryConfig{
-			Remote:   repoRemote,
-			Branch:   repoBranch,
-			Revision: repoRevision,
-			Depth:    rd,
+			Remote:   *fRepoRemote,
+			Branch:   *fRepoBranch,
+			Revision: *fRepoRevision,
+			Depth:    *fRepoDepth,
 		},
 		git.SyncOptions{
-			GitSSHKeyPath:        repoGitSSHKeyPath,
-			GitSSHKnownHostsPath: repoGitKnownHostsPath,
-			Interval:             time.Duration(rsi) * time.Second,
+			GitSSHKeyPath:        *fGitSSHKeyPath,
+			GitSSHKnownHostsPath: *fGitKnownHostsPath,
+			Interval:             *fRepoSyncInterval,
 		},
 	)
 	if err != nil {
 		log.Logger("kube-applier").Error("could not create git repository", "error", err)
 		os.Exit(1)
 	}
-	rt, _ := strconv.Atoi(repoTimeout)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(rt)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), *fRepoTimeout)
 	if err := repo.StartSync(ctx); err != nil {
 		log.Logger("kube-applier").Error("could not sync git repository", "error", err)
 		os.Exit(1)
@@ -199,47 +132,41 @@ func main() {
 	// managing at all. This makes it unsuitable for pruning and a
 	// reasonable default for blacklisting.
 	pruneBlacklistSlice := []string{"apps/v1/ControllerRevision"}
-	if pruneBlacklist != "" {
-		pruneBlacklistSlice = append(pruneBlacklistSlice, strings.Split(pruneBlacklist, ",")...)
+	if *fPruneBlacklist != "" {
+		pruneBlacklistSlice = append(pruneBlacklistSlice, strings.Split(*fPruneBlacklist, ",")...)
 	}
-	dr, _ := strconv.ParseBool(dryRun)
 
 	runner := &run.Runner{
 		Clock:          clock,
-		DiffURLFormat:  diffURLFormat,
-		DryRun:         dr,
+		DryRun:         *fDryRun,
 		KubeClient:     kubeClient,
 		KubectlClient:  kubectlClient,
 		PruneBlacklist: pruneBlacklistSlice,
 		Repository:     repo,
-		RepoPath:       repoPath,
-		WorkerCount:    runnerWorkerCount,
+		RepoPath:       *fRepoPath,
+		WorkerCount:    *fWorkerCount,
 	}
 
 	runQueue := runner.Start()
 
-	gpw, _ := strconv.Atoi(gitPollWait)
-	wpi, _ := strconv.Atoi(waybillPollInterval)
 	scheduler := &run.Scheduler{
 		Clock:               clock,
-		GitPollWait:         time.Duration(gpw) * time.Second,
+		GitPollWait:         *fGitPollWait,
 		KubeClient:          kubeClient,
 		Repository:          repo,
-		RepoPath:            repoPath,
+		RepoPath:            *fRepoPath,
 		RunQueue:            runQueue,
-		WaybillPollInterval: time.Duration(wpi) * time.Second,
+		WaybillPollInterval: *fWaybillPollInterval,
 	}
 	scheduler.Start()
 
-	sui, _ := strconv.Atoi(statusUpdateInterval)
-	lp, _ := strconv.Atoi(listenPort)
 	webserver := &webserver.WebServer{
 		Clock:                clock,
-		DiffURLFormat:        diffURLFormat,
+		DiffURLFormat:        *fDiffURLFormat,
 		KubeClient:           kubeClient,
-		ListenPort:           lp,
+		ListenPort:           *fListenPort,
 		RunQueue:             runQueue,
-		StatusUpdateInterval: time.Duration(sui) * time.Second,
+		StatusUpdateInterval: *fStatusUpdateInterval,
 	}
 	if err := webserver.Start(); err != nil {
 		log.Logger("kube-applier").Error(fmt.Sprintf("Cannot start webserver: %v", err))
