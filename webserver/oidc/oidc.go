@@ -1,7 +1,9 @@
 // Package oidc implements the authentication flow for kube-applier. It is based
 // on some assumptions: the authentication server supports the openid and email
 // scopes, it exposes an introspection URL with which we can validate the
-// id_token.
+// id_token. User session is stored in an encrypted cookie and the encryption
+// key is randomly generated in the package and cannot be provided, meaning that
+// cookies are rendered invalid on a restart.
 package oidc
 
 import (
@@ -16,6 +18,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gorilla/securecookie"
 	"golang.org/x/oauth2"
 )
 
@@ -30,6 +33,7 @@ var (
 	codeVerifierLenMin     = big.NewInt(43)
 	codeVerifierLenMax     = big.NewInt(128)
 	codeVerifierLenRange   = big.NewInt(0).Sub(codeVerifierLenMax, codeVerifierLenMin)
+	secureCookie           *securecookie.SecureCookie
 
 	// ErrRedirectRequired is returned by Authenticator.Authenticate if a
 	// redirect has been written to the http.ResponseWriter. The handler should
@@ -37,6 +41,15 @@ var (
 	// ResponseWriter.
 	ErrRedirectRequired = fmt.Errorf("redirect is required")
 )
+
+func init() {
+	secureCookie = securecookie.New(
+		securecookie.GenerateRandomKey(64),
+		securecookie.GenerateRandomKey(32),
+	)
+	secureCookie.SetSerializer(securecookie.JSONEncoder{})
+	secureCookie.MaxAge(0)
+}
 
 type idTokenPayload struct {
 	Email string `json:"email"`
@@ -75,12 +88,8 @@ func newUserSessionFromRequest(req *http.Request) (*userSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	cookieValue, err := base64.URLEncoding.DecodeString(cookie.Value)
-	if err != nil {
-		return nil, err
-	}
 	us := &userSession{}
-	if err := json.Unmarshal(cookieValue, us); err != nil {
+	if err := secureCookie.Decode(userSessionCookieName, cookie.Value, &us); err != nil {
 		return nil, err
 	}
 	return us, nil
@@ -108,11 +117,10 @@ func (u *userSession) Email() (string, error) {
 
 // Save writes the session to the response as a cookie.
 func (u *userSession) Save(w http.ResponseWriter) error {
-	data, err := json.Marshal(u)
+	cookieValue, err := secureCookie.Encode(userSessionCookieName, u)
 	if err != nil {
 		return err
 	}
-	cookieValue := base64.URLEncoding.EncodeToString(data)
 	// The cookie doesn't need to expire. If the token stored within expires, it
 	// will trigger the auth flow. Additionally, SameSite lax mode is required
 	// for the cookie to be sent on the callback request, see:
@@ -120,9 +128,10 @@ func (u *userSession) Save(w http.ResponseWriter) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     userSessionCookieName,
 		Value:    cookieValue,
+		HttpOnly: true,
+		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
-		HttpOnly: true,
 	})
 	return nil
 }
