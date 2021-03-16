@@ -114,7 +114,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				data.Result = "error"
 				data.Message = "not authenticated"
-				log.Logger("webserver").Error("User not authenticated", "error", err)
+				log.Logger("webserver").Error(data.Message, "error", err)
 				w.WriteHeader(http.StatusForbidden)
 				break
 			}
@@ -122,8 +122,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if err := r.ParseForm(); err != nil {
 			data.Result = "error"
-			data.Message = "Could not parse form data"
-			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
+			data.Message = "could not parse form data"
+			log.Logger("webserver").Error(data.Message, "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -131,8 +131,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ns := r.FormValue("namespace")
 		if ns == "" {
 			data.Result = "error"
-			data.Message = "Empty namespace value"
-			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
+			data.Message = "empty namespace value"
+			log.Logger("webserver").Error(data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -140,7 +140,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		waybills, err := f.KubeClient.ListWaybills(r.Context())
 		if err != nil {
 			data.Result = "error"
-			data.Message = "Cannot list Waybills"
+			data.Message = "cannot list Waybills"
+			log.Logger("webserver").Error(data.Message, "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			break
 		}
@@ -154,7 +155,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if waybill == nil {
 			data.Result = "error"
-			data.Message = fmt.Sprintf("Cannot find Waybills in namespace '%s'", ns)
+			data.Message = fmt.Sprintf("cannot find Waybills in namespace '%s'", ns)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -164,7 +165,7 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			hasAccess, err := f.KubeClient.HasAccess(r.Context(), waybill, userEmail, "patch")
 			if !hasAccess {
 				data.Result = "error"
-				data.Message = fmt.Sprintf("User %s is not allowed to force a run on waybill %s/%s", userEmail, waybill.Namespace, waybill.Name)
+				data.Message = fmt.Sprintf("user %s is not allowed to force a run on waybill %s/%s", userEmail, waybill.Namespace, waybill.Name)
 				if err != nil {
 					log.Logger("webserver").Error(data.Message, "error", err)
 				}
@@ -179,9 +180,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	default:
 		data.Result = "error"
-		data.Message = "Must be a POST request"
+		data.Message = "must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
-		log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 	}
 
 	w.Header().Set("Content-Type", "waybill/json; charset=UTF-8")
