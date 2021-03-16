@@ -22,7 +22,7 @@ require (
 	github.com/utilitywarehouse/go-operational v0.0.0-20190722153447-b0f3f6284543
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/net v0.0.0-20210220033124-5f55cee0dc0d // indirect
-	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93 // indirect
+	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
 	golang.org/x/sys v0.0.0-20210220050731-9a76102bfb43 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.5 // indirect

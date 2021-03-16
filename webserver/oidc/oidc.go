@@ -1,0 +1,391 @@
+// Package oidc implements the authentication flow for kube-applier. It is based
+// on some assumptions: the authentication server supports the openid and email
+// scopes, it exposes an introspection URL with which we can validate the
+// id_token.
+package oidc
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"golang.org/x/oauth2"
+)
+
+const (
+	userSessionCookieName = "session.kube-applier.io"
+	// https://www.oauth.com/oauth2-servers/pkce/authorization-request/
+	codeVerifierCharset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._~"
+)
+
+var (
+	codeVerifierCharsetLen = big.NewInt(int64(len(codeVerifierCharset)))
+	codeVerifierLenMin     = big.NewInt(43)
+	codeVerifierLenMax     = big.NewInt(128)
+	codeVerifierLenRange   = big.NewInt(0).Sub(codeVerifierLenMax, codeVerifierLenMin)
+
+	// ErrRedirectRequired is returned by Authenticator.Authenticate if a
+	// redirect has been written to the http.ResponseWriter. The handler should
+	// respect this and return without writing anything else to the
+	// ResponseWriter.
+	ErrRedirectRequired = fmt.Errorf("redirect is required")
+)
+
+type idTokenPayload struct {
+	Email string `json:"email"`
+}
+
+type userSession struct {
+	CodeVerifier []byte `json:"code_verifier"`
+	IDToken      string `json:"id_token"`
+	RedirectPath string `json:"redirect_path"`
+	State        string `json:"state"`
+}
+
+func newUserSession(w http.ResponseWriter, r *http.Request) (*userSession, error) {
+	session := &userSession{}
+	if err := session.newState(); err != nil {
+		return nil, err
+	}
+	if err := session.newCodeVerifier(); err != nil {
+		return nil, err
+	}
+	// By default, we will redirect back to the root path, or for a GET request
+	// request we can simply redirect back to the path that was requested.
+	// For all other types of requests we use the Referer header, if present,
+	// since the oauth flow uses 303 redirects that revert to GET.
+	session.RedirectPath = "/"
+	if r.Method == http.MethodGet {
+		session.RedirectPath = r.URL.Path
+	} else if v := r.Referer(); v != "" {
+		session.RedirectPath = v
+	}
+	return session, nil
+}
+
+func newUserSessionFromRequest(req *http.Request) (*userSession, error) {
+	cookie, err := req.Cookie(userSessionCookieName)
+	if err != nil {
+		return nil, err
+	}
+	cookieValue, err := base64.URLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		return nil, err
+	}
+	us := &userSession{}
+	if err := json.Unmarshal(cookieValue, us); err != nil {
+		return nil, err
+	}
+	return us, nil
+}
+
+// Email returns the user's email by parsing the stored IDToken.
+func (u *userSession) Email() (string, error) {
+	if u.IDToken == "" {
+		return "", fmt.Errorf("IDToken is empty")
+	}
+	parts := strings.Split(u.IDToken, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("invalid IDToken format")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("cannot decode JWT payload: %w", err)
+	}
+	idt := &idTokenPayload{}
+	if err := json.Unmarshal(payload, idt); err != nil {
+		return "", fmt.Errorf("cannot unmarshal JWT payload: %w", err)
+	}
+	return idt.Email, nil
+}
+
+// Save writes the session to the response as a cookie.
+func (u *userSession) Save(w http.ResponseWriter) error {
+	data, err := json.Marshal(u)
+	if err != nil {
+		return err
+	}
+	cookieValue := base64.URLEncoding.EncodeToString(data)
+	// The cookie doesn't need to expire. If the token stored within expires, it
+	// will trigger the auth flow. Additionally, SameSite lax mode is required
+	// for the cookie to be sent on the callback request, see:
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite#lax
+	http.SetCookie(w, &http.Cookie{
+		Name:     userSessionCookieName,
+		Value:    cookieValue,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
+		HttpOnly: true,
+	})
+	return nil
+}
+
+func (u *userSession) newState() error {
+	state := make([]byte, 32)
+	_, err := rand.Read(state)
+	if err != nil {
+		return fmt.Errorf("could not generate state: %w", err)
+	}
+	u.State = base64.URLEncoding.EncodeToString(state)
+	return nil
+}
+
+func (u *userSession) newCodeVerifier() error {
+	cvl, err := rand.Int(rand.Reader, codeVerifierLenRange)
+	if err != nil {
+		return err
+	}
+	cvLen := int(cvl.Add(cvl, codeVerifierLenMin).Int64())
+	cv := make([]byte, cvLen)
+	for i := 0; i < cvLen; i++ {
+		num, err := rand.Int(rand.Reader, codeVerifierCharsetLen)
+		if err != nil {
+			return err
+		}
+		cv[i] = codeVerifierCharset[num.Int64()]
+	}
+	u.CodeVerifier = cv
+	return nil
+}
+
+func (u *userSession) codeChallengeOptions() []oauth2.AuthCodeOption {
+	hash := sha256.Sum256(u.CodeVerifier)
+	return []oauth2.AuthCodeOption{
+		oauth2.AccessTypeOnline,
+		oauth2.SetAuthURLParam("code_challenge", base64.RawURLEncoding.EncodeToString(hash[:])),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	}
+}
+
+type oidcIntrospectionResponse struct {
+	Active   bool   `json:"active"`
+	Exp      int64  `json:"exp"`
+	Username string `json:"username"`
+}
+
+type oidcErrorResponse struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+}
+
+type oidcConfiguration struct {
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	TokenEndpoint         string `json:"token_endpoint"`
+	IntrospectionEndpoint string `json:"introspection_endpoint"`
+}
+
+// Authenticator implements the flow for authenticating using oidc.
+type Authenticator struct {
+	httpClient       *http.Client
+	domain           string
+	discoveredConfig oidcConfiguration
+	config           *oauth2.Config
+}
+
+// NewAuthenticator returns a new Authenticator configured for a specific issuer
+// using the provided values.
+func NewAuthenticator(domain, clientID, clientSecret, redirectURL string) (*Authenticator, error) {
+	if domain == "" {
+		return nil, fmt.Errorf("domain cannot be empty")
+	}
+	if clientID == "" {
+		return nil, fmt.Errorf("client ID cannot be empty")
+	}
+	if clientSecret == "" {
+		return nil, fmt.Errorf("client secret cannot be empty")
+	}
+	if redirectURL == "" {
+		return nil, fmt.Errorf("redirect URL cannot be empty")
+	}
+	oa := &Authenticator{
+		httpClient: &http.Client{},
+		domain:     domain,
+	}
+	if err := oa.discoverConfiguration(); err != nil {
+		return nil, err
+	}
+	oa.config = &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Scopes:       []string{"openid", "email"},
+		RedirectURL:  redirectURL,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  oa.discoveredConfig.AuthorizationEndpoint,
+			TokenURL: oa.discoveredConfig.TokenEndpoint,
+		},
+	}
+	return oa, nil
+}
+
+// Authenticate automates the process of retrieving the user's email address.
+// It will detect and handle the oauth2 callback or otherwise try to validate
+// an existing user session in order to do so. Ultimately, it will initiate a
+// new authentication flow if required.
+func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter, r *http.Request) (string, error) {
+	if r.FormValue("state") != "" {
+		session, err := o.processCallback(ctx, w, r)
+		if err != nil {
+			return "", fmt.Errorf("invalid callback: %w", err)
+		}
+		redirectPath := ""
+		if v := session.RedirectPath; v != "" {
+			redirectPath = v
+			session.RedirectPath = ""
+		}
+		if err := session.Save(w); err != nil {
+			return "", fmt.Errorf("cannot save session: %w", err)
+		}
+		if redirectPath != "" {
+			http.Redirect(w, r, redirectPath, http.StatusSeeOther)
+			return "", ErrRedirectRequired
+		}
+		email, err := session.Email()
+		if err != nil {
+			return "", fmt.Errorf("cannot get user's email: %w", err)
+		}
+		return email, nil
+	}
+	if email, err := o.UserEmail(ctx, r); err == nil {
+		return email, nil
+	}
+	session, err := newUserSession(w, r)
+	if err != nil {
+		return "", err
+	}
+	if err := session.Save(w); err != nil {
+		return "", fmt.Errorf("cannot save session: %w", err)
+	}
+	http.Redirect(w, r, o.config.AuthCodeURL(session.State, session.codeChallengeOptions()...), http.StatusSeeOther)
+	return "", ErrRedirectRequired
+}
+
+// UserEmail returns the email address of the user from their session, if they
+// are already authenticated.
+func (o *Authenticator) UserEmail(ctx context.Context, r *http.Request) (string, error) {
+	session, err := newUserSessionFromRequest(r)
+	if err != nil {
+		return "", err
+	}
+	// We simply use the introspection endpoint to validate the token.
+	// Although that's an extra HTTP call for each connection, it reduces
+	// the code significantly when it comes to verifying the validity of the
+	// IDToken. Alternatively, we can fetch the JWKS endpoint from discovery
+	// and use the keys contained there to validate it locally.
+	// eg.: https://developer.okta.com/docs/guides/validate-id-tokens/overview/
+	ir, err := o.validateToken(ctx, session.IDToken, "id_token")
+	if err != nil {
+		return "", err
+	}
+	if !ir.Active {
+		return "", fmt.Errorf("session contains inactive id token")
+	}
+	email, err := session.Email()
+	if err != nil {
+		return "", fmt.Errorf("cannot get user's email: %w", err)
+	}
+	return email, nil
+}
+
+func (o *Authenticator) processCallback(ctx context.Context, w http.ResponseWriter, r *http.Request) (*userSession, error) {
+	if r.FormValue("error") != "" {
+		return nil, fmt.Errorf("error '%s': %s", r.FormValue("error"), r.FormValue("error_description"))
+	}
+	if r.FormValue("code") == "" {
+		return nil, fmt.Errorf("missing code parameter")
+	}
+	if r.FormValue("state") == "" {
+		return nil, fmt.Errorf("missing state parameter")
+	}
+	session, err := newUserSessionFromRequest(r)
+	if err != nil {
+		return nil, err
+	}
+	if session.State != r.FormValue("state") {
+		return nil, fmt.Errorf("invalid state")
+	}
+	session.State = ""
+	if len(session.CodeVerifier) == 0 {
+		return nil, fmt.Errorf("cannot verify validity")
+	}
+	token, err := o.config.Exchange(ctx, r.FormValue("code"), oauth2.SetAuthURLParam("code_verifier", string(session.CodeVerifier)))
+	if err != nil {
+		return nil, err
+	}
+	session.CodeVerifier = nil
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid id_token type")
+	}
+	if idToken == "" {
+		return nil, fmt.Errorf("token does not include id_token")
+	}
+	// we only want to keep the id_token:
+	// - we can use the introspection endpoint to validate it
+	// - it contains the email address of the user
+	session.IDToken = idToken
+	return session, nil
+}
+
+func (o *Authenticator) discoverConfiguration() error {
+	req, err := http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("https://%s/.well-known/openid-configuration", o.domain),
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	return o.do(req, &o.discoveredConfig)
+}
+
+// validateToken takes a token and token type and queries the introspection
+// endpoint with it (https://tools.ietf.org/html/rfc7662#section-2.2)
+func (o *Authenticator) validateToken(ctx context.Context, token, tokenType string) (*oidcIntrospectionResponse, error) {
+	data := url.Values{}
+	data.Set("token", token)
+	data.Set("token_type_hint", tokenType)
+	data.Set("client_id", o.config.ClientID)
+	data.Set("client_secret", o.config.ClientSecret)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		o.discoveredConfig.IntrospectionEndpoint,
+		strings.NewReader(data.Encode()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp := &oidcIntrospectionResponse{}
+	if err := o.do(req, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (o *Authenticator) do(req *http.Request, data interface{}) error {
+	resp, err := o.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		e := oidcErrorResponse{}
+		if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+			return fmt.Errorf("request failed with status %d and unknown error", resp.StatusCode)
+		}
+		return fmt.Errorf("request failed with status %d and error '%s': %s", resp.StatusCode, e.Error, e.ErrorDescription)
+	}
+	err = json.NewDecoder(resp.Body).Decode(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
