@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,6 +99,32 @@ func newClient(cfg *rest.Config) (*Client, error) {
 // EmitWaybillEvent creates an Event for the provided Waybill.
 func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
 	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
+}
+
+// HasAccess returns a boolean depending on whether the email address provided
+// corresponds to a user who has edit access to the specified Waybill.
+func (c *Client) HasAccess(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, email, verb string) (bool, error) {
+	gvk := waybill.GroupVersionKind()
+	response, err := c.clientset.AuthorizationV1().SubjectAccessReviews().Create(
+		ctx,
+		&authorizationv1.SubjectAccessReview{
+			Spec: authorizationv1.SubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: waybill.Namespace,
+					Verb:      verb,
+					Group:     gvk.Group,
+					Version:   gvk.Version,
+					Resource:  gvk.Kind,
+				},
+				User: email,
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return false, err
+	}
+	return response.Status.Allowed, nil
 }
 
 // ListWaybills returns a list of all the Waybill resources.
