@@ -19,12 +19,12 @@ function forceRun(namespace) {
         url: url,
         data: {namespace: namespace},
         dataType: "json",
-        success:function(data) {
-            showForceAlert(true, data.message)
+        success: function(data) {
+            showForceAlert(true, data.message);
             $('.force-button').each(function(){ $(this).prop('disabled', false); });
         },
-        error:function() {
-            showForceAlert(false, 'Server error attempting to force a run. See container logs for more info.')
+        error: function(xhr) {
+            showForceAlert(false, 'Error: ' +  xhr.responseJSON.message + '<br/>See container logs for more info.');
             $('.force-button').each(function(){ $(this).prop('disabled', false); });
         }
     });
