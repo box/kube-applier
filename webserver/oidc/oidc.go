@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/gorilla/securecookie"
@@ -193,16 +194,26 @@ type oidcConfiguration struct {
 // Authenticator implements the flow for authenticating using oidc.
 type Authenticator struct {
 	httpClient       *http.Client
-	domain           string
+	issuer           url.URL
 	discoveredConfig oidcConfiguration
 	config           *oauth2.Config
 }
 
 // NewAuthenticator returns a new Authenticator configured for a specific issuer
 // using the provided values.
-func NewAuthenticator(domain, clientID, clientSecret, redirectURL string) (*Authenticator, error) {
-	if domain == "" {
-		return nil, fmt.Errorf("domain cannot be empty")
+func NewAuthenticator(issuer, clientID, clientSecret, redirectURL string) (*Authenticator, error) {
+	if issuer == "" {
+		return nil, fmt.Errorf("issuer cannot be empty")
+	}
+	issuerURL, err := url.Parse(issuer)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse issuer url: %w", err)
+	}
+	if issuerURL.Scheme != "https" {
+		return nil, fmt.Errorf("invalid issuer url, scheme must be https")
+	}
+	if issuerURL.Host == "" {
+		return nil, fmt.Errorf("invalid issuer url, host is empty")
 	}
 	if clientID == "" {
 		return nil, fmt.Errorf("client ID cannot be empty")
@@ -215,7 +226,11 @@ func NewAuthenticator(domain, clientID, clientSecret, redirectURL string) (*Auth
 	}
 	oa := &Authenticator{
 		httpClient: &http.Client{},
-		domain:     domain,
+		issuer: url.URL{
+			Scheme: issuerURL.Scheme,
+			Host:   issuerURL.Host,
+			Path:   issuerURL.Path,
+		},
 	}
 	if err := oa.discoverConfiguration(); err != nil {
 		return nil, err
@@ -343,11 +358,9 @@ func (o *Authenticator) processCallback(ctx context.Context, w http.ResponseWrit
 }
 
 func (o *Authenticator) discoverConfiguration() error {
-	req, err := http.NewRequest(
-		http.MethodGet,
-		fmt.Sprintf("https://%s/.well-known/openid-configuration", o.domain),
-		nil,
-	)
+	discoveryURL := o.issuer
+	discoveryURL.Path = path.Join(discoveryURL.Path, ".well-known/openid-configuration")
+	req, err := http.NewRequest(http.MethodGet, discoveryURL.String(), nil)
 	if err != nil {
 		return err
 	}

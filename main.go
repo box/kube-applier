@@ -32,7 +32,7 @@ var (
 	fOidcCallbackURL      = flag.String("oidc-callback-url", getStringEnv("OIDC_CALLBACK_URL", ""), "OIDC callback url should be the root URL where kube-applier is exposed")
 	fOidcClientID         = flag.String("oidc-client-id", getStringEnv("OIDC_CLIENT_ID", ""), "Client ID of the OIDC application")
 	fOidcClientSecret     = flag.String("oidc-client-secret", getStringEnv("OIDC_CLIENT_SECRET", ""), "Client secret of the OIDC application")
-	fOidcDomain           = flag.String("oidc-domain", getStringEnv("OIDC_DOMAIN", ""), "OIDC domain is the domain of the authentication server")
+	fOidcIssuer           = flag.String("oidc-issuer", getStringEnv("OIDC_ISSUER", ""), "OIDC issuer URL of the authentication server")
 	fPruneBlacklist       = flag.String("prune-blacklist", getStringEnv("PRUNE_BLACKLIST", ""), "Comma-seperated list of resources to add to the global prune blacklist, in the <group>/<version>/<kind> format")
 	fRepoBranch           = flag.String("repo-branch", getStringEnv("REPO_BRANCH", "master"), "Branch of the git repository to use")
 	fRepoDepth            = flag.Int("repo-depth", getIntEnv("REPO_DEPTH", 0), "Depth of the git repository to fetch. Use zero to ignore")
@@ -102,9 +102,9 @@ func main() {
 		err               error
 	)
 
-	if strings.Join([]string{*fOidcDomain, *fOidcClientID, *fOidcClientSecret, *fOidcCallbackURL}, "") != "" {
+	if strings.Join([]string{*fOidcIssuer, *fOidcClientID, *fOidcClientSecret, *fOidcCallbackURL}, "") != "" {
 		oidcAuthenticator, err = oidc.NewAuthenticator(
-			*fOidcDomain,
+			*fOidcIssuer,
 			*fOidcClientID,
 			*fOidcClientSecret,
 			*fOidcCallbackURL,
@@ -113,7 +113,7 @@ func main() {
 			log.Logger("kube-applier").Error("could not setup oidc authenticator", "error", err)
 			os.Exit(1)
 		}
-		log.Logger("kube-applier").Info("OIDC authentication configured", "domain", *fOidcDomain, "clientID", *fOidcClientID)
+		log.Logger("kube-applier").Info("OIDC authentication configured", "issuer", *fOidcIssuer, "clientID", *fOidcClientID)
 	}
 
 	repo, err := git.NewRepository(
