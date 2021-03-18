@@ -52,23 +52,40 @@ func init() {
 	secureCookie.MaxAge(0)
 }
 
+func randString(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("could not generate random string: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
 type idTokenPayload struct {
 	Email string `json:"email"`
 	Iss   string `json:"iss"`
+	Nonce string `json:"nonce"`
 }
 
 type userSession struct {
 	CodeVerifier []byte `json:"code_verifier"`
 	IDToken      string `json:"id_token"`
+	Nonce        string `json:"nonce"`
 	RedirectPath string `json:"redirect_path"`
 	State        string `json:"state"`
 }
 
 func newUserSession(w http.ResponseWriter, r *http.Request) (*userSession, error) {
 	session := &userSession{}
-	if err := session.newState(); err != nil {
+	state, err := randString(32)
+	if err != nil {
 		return nil, err
 	}
+	session.State = state
+	nonce, err := randString(32)
+	if err != nil {
+		return nil, err
+	}
+	session.Nonce = nonce
 	if err := session.newCodeVerifier(); err != nil {
 		return nil, err
 	}
@@ -138,16 +155,6 @@ func (u *userSession) Save(w http.ResponseWriter) error {
 	return nil
 }
 
-func (u *userSession) newState() error {
-	state := make([]byte, 32)
-	_, err := rand.Read(state)
-	if err != nil {
-		return fmt.Errorf("could not generate state: %w", err)
-	}
-	u.State = base64.URLEncoding.EncodeToString(state)
-	return nil
-}
-
 func (u *userSession) newCodeVerifier() error {
 	cvl, err := rand.Int(rand.Reader, codeVerifierLenRange)
 	if err != nil {
@@ -172,6 +179,7 @@ func (u *userSession) codeChallengeOptions() []oauth2.AuthCodeOption {
 		oauth2.AccessTypeOnline,
 		oauth2.SetAuthURLParam("code_challenge", base64.RawURLEncoding.EncodeToString(hash[:])),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("nonce", u.Nonce),
 	}
 }
 
@@ -328,6 +336,9 @@ func (o *Authenticator) userEmail(ctx context.Context, session *userSession) (st
 	idt, err := session.ParseIDToken()
 	if err != nil {
 		return "", fmt.Errorf("cannot parse id token: %w", err)
+	}
+	if idt.Nonce != session.Nonce {
+		return "", fmt.Errorf("token nonce does not match state")
 	}
 	if idt.Iss != o.issuer.String() {
 		return "", fmt.Errorf("invalid token issuer")
