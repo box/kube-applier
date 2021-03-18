@@ -54,6 +54,7 @@ func init() {
 
 type idTokenPayload struct {
 	Email string `json:"email"`
+	Iss   string `json:"iss"`
 }
 
 type userSession struct {
@@ -96,24 +97,24 @@ func newUserSessionFromRequest(req *http.Request) (*userSession, error) {
 	return us, nil
 }
 
-// Email returns the user's email by parsing the stored IDToken.
-func (u *userSession) Email() (string, error) {
+// ParseIDToken parses the stored id token and returns the result.
+func (u *userSession) ParseIDToken() (*idTokenPayload, error) {
 	if u.IDToken == "" {
-		return "", fmt.Errorf("IDToken is empty")
+		return nil, fmt.Errorf("IDToken is empty")
 	}
 	parts := strings.Split(u.IDToken, ".")
 	if len(parts) != 3 {
-		return "", fmt.Errorf("invalid IDToken format")
+		return nil, fmt.Errorf("invalid JWT format")
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return "", fmt.Errorf("cannot decode JWT payload: %w", err)
+		return nil, fmt.Errorf("cannot decode JWT payload: %w", err)
 	}
 	idt := &idTokenPayload{}
 	if err := json.Unmarshal(payload, idt); err != nil {
-		return "", fmt.Errorf("cannot unmarshal JWT payload: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal JWT payload: %w", err)
 	}
-	return idt.Email, nil
+	return idt, nil
 }
 
 // Save writes the session to the response as a cookie.
@@ -253,6 +254,7 @@ func NewAuthenticator(issuer, clientID, clientSecret, redirectURL string) (*Auth
 // an existing user session in order to do so. Ultimately, it will initiate a
 // new authentication flow if required.
 func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter, r *http.Request) (string, error) {
+	// this is handling authentication flow callbacks
 	if r.FormValue("state") != "" {
 		session, err := o.processCallback(ctx, w, r)
 		if err != nil {
@@ -270,15 +272,17 @@ func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter,
 			http.Redirect(w, r, redirectPath, http.StatusSeeOther)
 			return "", ErrRedirectRequired
 		}
-		email, err := session.Email()
+		email, err := o.userEmail(ctx, session)
 		if err != nil {
 			return "", fmt.Errorf("cannot get user's email: %w", err)
 		}
 		return email, nil
 	}
+	// the user is already authenticated
 	if email, err := o.UserEmail(ctx, r); err == nil {
 		return email, nil
 	}
+	// we should initiate a new authentication flow
 	session, err := newUserSession(w, r)
 	if err != nil {
 		return "", err
@@ -291,11 +295,16 @@ func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter,
 }
 
 // UserEmail returns the email address of the user from their session, if they
-// are already authenticated.
+// are already authenticated. It works similarly to Authenticate but does not
+// handle oauth2 callbacks and will not initiate a new authentication flow.
 func (o *Authenticator) UserEmail(ctx context.Context, r *http.Request) (string, error) {
 	session, err := newUserSessionFromRequest(r)
 	if err != nil {
 		return "", err
+	}
+	email, err := o.userEmail(ctx, session)
+	if err != nil {
+		return "", fmt.Errorf("cannot get user's email: %w", err)
 	}
 	// We simply use the introspection endpoint to validate the token.
 	// Although that's an extra HTTP call for each connection, it reduces
@@ -303,18 +312,27 @@ func (o *Authenticator) UserEmail(ctx context.Context, r *http.Request) (string,
 	// IDToken. Alternatively, we can fetch the JWKS endpoint from discovery
 	// and use the keys contained there to validate it locally.
 	// eg.: https://developer.okta.com/docs/guides/validate-id-tokens/overview/
-	ir, err := o.validateToken(ctx, session.IDToken, "id_token")
+	ir, err := o.introspectToken(ctx, session.IDToken, "id_token")
 	if err != nil {
 		return "", err
 	}
 	if !ir.Active {
 		return "", fmt.Errorf("session contains inactive id token")
 	}
-	email, err := session.Email()
-	if err != nil {
-		return "", fmt.Errorf("cannot get user's email: %w", err)
-	}
 	return email, nil
+}
+
+// userEmail parses and validates the idToken stored in a userSession and
+// returns the email address stored in it.
+func (o *Authenticator) userEmail(ctx context.Context, session *userSession) (string, error) {
+	idt, err := session.ParseIDToken()
+	if err != nil {
+		return "", fmt.Errorf("cannot parse id token: %w", err)
+	}
+	if idt.Iss != o.issuer.String() {
+		return "", fmt.Errorf("invalid token issuer")
+	}
+	return idt.Email, nil
 }
 
 func (o *Authenticator) processCallback(ctx context.Context, w http.ResponseWriter, r *http.Request) (*userSession, error) {
@@ -367,9 +385,9 @@ func (o *Authenticator) discoverConfiguration() error {
 	return o.do(req, &o.discoveredConfig)
 }
 
-// validateToken takes a token and token type and queries the introspection
+// introspectToken takes a token and token type and queries the introspection
 // endpoint with it (https://tools.ietf.org/html/rfc7662#section-2.2)
-func (o *Authenticator) validateToken(ctx context.Context, token, tokenType string) (*oidcIntrospectionResponse, error) {
+func (o *Authenticator) introspectToken(ctx context.Context, token, tokenType string) (*oidcIntrospectionResponse, error) {
 	data := url.Values{}
 	data.Set("token", token)
 	data.Set("token_type_hint", tokenType)
