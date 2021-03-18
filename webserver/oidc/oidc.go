@@ -31,9 +31,7 @@ const (
 
 var (
 	codeVerifierCharsetLen = big.NewInt(int64(len(codeVerifierCharset)))
-	codeVerifierLenMin     = big.NewInt(43)
-	codeVerifierLenMax     = big.NewInt(128)
-	codeVerifierLenRange   = big.NewInt(0).Sub(codeVerifierLenMax, codeVerifierLenMin)
+	codeVerifierLen        = 128
 	secureCookie           *securecookie.SecureCookie
 
 	// ErrRedirectRequired is returned by Authenticator.Authenticate if a
@@ -156,13 +154,8 @@ func (u *userSession) Save(w http.ResponseWriter) error {
 }
 
 func (u *userSession) newCodeVerifier() error {
-	cvl, err := rand.Int(rand.Reader, codeVerifierLenRange)
-	if err != nil {
-		return err
-	}
-	cvLen := int(cvl.Add(cvl, codeVerifierLenMin).Int64())
-	cv := make([]byte, cvLen)
-	for i := 0; i < cvLen; i++ {
+	cv := make([]byte, codeVerifierLen)
+	for i := 0; i < codeVerifierLen; i++ {
 		num, err := rand.Int(rand.Reader, codeVerifierCharsetLen)
 		if err != nil {
 			return err
