@@ -66,6 +66,7 @@ type idTokenPayload struct {
 
 type userSession struct {
 	CodeVerifier []byte `json:"code_verifier"`
+	Domain       string `json:"-"`
 	IDToken      string `json:"id_token"`
 	Nonce        string `json:"nonce"`
 	RedirectPath string `json:"redirect_path"`
@@ -145,6 +146,7 @@ func (u *userSession) Save(w http.ResponseWriter) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     userSessionCookieName,
 		Value:    cookieValue,
+		Domain:   u.Domain,
 		HttpOnly: true,
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
@@ -196,6 +198,7 @@ type oidcConfiguration struct {
 // Authenticator implements the flow for authenticating using oidc.
 type Authenticator struct {
 	config           *oauth2.Config
+	domain           string
 	discoveredConfig oidcConfiguration
 	httpClient       *http.Client
 	issuer           url.URL
@@ -226,10 +229,12 @@ func NewAuthenticator(issuer, clientID, clientSecret, redirectURL string) (*Auth
 	if redirectURL == "" {
 		return nil, fmt.Errorf("redirect URL cannot be empty")
 	}
-	if _, err := url.Parse(redirectURL); err != nil {
+	parsedRedirectURL, err := url.Parse(redirectURL)
+	if err != nil {
 		return nil, fmt.Errorf("cannot parse redirect url: %w", err)
 	}
 	oa := &Authenticator{
+		domain:     strings.Split(parsedRedirectURL.Host, ":")[0],
 		httpClient: &http.Client{},
 		issuer: url.URL{
 			Scheme: issuerURL.Scheme,
@@ -269,6 +274,7 @@ func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter,
 			redirectPath = v
 			session.RedirectPath = ""
 		}
+		session.Domain = o.domain
 		if err := session.Save(w); err != nil {
 			return "", fmt.Errorf("cannot save session: %w", err)
 		}
@@ -291,6 +297,7 @@ func (o *Authenticator) Authenticate(ctx context.Context, w http.ResponseWriter,
 	if err != nil {
 		return "", err
 	}
+	session.Domain = o.domain
 	if err := session.Save(w); err != nil {
 		return "", fmt.Errorf("cannot save session: %w", err)
 	}
