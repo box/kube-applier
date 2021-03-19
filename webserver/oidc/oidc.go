@@ -100,16 +100,16 @@ func newUserSession(w http.ResponseWriter, r *http.Request) (*userSession, error
 	return session, nil
 }
 
-func newUserSessionFromRequest(req *http.Request) (*userSession, error) {
-	cookie, err := req.Cookie(userSessionCookieName)
+func newUserSessionFromRequest(r *http.Request) (*userSession, error) {
+	cookie, err := r.Cookie(userSessionCookieName)
 	if err != nil {
 		return nil, err
 	}
-	us := &userSession{}
-	if err := secureCookie.Decode(userSessionCookieName, cookie.Value, &us); err != nil {
+	session := &userSession{}
+	if err := secureCookie.Decode(userSessionCookieName, cookie.Value, &session); err != nil {
 		return nil, err
 	}
-	return us, nil
+	return session, nil
 }
 
 // ParseIDToken parses the stored id token and returns the result.
@@ -195,10 +195,10 @@ type oidcConfiguration struct {
 
 // Authenticator implements the flow for authenticating using oidc.
 type Authenticator struct {
+	config           *oauth2.Config
+	discoveredConfig oidcConfiguration
 	httpClient       *http.Client
 	issuer           url.URL
-	discoveredConfig oidcConfiguration
-	config           *oauth2.Config
 }
 
 // NewAuthenticator returns a new Authenticator configured for a specific issuer
@@ -225,6 +225,9 @@ func NewAuthenticator(issuer, clientID, clientSecret, redirectURL string) (*Auth
 	}
 	if redirectURL == "" {
 		return nil, fmt.Errorf("redirect URL cannot be empty")
+	}
+	if _, err := url.Parse(redirectURL); err != nil {
+		return nil, fmt.Errorf("cannot parse redirect url: %w", err)
 	}
 	oa := &Authenticator{
 		httpClient: &http.Client{},
