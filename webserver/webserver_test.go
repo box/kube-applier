@@ -106,14 +106,14 @@ var _ = Describe("WebServer", func() {
 			body, err := io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Must be a POST request"}`))
+			Expect(body).To(MatchJSON(`{"result": "error", "message": "must be a POST request"}`))
 
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
 			Expect(err).To(BeNil())
 			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Empty namespace value"}`))
+			Expect(body).To(MatchJSON(`{"result": "error", "message": "empty namespace value"}`))
 
 			v.Set("namespace", "invalid")
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
@@ -121,7 +121,7 @@ var _ = Describe("WebServer", func() {
 			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-			Expect(body).To(MatchJSON(`{"result":  "error", "message": "Cannot find Waybills in namespace 'invalid'"}`))
+			Expect(body).To(MatchJSON(`{"result": "error", "message": "cannot find Waybills in namespace 'invalid'"}`))
 
 			v.Set("namespace", wbList[0].Namespace)
 			res, err = http.PostForm(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort), v)
@@ -129,7 +129,7 @@ var _ = Describe("WebServer", func() {
 			body, err = io.ReadAll(res.Body)
 			Expect(err).To(BeNil())
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
-			Expect(body).To(MatchJSON(`{"result":  "success", "message": "Run queued"}`))
+			Expect(body).To(MatchJSON(`{"result": "success", "message": "Run queued"}`))
 
 			testWebServer.Shutdown()
 			close(testRunQueue)

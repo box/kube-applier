@@ -9,9 +9,11 @@ import (
 	"sort"
 	"strings"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -98,6 +100,36 @@ func newClient(cfg *rest.Config) (*Client, error) {
 // EmitWaybillEvent creates an Event for the provided Waybill.
 func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
 	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
+}
+
+// HasAccess returns a boolean depending on whether the email address provided
+// corresponds to a user who has edit access to the specified Waybill.
+func (c *Client) HasAccess(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, email, verb string) (bool, error) {
+	gvk := waybill.GroupVersionKind()
+	plural, err := c.pluralName(gvk)
+	if err != nil {
+		return false, err
+	}
+	response, err := c.clientset.AuthorizationV1().SubjectAccessReviews().Create(
+		ctx,
+		&authorizationv1.SubjectAccessReview{
+			Spec: authorizationv1.SubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: waybill.Namespace,
+					Verb:      verb,
+					Group:     gvk.Group,
+					Version:   gvk.Version,
+					Resource:  plural,
+				},
+				User: email,
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return false, err
+	}
+	return response.Status.Allowed, nil
 }
 
 // ListWaybills returns a list of all the Waybill resources.
@@ -207,4 +239,19 @@ func prunable(r metav1.APIResource) bool {
 		}
 	}
 	return false
+}
+
+// pluralName returns the plural name of a resource, if found in the API
+// resources
+func (c *Client) pluralName(gvk schema.GroupVersionKind) (string, error) {
+	ar, err := c.clientset.Discovery().ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		return "", err
+	}
+	for _, r := range ar.APIResources {
+		if r.Kind == gvk.Kind {
+			return r.Name, nil
+		}
+	}
+	return "", fmt.Errorf("api resource %s not found", gvk.String())
 }

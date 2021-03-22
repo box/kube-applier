@@ -21,6 +21,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/log"
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
+	"github.com/utilitywarehouse/kube-applier/webserver/oidc"
 )
 
 const (
@@ -29,6 +30,7 @@ const (
 
 // WebServer struct
 type WebServer struct {
+	Authenticator        *oidc.Authenticator
 	Clock                sysutil.ClockInterface
 	DiffURLFormat        string
 	KubeClient           *client.Client
@@ -44,14 +46,27 @@ type WebServer struct {
 // StatusPageHandler implements the http.Handler interface and serves a status
 // page with info about the most recent applier run.
 type StatusPageHandler struct {
-	Clock    sysutil.ClockInterface
-	Result   *Result
-	Template *template.Template
+	Authenticator *oidc.Authenticator
+	Clock         sysutil.ClockInterface
+	Result        *Result
+	Template      *template.Template
 }
 
 // ServeHTTP populates the status page template with data and serves it when
 // there is a request.
 func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.Authenticator != nil {
+		_, err := s.Authenticator.Authenticate(r.Context(), w, r)
+		if errors.Is(err, oidc.ErrRedirectRequired) {
+			return
+		}
+		if err != nil {
+			http.Error(w, "Error: Authentication failed", http.StatusInternalServerError)
+			log.Logger("webserver").Error("Authentication failed", "error", err, "time", s.Clock.Now().String())
+			return
+		}
+	}
+
 	log.Logger("webserver").Info("Applier status request", "time", s.Clock.Now().String())
 	if s.Template == nil {
 		http.Error(w, "Error: Unable to load HTML template", http.StatusInternalServerError)
@@ -74,8 +89,9 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ForceRunHandler implements the http.Handle interface and serves an API
 // endpoint for forcing a new run.
 type ForceRunHandler struct {
-	KubeClient *client.Client
-	RunQueue   chan<- run.Request
+	Authenticator *oidc.Authenticator
+	KubeClient    *client.Client
+	RunQueue      chan<- run.Request
 }
 
 // ServeHTTP handles requests for forcing a run by attempting to add to the
@@ -89,10 +105,25 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		var (
+			userEmail string
+			err       error
+		)
+		if f.Authenticator != nil {
+			userEmail, err = f.Authenticator.UserEmail(r.Context(), r)
+			if err != nil {
+				data.Result = "error"
+				data.Message = "not authenticated"
+				log.Logger("webserver").Error(data.Message, "error", err)
+				w.WriteHeader(http.StatusForbidden)
+				break
+			}
+		}
+
 		if err := r.ParseForm(); err != nil {
 			data.Result = "error"
-			data.Message = "Could not parse form data"
-			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
+			data.Message = "could not parse form data"
+			log.Logger("webserver").Error(data.Message, "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -100,8 +131,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ns := r.FormValue("namespace")
 		if ns == "" {
 			data.Result = "error"
-			data.Message = "Empty namespace value"
-			log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
+			data.Message = "empty namespace value"
+			log.Logger("webserver").Error(data.Message)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
@@ -109,7 +140,8 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		waybills, err := f.KubeClient.ListWaybills(r.Context())
 		if err != nil {
 			data.Result = "error"
-			data.Message = "Cannot list Waybills"
+			data.Message = "cannot list Waybills"
+			log.Logger("webserver").Error(data.Message, "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			break
 		}
@@ -123,21 +155,33 @@ func (f *ForceRunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if waybill == nil {
 			data.Result = "error"
-			data.Message = fmt.Sprintf("Cannot find Waybills in namespace '%s'", ns)
+			data.Message = fmt.Sprintf("cannot find Waybills in namespace '%s'", ns)
 			w.WriteHeader(http.StatusBadRequest)
 			break
 		}
 
-		run.Enqueue(f.RunQueue, run.ForcedRun, waybill)
+		if f.Authenticator != nil {
+			// if the user can patch the Waybill, they are allowed to force a run
+			hasAccess, err := f.KubeClient.HasAccess(r.Context(), waybill, userEmail, "patch")
+			if !hasAccess {
+				data.Result = "error"
+				data.Message = fmt.Sprintf("user %s is not allowed to force a run on waybill %s/%s", userEmail, waybill.Namespace, waybill.Name)
+				if err != nil {
+					log.Logger("webserver").Error(data.Message, "error", err)
+				}
+				w.WriteHeader(http.StatusForbidden)
+				break
+			}
+		}
 
+		run.Enqueue(f.RunQueue, run.ForcedRun, waybill)
 		data.Result = "success"
 		data.Message = "Run queued"
 		w.WriteHeader(http.StatusOK)
 	default:
 		data.Result = "error"
-		data.Message = "Must be a POST request"
+		data.Message = "must be a POST request"
 		w.WriteHeader(http.StatusBadRequest)
-		log.Logger("webserver").Error("Could not process force run request", "error", data.Message)
 	}
 
 	w.Header().Set("Content-Type", "waybill/json; charset=UTF-8")
@@ -191,11 +235,13 @@ func (ws *WebServer) Start() error {
 	m := mux.NewRouter()
 	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{
+		ws.Authenticator,
 		ws.Clock,
 		ws.result,
 		template,
 	}
 	forceRunHandler := &ForceRunHandler{
+		ws.Authenticator,
 		ws.KubeClient,
 		ws.RunQueue,
 	}

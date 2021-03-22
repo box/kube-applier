@@ -18,6 +18,7 @@ import (
 	"github.com/utilitywarehouse/kube-applier/run"
 	"github.com/utilitywarehouse/kube-applier/sysutil"
 	"github.com/utilitywarehouse/kube-applier/webserver"
+	"github.com/utilitywarehouse/kube-applier/webserver/oidc"
 )
 
 var (
@@ -28,6 +29,10 @@ var (
 	fGitSSHKeyPath        = flag.String("git-ssh-key-path", getStringEnv("GIT_SSH_KEY_PATH", ""), "Path to the SSH key file used for fetching the repository")
 	fListenPort           = flag.Int("listen-port", getIntEnv("LISTEN_PORT", 8080), "Port that the http server is listening on")
 	fLogLevel             = flag.String("log-level", getStringEnv("LOG_LEVEL", "warn"), "Logging level: trace, debug, info, warn, error, off")
+	fOidcCallbackURL      = flag.String("oidc-callback-url", getStringEnv("OIDC_CALLBACK_URL", ""), "OIDC callback url should be the root URL where kube-applier is exposed")
+	fOidcClientID         = flag.String("oidc-client-id", getStringEnv("OIDC_CLIENT_ID", ""), "Client ID of the OIDC application")
+	fOidcClientSecret     = flag.String("oidc-client-secret", getStringEnv("OIDC_CLIENT_SECRET", ""), "Client secret of the OIDC application")
+	fOidcIssuer           = flag.String("oidc-issuer", getStringEnv("OIDC_ISSUER", ""), "OIDC issuer URL of the authentication server")
 	fPruneBlacklist       = flag.String("prune-blacklist", getStringEnv("PRUNE_BLACKLIST", ""), "Comma-seperated list of resources to add to the global prune blacklist, in the <group>/<version>/<kind> format")
 	fRepoBranch           = flag.String("repo-branch", getStringEnv("REPO_BRANCH", "master"), "Branch of the git repository to use")
 	fRepoDepth            = flag.Int("repo-depth", getIntEnv("REPO_DEPTH", 0), "Depth of the git repository to fetch. Use zero to ignore")
@@ -91,6 +96,25 @@ func main() {
 	log.SetLevel(*fLogLevel)
 
 	clock := &sysutil.Clock{}
+
+	var (
+		oidcAuthenticator *oidc.Authenticator
+		err               error
+	)
+
+	if strings.Join([]string{*fOidcIssuer, *fOidcClientID, *fOidcClientSecret, *fOidcCallbackURL}, "") != "" {
+		oidcAuthenticator, err = oidc.NewAuthenticator(
+			*fOidcIssuer,
+			*fOidcClientID,
+			*fOidcClientSecret,
+			*fOidcCallbackURL,
+		)
+		if err != nil {
+			log.Logger("kube-applier").Error("could not setup oidc authenticator", "error", err)
+			os.Exit(1)
+		}
+		log.Logger("kube-applier").Info("OIDC authentication configured", "issuer", *fOidcIssuer, "clientID", *fOidcClientID)
+	}
 
 	repo, err := git.NewRepository(
 		*fRepoDest,
@@ -161,6 +185,7 @@ func main() {
 	scheduler.Start()
 
 	webserver := &webserver.WebServer{
+		Authenticator:        oidcAuthenticator,
 		Clock:                clock,
 		DiffURLFormat:        *fDiffURLFormat,
 		KubeClient:           kubeClient,
