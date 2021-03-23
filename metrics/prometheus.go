@@ -246,6 +246,17 @@ func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 		lastRunTimestamp.With(prometheus.Labels{
 			"namespace": wb.Namespace,
 		}).Set(float64(wb.Status.LastRun.Finished.Unix()))
+		// Initialise the following vectors, if they don't exist. By simply
+		// fetching an instance of a Counter from the CounterVec, it is being
+		// initialised, if it doesn't exist. This ensures that counters start
+		// with a zero value if they have not been updated before.
+		for _, b := range []string{"true", "false"} {
+			namespaceApplyCount.With(prometheus.Labels{"namespace": wb.Namespace, "success": b})
+			runLatency.With(prometheus.Labels{"namespace": wb.Namespace, "success": b, "dryrun": "true"})
+			runLatency.With(prometheus.Labels{"namespace": wb.Namespace, "success": b, "dryrun": "false"})
+		}
+		kubectlExitCodeCount.With(prometheus.Labels{"namespace": wb.Namespace, "exit_code": "0"})
+		kubectlExitCodeCount.With(prometheus.Labels{"namespace": wb.Namespace, "exit_code": "1"})
 	}
 }
 
