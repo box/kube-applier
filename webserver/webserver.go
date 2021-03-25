@@ -207,7 +207,7 @@ func (ws *WebServer) Start() error {
 	if templatePath == "" {
 		templatePath = defaultServerTemplatePath
 	}
-	template, err := sysutil.CreateTemplate(templatePath)
+	template, err := createTemplate(templatePath)
 	if err != nil {
 		return err
 	}

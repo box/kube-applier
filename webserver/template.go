@@ -1,4 +1,4 @@
-package sysutil
+package webserver
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-// CreateTemplate takes in a path to a template file and parses the file to create a Template instance.
-func CreateTemplate(templatePath string) (*template.Template, error) {
+// createTemplate takes in a path to a template file and parses the file to create a Template instance.
+func createTemplate(templatePath string) (*template.Template, error) {
 	if _, err := os.Stat(templatePath); err != nil {
 		return nil, fmt.Errorf("Error opening template file: %v", err)
 	}
