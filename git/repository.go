@@ -273,6 +273,14 @@ func (r *Repository) sync(ctx context.Context) error {
 	}
 	// GC clone
 	if _, err := r.runGitCommand(ctx, nil, r.path, "gc", "--prune=all"); err != nil {
+		commitGraphLock := filepath.Join(gitRepoPath, "objects/info/commit-graph.lock")
+		if strings.Contains(err.Error(), fmt.Sprintf("Unable to create '%s': File exists.", commitGraphLock)) {
+			if e := os.Remove(commitGraphLock); e != nil {
+				log.Logger("repository").Error("possible git crash detected but could not remove commit graph lock", "path", commitGraphLock, "error", e)
+			} else {
+				log.Logger("repository").Error("possible git crash detected, commit graph lock removed and next attempt should succeed", "path", commitGraphLock)
+			}
+		}
 		return err
 	}
 	// Reset HEAD
