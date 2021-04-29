@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -122,7 +123,7 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 	}
 
 	minorDiff := serverMinorInt - clientMinorInt
-	if minorDiff != 0 && minorDiff != 1 {
+	if math.Abs(float64(minorDiff)) > 1 {
 		return incompatible
 	}
 	return nil
