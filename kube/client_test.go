@@ -37,6 +37,10 @@ func TestClientIsCompatible(t *testing.T) {
 	tc = testCase{"1", "0", "1", "2", fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is 1.0; server is 1.2. Client must be same minor release as server or one minor release behind server.")}
 	createAndAssert(t, tc)
 
+	// Client 1.2, Server 1.0
+	tc = testCase{"1", "2", "1", "0", fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is 1.2; server is 1.0. Client must be same minor release as server or one minor release behind server.")}
+	createAndAssert(t, tc)
+
 	// Client 1.1, Server 1.0
 	tc = testCase{"1", "1", "1", "0", nil}
 	createAndAssert(t, tc)
