@@ -4,11 +4,14 @@
 package run
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +33,19 @@ const (
 	defaultRunnerWorkerCount = 2
 	defaultWorkerQueueSize   = 512
 
+	hostFragment = `Host %s_github_com
+    HostName github.com
+    IdentitiesOnly yes
+    IdentityFile %s
+    User git
+`
+
 	secretAllowedNamespacesAnnotation = "kube-applier.io/allowed-namespaces"
+)
+
+var (
+	reKeyName     = regexp.MustCompile(`#\skube-applier:\skey_(\w+)`)
+	reRepoAddress = regexp.MustCompile(`(^\s*-\s*ssh:\/\/)(github)\.(com)(.*$)`)
 )
 
 // Checks whether the provided Secret can be used by the Waybill and returns an
@@ -176,6 +191,9 @@ func (r *Runner) processRequest(request Request) error {
 		return fmt.Errorf("failed setting up repository clone: %w", err)
 	}
 	applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, gitSSHCommand)
+	// Set HOME to tmpHomeDir, this means that SSH should not pick up any
+	// local SSH keys and use them for cloning
+	applyOptions.EnvironmentVariables = append(applyOptions.EnvironmentVariables, fmt.Sprintf("HOME=%s", tmpHomeDir))
 	tmpRepoPath, hash, err := r.setupRepositoryClone(ctx, request.Waybill, tmpHomeDir, tmpRepoDir)
 	if err != nil {
 		return fmt.Errorf("failed setting up repository clone: %w", err)
@@ -237,11 +255,11 @@ func (r *Runner) getDelegateToken(ctx context.Context, waybill *kubeapplierv1alp
 }
 
 func (r *Runner) setupTempDirs(waybill *kubeapplierv1alpha1.Waybill) (string, string, func(), error) {
-	tmpHomeDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_%d_home_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	tmpHomeDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_home_", waybill.Namespace, waybill.Name))
 	if err != nil {
 		return "", "", nil, err
 	}
-	tmpRepoDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_%d_repo_", waybill.Namespace, waybill.Name, r.Clock.Now().Unix()))
+	tmpRepoDir, err := os.MkdirTemp("", fmt.Sprintf("run_%s_%s_repo_", waybill.Namespace, waybill.Name))
 	if err != nil {
 		os.RemoveAll(tmpHomeDir)
 		return "", "", nil, err
@@ -287,17 +305,67 @@ func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv
 	if err != nil {
 		return "", "", err
 	}
+	// Rewrite repo addresses for those that want to use SSH keys to clone
+	r.updateRepoBaseAddresses(tmpRepoDir)
 	return filepath.Join(tmpRepoDir, r.RepoPath), hash, nil
 }
 
+// updateRepoBaseAddresses finds all Kustomization files by walking the repo dir.
+// For each Kustomization file, we read it line by line trying to find KA key
+// comment `# kube-applier: key_foobar`, we then attempt to replace the domain on
+// the next line by injecting the `foobar` part into domain, resulting in
+// `foobar_github_com`. We must not use `.` - as it breaks Host matching in
+// .ssh/config
+func (r *Runner) updateRepoBaseAddresses(tmpRepoDir string) error {
+	kFiles := []string{}
+	filepath.WalkDir(tmpRepoDir, func(path string, info fs.DirEntry, err error) error {
+		if filepath.Base(path) == "kustomization.yaml" ||
+			filepath.Base(path) == "kustomization.yml" ||
+			filepath.Base(path) == "Kustomization" {
+			kFiles = append(kFiles, path)
+		}
+		return nil
+	})
+	for _, k := range kFiles {
+		var out []byte
+		in, err := os.Open(k)
+		if err != nil {
+			return nil
+		}
+		defer in.Close()
+		keyName := ""
+		scanner := bufio.NewScanner(in)
+		for scanner.Scan() {
+			l := scanner.Bytes()
+			if keyName != "" {
+				if reRepoAddress.Match(l) {
+					l = reRepoAddress.ReplaceAll(l, []byte(fmt.Sprintf("${1}%s_${2}_${3}${4}", keyName)))
+				}
+				keyName = ""
+			} else if reKeyName.Match(l) {
+				s := reKeyName.FindSubmatch(l)
+				if len(s) == 2 {
+					keyName = string(s[1])
+				}
+			}
+			out = append(out, l...)
+			out = append(out, "\n"...)
+		}
+		if err := os.WriteFile(k, out, 0644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // setupGitSSH ensures that any custom SSH keys configured for the Waybill are
-// written to the temporary home directory and returns a value for
-// GIT_SSH_COMMAND (man git) that forces git (and therefore kustomize) to use
-// ssh with a particular set of flags. Specifically, using IdentitiesOnly=yes
-// and passing the key(s) with IdentityFile= ensures that ssh will not try to
-// fallback to the standard key locations for the user, accidentally using a
-// key that it should not (man ssh_config).
+// written to the temporary home directory and returns a value for GIT_SSH_COMMAND
+// (man git) that forces Git (and therefore kustomize) to custom SSH command for
+// cloning. Specifically, using a custom config file means we can match SSH keys
+// to specific repositories (man ssh_config).
 func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill, tmpHomeDir string) (string, error) {
+	sshDir := filepath.Join(tmpHomeDir, ".ssh")
+	os.Mkdir(sshDir, 0700)
 	if waybill.Spec.GitSSHSecretRef == nil {
 		// Even when there is no git SSH secret defined, we still override the
 		// git ssh command (pointing the key to /dev/null) in order to avoid
@@ -317,33 +385,46 @@ func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.W
 		return "", err
 	}
 	knownHostsFragment := `-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
-	keyFragments := []string{}
+	configFilename := filepath.Join(sshDir, "config")
+	body, err := r.constructSSHConfig(secret, sshDir, configFilename)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(configFilename, body, 0644); err != nil {
+		return "", err
+	}
+	for k, v := range secret.Data {
+		if k == "known_hosts" {
+			if err := os.WriteFile(filepath.Join(sshDir, "known_hosts"), v, 0600); err != nil {
+				return "", err
+			}
+			knownHostsFragment = fmt.Sprintf(`-o UserKnownHostsFile=%[1]s/known_hosts`, sshDir)
+		}
+	}
+	return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F %s %s`, configFilename, knownHostsFragment), nil
+}
+
+func (r *Runner) constructSSHConfig(secret *corev1.Secret, sshDir, configFilename string) ([]byte, error) {
+	hostFragments := []string{}
 	for k, v := range secret.Data {
 		if strings.HasPrefix(k, "key_") {
-			// if the file containing the ssh key does not have a newline at the end,
+			// if the file containing the SSH key does not have a newline at the end,
 			// ssh does not complain about it but the key will not work properly
 			if !bytes.HasSuffix(v, []byte("\n")) {
 				v = append(v, byte('\n'))
 			}
-			keyFilename := filepath.Join(tmpHomeDir, fmt.Sprintf(".ssh_%s", k))
-			if err := os.WriteFile(keyFilename, v, 0400); err != nil {
-				return "", err
+			keyFilename := filepath.Join(sshDir, fmt.Sprintf("%s", k))
+			if err := os.WriteFile(keyFilename, v, 0600); err != nil {
+				return []byte{}, err
 			}
-			// keys (identity files) are used by ssh sequentially (in the same
-			// order in which they are defined in the command line) until a
-			// valid key is found for a given remote
-			keyFragments = append(keyFragments, fmt.Sprintf(`-o IdentityFile=%s`, keyFilename))
-		} else if k == "known_hosts" {
-			if err := os.WriteFile(filepath.Join(tmpHomeDir, ".ssh_known_hosts"), v, 0400); err != nil {
-				return "", err
-			}
-			knownHostsFragment = fmt.Sprintf(`-o UserKnownHostsFile=%[1]s/.ssh_known_hosts`, tmpHomeDir)
+			nameFromKey := strings.TrimPrefix(k, "key_")
+			hostFragments = append(hostFragments, fmt.Sprintf(hostFragment, nameFromKey, keyFilename))
 		}
 	}
-	if len(keyFragments) == 0 {
-		return "", fmt.Errorf(`secret "%s/%s" does not contain any keys`, secret.Namespace, secret.Name)
+	if len(hostFragments) == 0 {
+		return nil, fmt.Errorf(`secret "%s/%s" does not contain any keys`, secret.Namespace, secret.Name)
 	}
-	return fmt.Sprintf(`GIT_SSH_COMMAND=ssh -q -F none -o IdentitiesOnly=yes %s %s`, strings.Join(keyFragments, " "), knownHostsFragment), nil
+	return []byte(strings.Join(hostFragments, "\n")), nil
 }
 
 // Apply takes a list of files and attempts an apply command on each.

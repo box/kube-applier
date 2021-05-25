@@ -332,6 +332,12 @@ Some error output has been omitted because it may contain sensitive data
 
 	Context("When operating on a Waybill that defines a git ssh Secret", func() {
 		It("Should be able to use it to pull remote kustomize bases", func() {
+			// 1. app-b-kustomize-nokey
+			// 2. app-b-kustomize-notfound
+			// 3. app-b-kustomize-noaccess
+			// 4. app-b-kustomize
+			// 5. app-b-kustomize-twokeys
+			// 6. app-c-kustomize-withkey
 			wbList := []*kubeapplierv1alpha1.Waybill{
 				{ // when trying to pull a base over ssh without specifying a key, kustomize will return an error
 					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
@@ -472,45 +478,46 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-b-kustomize"))
+			bHeadCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-b-kustomize"))
 			Expect(err).To(BeNil())
-			Expect(headCommitHash).ToNot(BeEmpty())
+			Expect(bHeadCommitHash).ToNot(BeEmpty())
+			cHeadCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-c-kustomize"))
+			Expect(err).To(BeNil())
+			Expect(cHeadCommitHash).ToNot(BeEmpty())
 
 			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
+				// 1. app-b-kustomize-nokey
 				{
 					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
-					Commit:       headCommitHash,
+					Commit:       bHeadCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `(?m)^.*Error cloning git repo: Cloning into '[^']+'...
-fatal: Could not read from remote repository.
-
-Please make sure you have the correct access rights
-and the repository exists.
-Error: accumulating resources:.*$`,
-					Started: metav1.Time{},
-					Success: false,
-					Type:    PollingRun.String(),
+					Output:       `(?s)Error: accumulating resources:.*'ssh:\/\/deploy_github_com\/utilitywarehouse\/kube-applier\/\/testdata\/bases\/simple-deployment\?ref=master'.*exit status 128`,
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
 				},
+				// 2. app-b-kustomize-notfound
 				nil,
+				// 3. app-b-kustomize-noaccess
+				//
+				// `(na)?` at the end of the pattern never
+				// matches, but is there to help us identify which
+				// test failed
 				{
 					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
-					Commit:       headCommitHash,
+					Commit:       bHeadCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
-					Output: `(?m)^.*Error cloning git repo: Cloning into '[^']+'...
-fatal: Could not read from remote repository.
-
-Please make sure you have the correct access rights
-and the repository exists.
-Error: accumulating resources:.*$`,
-					Started: metav1.Time{},
-					Success: false,
-					Type:    PollingRun.String(),
+					Output:       `(?s)Error: accumulating resources:.*'ssh:\/\/deploy_github_com\/utilitywarehouse\/kube-applier\/\/testdata\/bases\/simple-deployment\?ref=master'.*exit status 128(na)?`,
+					Started:      metav1.Time{},
+					Success:      false,
+					Type:         PollingRun.String(),
 				},
+				// 4. app-b-kustomize
 				{
 					Command:      "",
-					Commit:       headCommitHash,
+					Commit:       bHeadCommitHash,
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-b-kustomize configured
@@ -520,9 +527,10 @@ deployment.apps/test-deployment created
 					Success: true,
 					Type:    PollingRun.String(),
 				},
+				// 5. app-b-kustomize-twokeys
 				{
 					Command:      "",
-					Commit:       headCommitHash,
+					Commit:       bHeadCommitHash,
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-b-kustomize unchanged
@@ -532,9 +540,10 @@ deployment.apps/test-deployment created
 					Success: true,
 					Type:    PollingRun.String(),
 				},
+				// 6. app-c-kustomize-withkey
 				{
 					Command:      "",
-					Commit:       headCommitHash,
+					Commit:       cHeadCommitHash,
 					ErrorMessage: "",
 					Finished:     metav1.Time{},
 					Output: `namespace/app-c-kustomize created
