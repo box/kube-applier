@@ -2,26 +2,6 @@
 
 [![Build Status](https://drone.prod.merit.uw.systems/api/badges/utilitywarehouse/kube-applier/status.svg)](https://drone.prod.merit.uw.systems/utilitywarehouse/kube-applier)
 
-# Table of Contents
-
-<!-- vim-markdown-toc GFM -->
-
-* [Usage](#usage)
-    * [Waybill CRD](#waybill-crd)
-        * [Delegate ServiceAccount](#delegate-serviceaccount)
-        * [Integration with `strongbox`](#integration-with-strongbox)
-        * [Custom SSH Keys](#custom-ssh-keys)
-    * [Resource pruning](#resource-pruning)
-* [Deploying](#deploying)
-* [Monitoring](#monitoring)
-    * [Status UI](#status-ui)
-    * [Metrics](#metrics)
-* [Running locally](#running-locally)
-* [Running tests](#running-tests)
-* [Copyright and License](#copyright-and-license)
-
-<!-- vim-markdown-toc -->
-
 Forked from: https://github.com/box/kube-applier
 
 kube-applier is Kubernetes deployment tool strongly following
@@ -159,13 +139,15 @@ SSH keys to be used with `kustomize`. Additionally this `Secret` can optionally
 define a value for `"known_hosts"`. If ommitted, `git` will use `ssh` with
 `StrictHostKeyChecking` disabled.
 
-To use an ssh key for `kustomize` bases, the bases should be defined with the
-`ssh://` scheme in `kustomization.yaml`. For example:
+To use an SSH key for Kustomize bases, the bases should be defined with the
+`ssh://` scheme in `kustomization.yaml` and have a `# kube-applier: key_foobar`
+comment above it. For example:
 ```
 bases:
   # https scheme (default if omitted), any SSH keys defined are ignored
   - github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=master
   # ssh scheme requires a valid SSH key to be defined
+  # kube-applier: key_a
   - ssh://github.com/utilitywarehouse/kube-applier//testdata/bases/simple-deployment?ref=master
 ```
 
