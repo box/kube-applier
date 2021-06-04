@@ -15,9 +15,9 @@ spec:
         app: test-app
     spec:
       containers:
-      - name: alpine
-        image: alpine
-        command:
-          - /bin/sh
-          - -c
-          - sleep 3600
+        - name: alpine
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - sleep 3600
