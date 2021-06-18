@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+IMAGE := quay.io/utilitywarehouse/kube-applier
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -79,12 +80,10 @@ run:
 	-p 8080:8080 \
 	-ti kube-applier
 
-# Hack to take arguments from command line
-# Usage: `make release 5.5.5`
-# https://stackoverflow.com/questions/6273608/how-to-pass-argument-to-makefile-from-command-line
 release:
-	sed -i 's#utilitywarehouse/kube-applier:.*#utilitywarehouse/kube-applier:$(filter-out $@,$(MAKECMDGOALS))#g' manifests/base/server/kube-applier.yaml
-	sed -i -E 's#kube-applier//manifests/base/(client|cluster|server)\?ref=.*#kube-applier//manifests/base/\1?ref=$(filter-out $@,$(MAKECMDGOALS))#g' README.md manifests/example/kustomization.yaml
-
-%:		# matches any task name
-	@:	# empty recipe = do nothing
+	@sd "$(IMAGE):latest" "$(IMAGE):$(VERSION)" $$(rg -l -- $(IMAGE) manifests/)
+	@git add -- manifests/
+	@git commit -m "Release $(VERSION)"
+	@sd "$(IMAGE):$(VERSION)" "$(IMAGE):latest" $$(rg -l -- "$(IMAGE)" manifests/)
+	@git add -- manifests/
+	@git commit -m "Clean up release $(VERSION)"
