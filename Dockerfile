@@ -36,7 +36,7 @@ RUN go get -t ./... &&\
   CGO_ENABLED=1 && go test -race -count=1 ./... &&\
   CGO_ENABLED=0 && go build -o /kube-applier -ldflags '-s -w -extldflags "-static"' .
 
-FROM alpine:3.13
+FROM alpine:3.14
 RUN apk --no-cache add git openssh-client tini
 COPY templates/ /templates/
 COPY static/ /static/
