@@ -51,6 +51,9 @@ var (
 	// resultSummary is a Gauge vector that captures information about objects
 	// applied during runs
 	resultSummary *prometheus.GaugeVec
+	// lastRunSuccess is a Gauge vector of whether the last run was
+	// successful or not
+	lastRunSuccess *prometheus.GaugeVec
 	// lastRunTimestamp is a Gauge vector of the last run timestamp
 	lastRunTimestamp *prometheus.GaugeVec
 	// runQueue is a Gauge vector of active run requests
@@ -139,6 +142,16 @@ func init() {
 			"action",
 		},
 	)
+	lastRunSuccess = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "last_run_success",
+		Help:      "Was the last run for this namespace successful?",
+	},
+		[]string{
+			// Namespace of the Waybill applied
+			"namespace",
+		},
+	)
 	lastRunTimestamp = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "last_run_timestamp_seconds",
@@ -216,9 +229,10 @@ func AddRunRequestQueueFailure(t string, waybill *kubeapplierv1alpha1.Waybill) {
 	}).Inc()
 }
 
-// ReconcileFromWaybillList ensures that the last_run_timestamp and waybill_spec
-// metrics correctly represent the state in the cluster
+// ReconcileFromWaybillList ensures that the last_run_success, last_run_timestamp
+// and waybill_spec metrics correctly represent the state in the cluster
 func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
+	lastRunSuccess.Reset()
 	lastRunTimestamp.Reset()
 	waybillSpecAutoApply.Reset()
 	waybillSpecDryRun.Reset()
@@ -243,6 +257,7 @@ func ReconcileFromWaybillList(waybills []kubeapplierv1alpha1.Waybill) {
 		if wb.Status.LastRun == nil {
 			continue
 		}
+		setLastRunSuccess(wb.Namespace, wb.Status.LastRun.Success)
 		lastRunTimestamp.With(prometheus.Labels{
 			"namespace": wb.Namespace,
 		}).Set(float64(wb.Status.LastRun.Finished.Unix()))
@@ -288,6 +303,7 @@ func UpdateFromLastRun(waybill *kubeapplierv1alpha1.Waybill) {
 	lastRunTimestamp.With(prometheus.Labels{
 		"namespace": waybill.Namespace,
 	}).Set(float64(waybill.Status.LastRun.Finished.Unix()))
+	setLastRunSuccess(waybill.Namespace, waybill.Status.LastRun.Success)
 }
 
 // UpdateKubectlExitCodeCount increments for each exit code returned by kubectl
@@ -334,12 +350,23 @@ func Reset() {
 	namespaceApplyCount.Reset()
 	runLatency.Reset()
 	resultSummary.Reset()
+	lastRunSuccess.Reset()
 	lastRunTimestamp.Reset()
 	runQueue.Reset()
 	runQueueFailures.Reset()
 	waybillSpecAutoApply.Reset()
 	waybillSpecDryRun.Reset()
 	waybillSpecRunInterval.Reset()
+}
+
+func setLastRunSuccess(namespace string, success bool) {
+	lrs := float64(0)
+	if success {
+		lrs = 1
+	}
+	lastRunSuccess.With(prometheus.Labels{
+		"namespace": namespace,
+	}).Set(lrs)
 }
 
 type applyObjectResult struct {
