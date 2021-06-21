@@ -306,7 +306,9 @@ func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv
 		return "", "", err
 	}
 	// Rewrite repo addresses for those that want to use SSH keys to clone
-	r.updateRepoBaseAddresses(tmpRepoDir)
+	if err := r.updateRepoBaseAddresses(tmpRepoDir); err != nil {
+		return "", "", err
+	}
 	return filepath.Join(tmpRepoDir, r.RepoPath), hash, nil
 }
 
