@@ -337,6 +337,9 @@ func (r *Runner) updateRepoBaseAddresses(tmpRepoDir string) error {
 		scanner := bufio.NewScanner(in)
 		for scanner.Scan() {
 			l := scanner.Bytes()
+			if keyName == "" && reRepoAddress.Match(l) {
+				return fmt.Errorf("Detected ssh:// resource without a key annotation: resource=%s", l)
+			}
 			if keyName != "" {
 				if reRepoAddress.Match(l) {
 					l = reRepoAddress.ReplaceAll(l, []byte(fmt.Sprintf("${1}%s_${2}_${3}${4}", keyName)))
