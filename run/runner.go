@@ -340,7 +340,7 @@ func (r *Runner) updateRepoBaseAddresses(tmpRepoDir string) error {
 		for scanner.Scan() {
 			l := scanner.Bytes()
 			if keyName == "" && reRepoAddress.Match(l) {
-				return fmt.Errorf("Detected ssh:// resource without a key annotation: resource=%s", l)
+				log.Logger("runner").Warn("Detected ssh:// resource without a key annotation", "resource", string(l))
 			}
 			if keyName != "" {
 				if reRepoAddress.Match(l) {
