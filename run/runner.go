@@ -39,6 +39,12 @@ const (
     IdentityFile %s
     User git
 `
+	singleKeyHostFragment = `Host github.com
+    HostName github.com
+    IdentitiesOnly yes
+    IdentityFile %s
+    User git
+`
 
 	secretAllowedNamespacesAnnotation = "kube-applier.io/allowed-namespaces"
 )
@@ -306,7 +312,9 @@ func (r *Runner) setupRepositoryClone(ctx context.Context, waybill *kubeapplierv
 		return "", "", err
 	}
 	// Rewrite repo addresses for those that want to use SSH keys to clone
-	r.updateRepoBaseAddresses(tmpRepoDir)
+	if err := r.updateRepoBaseAddresses(tmpRepoDir); err != nil {
+		return "", "", err
+	}
 	return filepath.Join(tmpRepoDir, r.RepoPath), hash, nil
 }
 
@@ -405,15 +413,22 @@ func (r *Runner) setupGitSSH(ctx context.Context, waybill *kubeapplierv1alpha1.W
 }
 
 func (r *Runner) constructSSHConfig(secret *corev1.Secret, sshDir, configFilename string) ([]byte, error) {
+	var tk int
+	var kfn string
 	hostFragments := []string{}
 	for k, v := range secret.Data {
 		if strings.HasPrefix(k, "key_") {
-			// if the file containing the SSH key does not have a newline at the end,
-			// ssh does not complain about it but the key will not work properly
+			tk++
+			// if the file containing the SSH key does not have a
+			// newline at the end, ssh does not complain about it but
+			// the key will not work properly
 			if !bytes.HasSuffix(v, []byte("\n")) {
 				v = append(v, byte('\n'))
 			}
 			keyFilename := filepath.Join(sshDir, fmt.Sprintf("%s", k))
+			// We will use this in case there is only a single key
+			// for all hosts
+			kfn = keyFilename
 			if err := os.WriteFile(keyFilename, v, 0600); err != nil {
 				return []byte{}, err
 			}
@@ -424,6 +439,11 @@ func (r *Runner) constructSSHConfig(secret *corev1.Secret, sshDir, configFilenam
 	if len(hostFragments) == 0 {
 		return nil, fmt.Errorf(`secret "%s/%s" does not contain any keys`, secret.Namespace, secret.Name)
 	}
+	// check if there is only a single key, and use it for all SSH clones
+	if tk == 1 {
+		hostFragments = append(hostFragments, fmt.Sprintf(singleKeyHostFragment, kfn))
+	}
+
 	return []byte(strings.Join(hostFragments, "\n")), nil
 }
 
