@@ -349,6 +349,15 @@ If you are writing tests, you might want to take a look at the
 as well as the [`ginkgo`](http://onsi.github.io/ginkgo/) and
 [`gomega`](https://onsi.github.io/gomega/) documentation.
 
+## Releasing
+
+Please use the make target "release" with "VERSION" argument to update all
+references and clean up after, example:
+
+```
+$ make release VERSION=3.3.3-rc.3
+```
+
 ## Copyright and License
 
 Copyright 2016 Box, Inc. All rights reserved.
