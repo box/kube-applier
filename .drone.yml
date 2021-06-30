@@ -26,6 +26,12 @@ steps:
       repo: quay.io/utilitywarehouse/${DRONE_REPO_NAME}
       registry: quay.io
 
+  - name: vulnerability-scanning
+    image: aquasec/trivy
+    commands:
+      - TAG=$(cut -d ',' -f1 .tags)
+      - trivy client --remote http://trivy:4954 --exit-code 1 quay.io/utilitywarehouse/${DRONE_REPO_NAME}:$${TAG}
+
 trigger:
   event:
     exclude:
