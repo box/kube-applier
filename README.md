@@ -196,6 +196,15 @@ Specific resource types can be exempted from pruning by adding them to the
     - core/v1/Namespace
 ```
 
+To blacklist resources for all namespaces, use the `PRUNE_BLACKLIST` environment
+variable:
+
+```
+env:
+  - name: PRUNE_BLACKLIST
+    value: "core/v1/ConfigMap,core/v1/Namespace"
+```
+
 The resource `apps/v1/ControllerRevision` is always exempted from pruning,
 regardless of the blacklist. This is because Kubernetes copies the
 `kubectl.kubernetes.io/last-applied-configuration` annotation to controller
