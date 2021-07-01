@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -61,16 +62,12 @@ func checkSecretIsAllowed(waybill *kubeapplierv1alpha1.Waybill, secret *corev1.S
 		return nil
 	}
 	allowedNamespaces := strings.Split(secret.Annotations[secretAllowedNamespacesAnnotation], ",")
-	allowed := false
 	for _, v := range allowedNamespaces {
-		if strings.TrimSpace(v) == waybill.Namespace {
-			allowed = true
-			break
+		if match, _ := path.Match(strings.TrimSpace(v), waybill.Namespace); match {
+			return nil
 		}
 	}
-	if allowed {
-		return nil
-	}
+
 	return fmt.Errorf(`secret "%s/%s" cannot be used in namespace "%s", the namespace must be listed in the '%s' annotation`, secret.Namespace, secret.Name, waybill.Namespace, secretAllowedNamespacesAnnotation)
 }
 

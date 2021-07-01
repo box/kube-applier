@@ -103,8 +103,10 @@ Role and a RoleBinding to give `"get"` permission to it.
 If you need to deploy a shared strongbox keyring to use in multiple namespaces,
 the Secret should have an annotation called
 `"kube-applier.io/allowed-namespaces"` which contains a comma-seperated list of
-all the namespaces that are allowed to use it. For example, the following secret
-can be used by namespaces "ns-a", "ns-b" and "ns-c":
+all the namespaces that are allowed to use it.
+
+For example, the following secret can be used by namespaces "ns-a", "ns-b" and
+"ns-c":
 
 ```
 kind: Secret
@@ -120,6 +122,14 @@ stringData:
     - description: mykey
       key-id: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
       key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+```
+
+Each item in the list of allowed namespaces supports [shell pattern
+matching](https://golang.org/pkg/path/#Match), meaning you can grant access to
+namespaces based on naming conventions:
+
+```
+kube-applier.io/allowed-namespaces: "team-a-*, team-b-monitoring"
 ```
 
 The secret containing the strongbox keyring should itself be version controlled
@@ -142,6 +152,7 @@ define a value for `"known_hosts"`. If ommitted, `git` will use `ssh` with
 To use an SSH key for Kustomize bases, the bases should be defined with the
 `ssh://` scheme in `kustomization.yaml` and have a `# kube-applier: key_foobar`
 comment above it. For example:
+
 ```
 bases:
   # https scheme (default if omitted), any SSH keys defined are ignored
