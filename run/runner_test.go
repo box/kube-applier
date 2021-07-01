@@ -677,6 +677,19 @@ deployment.apps/test-deployment created
 						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox", Namespace: "app-d"},
 					},
 				},
+				{
+					TypeMeta: metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-d",
+						Namespace: "app-d-strongbox-shared-is-allowed",
+					},
+					Spec: kubeapplierv1alpha1.WaybillSpec{
+						AutoApply:                 pointer.BoolPtr(true),
+						Prune:                     pointer.BoolPtr(true),
+						RepositoryPath:            "app-d",
+						StrongboxKeyringSecretRef: &kubeapplierv1alpha1.ObjectReference{Name: "strongbox", Namespace: "app-d"},
+					},
+				},
 			}
 
 			testEnsureWaybills(wbList)
@@ -685,7 +698,7 @@ deployment.apps/test-deployment created
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
-					Annotations: map[string]string{secretAllowedNamespacesAnnotation: "app-d-strongbox-shared"},
+					Annotations: map[string]string{secretAllowedNamespacesAnnotation: "app-d-strongbox-shared,app-d-strongbox-shared-is-*"},
 				},
 				StringData: map[string]string{
 					".strongbox_keyring": `keyentries:
@@ -735,6 +748,18 @@ deployment.apps/test-deployment created
 					Type:    PollingRun.String(),
 				},
 				nil,
+				{
+					Command:      "",
+					Commit:       headCommitHash,
+					ErrorMessage: "",
+					Finished:     metav1.Time{},
+					Output: `namespace/app-d unchanged
+deployment.apps/test-deployment created
+`,
+					Started: metav1.Time{},
+					Success: true,
+					Type:    PollingRun.String(),
+				},
 				{
 					Command:      "",
 					Commit:       headCommitHash,
