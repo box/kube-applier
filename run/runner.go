@@ -130,7 +130,7 @@ type Runner struct {
 	Clock          sysutil.ClockInterface
 	DryRun         bool
 	KubeClient     *client.Client
-	KubectlClient  *kubectl.Client
+	KubeCtlClient  *kubectl.Client
 	PruneBlacklist []string
 	RepoPath       string
 	Repository     *git.Repository
@@ -462,7 +462,7 @@ func (r *Runner) apply(ctx context.Context, rootPath, token string, waybill *kub
 		dryRunStrategy = "server"
 	}
 
-	cmd, output, err := r.KubectlClient.Apply(
+	cmd, output, err := r.KubeCtlClient.Apply(
 		ctx,
 		path,
 		kubectl.ApplyOptions{

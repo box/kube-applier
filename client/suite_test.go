@@ -9,7 +9,6 @@ import (
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -21,42 +20,47 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var testConfig *rest.Config
-var testKubeClient *Client
-var testEnv *envtest.Environment
+var (
+	testConfig     *rest.Config
+	testKubeClient *Client
+	testEnv        *envtest.Environment
+)
 
 func TestClient(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Run package suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Run package suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+var _ = BeforeSuite(func() {
+	done := make(chan interface{})
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
-	}
+	go func() {
+		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	var err error
-	testConfig, err = testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(testConfig).ToNot(BeNil())
+		By("bootstrapping test environment")
+		testEnv = &envtest.Environment{
+			CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
+		}
 
-	err = kubeapplierv1alpha1.AddToScheme(kubescheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+		var err error
+		testConfig, err = testEnv.Start()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testConfig).ToNot(BeNil())
 
-	// +kubebuilder:scaffold:scheme
+		err = kubeapplierv1alpha1.AddToScheme(kubescheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
 
-	testKubeClient, err = NewWithConfig(testConfig)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(testKubeClient).ToNot(BeNil())
+		// +kubebuilder:scaffold:scheme
 
-	close(done)
-}, 60)
+		testKubeClient, err = NewWithConfig(testConfig)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testKubeClient).ToNot(BeNil())
+		close(done)
+	}()
+
+	Eventually(done, 60).Should(BeClosed())
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
