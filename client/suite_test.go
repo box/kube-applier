@@ -33,34 +33,27 @@ func TestClient(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	done := make(chan interface{})
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	go func() {
-		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
+	}
 
-		By("bootstrapping test environment")
-		testEnv = &envtest.Environment{
-			CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
-		}
+	var err error
+	testConfig, err = testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(testConfig).ToNot(BeNil())
 
-		var err error
-		testConfig, err = testEnv.Start()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(testConfig).ToNot(BeNil())
+	err = kubeapplierv1alpha1.AddToScheme(kubescheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
-		err = kubeapplierv1alpha1.AddToScheme(kubescheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
+	// +kubebuilder:scaffold:scheme
 
-		// +kubebuilder:scaffold:scheme
-
-		testKubeClient, err = NewWithConfig(testConfig)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(testKubeClient).ToNot(BeNil())
-		close(done)
-	}()
-
-	Eventually(done, 60).Should(BeClosed())
-})
+	testKubeClient, err = NewWithConfig(testConfig)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(testKubeClient).ToNot(BeNil())
+}, 60)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

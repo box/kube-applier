@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -99,22 +98,24 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 
 var _ = Describe("Runner", func() {
 	var (
-		runner                     Runner
-		runQueue                   chan<- Request
-		applyOptions               *ApplyOptions
-		kubeCtlPath, kustomizePath string
+		runner       Runner
+		runQueue     chan<- Request
+		applyOptions *ApplyOptions
+		//	kubeCtlPath   string
+		//	kubeCtlOpts   []string
+		kustomizePath string
 	)
 
 	BeforeEach(func() {
-		kubeCtlClient := kubectl.NewClient(cfg.Host, "", testKubeCtlPath)
+		kubeCtlClient := kubectl.NewClient(cfg.Host, "", kubeCtlPath, kubeCtlOpts)
 
 		runner = Runner{
 			Clock:          &zeroClock{},
 			DryRun:         false,
-			KubeClient:     testK8sClient,
+			KubeClient:     k8sClient,
 			KubeCtlClient:  kubeCtlClient,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
-			Repository:     testRepo,
+			Repository:     repo,
 			RepoPath:       "testdata/manifests",
 			WorkerCount:    1, // limit to one to prevent race issues
 		}
@@ -260,7 +261,7 @@ deployment.apps/test-deployment created (server dry run)
 			runner.Stop()
 
 			// DELVE
-			runtime.Breakpoint()
+			//runtime.Breakpoint()
 
 			for i := range wbList {
 				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
@@ -453,7 +454,7 @@ N3ZtSHVWd1pXb1JBcGI4bmd4S0EKQUFBRUI1VDBoKzNGV0J0M0xaZXpyL00rZzd5Q2NtaHFjYWRQ
 V0dTRjltUDh1L21mYklCTnBsMjhYMnFnQTQ5bkw3UFJHRwp2dStZZTVYQmxhaEVDbHZ5ZURFb0FB
 QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-noaccess",
@@ -461,7 +462,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_random": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize",
@@ -469,7 +470,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_deploy": string(deployKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-twokeys",
@@ -480,7 +481,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-c-kustomize-withkey",
@@ -580,7 +581,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testK8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
 				},
 				time.Second*120,
 				time.Second,
@@ -692,7 +693,7 @@ deployment.apps/test-deployment created
 
 			testEnsureWaybills(wbList)
 
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
@@ -706,7 +707,7 @@ deployment.apps/test-deployment created
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "strongbox-empty",
 					Namespace: "app-d-empty",
@@ -774,7 +775,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testK8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
@@ -853,13 +854,13 @@ deployment.apps/test-deployment created
 			testEnsureWaybills(wbList)
 
 			// Manipulate the delegate Secrets that have been create above
-			Expect(testK8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
-			Expect(testK8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
-			Expect(testK8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testK8sClient.Update(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Update(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "app-e-notoken",
 					Name:        "ka-notoken",
@@ -905,7 +906,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testK8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
@@ -1018,7 +1019,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			}
 			if kustomizePath == "" {
 				commandMatcher = MatchRegexp(
-					`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
+					`^%s( --kubeconfig=/tmp/.*\.kubecfg)? --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
 					kubectlPath,
 					cfg.Host,
 					repositoryPath,
@@ -1027,7 +1028,7 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 				)
 			} else {
 				commandMatcher = MatchRegexp(
-					`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
+					`^%s build \S+/%s \| %s( --kubeconfig=/tmp/.*\.kubecfg)? --server %s apply -f - --token=<omitted> -n %s%s`,
 					kustomizePath,
 					repositoryPath,
 					kubectlPath,

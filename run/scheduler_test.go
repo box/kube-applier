@@ -63,8 +63,8 @@ var _ = Describe("Scheduler", func() {
 			WaybillPollInterval: time.Second * 5,
 			Clock:               &zeroClock{},
 			GitPollWait:         time.Second * 5,
-			KubeClient:          testK8sClient,
-			Repository:          testRepo,
+			KubeClient:          k8sClient,
+			Repository:          repo,
 			RepoPath:            "testdata/manifests",
 			RunQueue:            testRunQueue,
 		}
@@ -137,7 +137,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			// remove the "bar" Waybill
-			testK8sClient.Delete(context.TODO(), wbList[len(wbList)-1])
+			k8sClient.Delete(context.TODO(), wbList[len(wbList)-1])
 			wbList = wbList[:len(wbList)-1]
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
@@ -352,7 +352,7 @@ Some error output has been omitted because it may contain sensitive data
 
 func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 	for i := range wbList {
-		err := testK8sClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
+		err := k8sClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			Expect(err).To(BeNil())
 		}
@@ -360,10 +360,10 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		// Create() which makes it difficult to handle it below.
 		rv := wbList[i].ResourceVersion
 		wbList[i].ResourceVersion = ""
-		err = testK8sClient.Create(context.TODO(), wbList[i])
+		err = k8sClient.Create(context.TODO(), wbList[i])
 		if err != nil && errors.IsAlreadyExists(err) {
 			wbList[i].ResourceVersion = rv
-			Expect(testK8sClient.UpdateWaybill(context.TODO(), wbList[i])).To(BeNil())
+			Expect(k8sClient.UpdateWaybill(context.TODO(), wbList[i])).To(BeNil())
 		} else {
 			Expect(err).To(BeNil())
 		}
@@ -371,7 +371,7 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 			// UpdateStatus changes SelfLink to the status sub-resource but we
 			// should revert the change for tests to pass
 			selfLink := wbList[i].ObjectMeta.SelfLink
-			Expect(testK8sClient.UpdateWaybillStatus(context.TODO(), wbList[i])).To(BeNil())
+			Expect(k8sClient.UpdateWaybillStatus(context.TODO(), wbList[i])).To(BeNil())
 			wbList[i].ObjectMeta.SelfLink = selfLink
 		}
 		// This is a workaround for Equal checks to work below.
@@ -379,10 +379,12 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		// Get and Create (which updates the struct) do not.
 		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
 		// Add the kube-applier delegate Secret, if it doesn't exist
-		_, err = testK8sClient.GetSecret(context.TODO(), wbList[i].Namespace, wbList[i].Spec.DelegateServiceAccountSecretRef)
+		_, err = k8sClient.GetSecret(context.TODO(), wbList[i].Namespace, wbList[i].Spec.DelegateServiceAccountSecretRef)
+		// DELVE
+		//runtime.Breakpoint()
 		if err != nil {
 			if errors.IsNotFound(err) {
-				err = testK8sClient.Create(context.TODO(), &corev1.Secret{
+				err = k8sClient.Create(context.TODO(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      wbList[i].Spec.DelegateServiceAccountSecretRef,
 						Namespace: wbList[i].Namespace,
@@ -396,9 +398,9 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 					},
 					Type: corev1.SecretTypeServiceAccountToken,
 					Data: map[string][]byte{
-						"ca.crt": testEnv.Config.CAData,
+						"ca.crt": []byte{},
 						// testConfig.BearerToken is empty but we can use any value
-						"token": []byte(testEnv.Config.BearerToken),
+						"token": []byte("foobar"),
 					},
 				})
 			}

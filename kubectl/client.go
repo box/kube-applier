@@ -32,8 +32,7 @@ var (
 )
 
 func sanitiseCmdStr(cmdStr string) string {
-	//return sanitiseCmdStrRe.ReplaceAllString(cmdStr, "--token=<omitted>")
-	return cmdStr
+	return sanitiseCmdStrRe.ReplaceAllString(cmdStr, "--token=<omitted>")
 }
 
 // ApplyOptions configure kubectl apply
@@ -87,9 +86,10 @@ type Client struct {
 	Host        string
 	Label       string
 	KubeCtlPath string
+	KubeCtlOpts []string
 }
 
-func NewClient(host, label, kubeCtlPath string) *Client {
+func NewClient(host, label, kubeCtlPath string, kubeCtlOpts []string) *Client {
 	if kubeCtlPath == "" {
 		kubeCtlPath = exec.Command("kubectl").String()
 	}
@@ -97,6 +97,7 @@ func NewClient(host, label, kubeCtlPath string) *Client {
 		Host:        host,
 		Label:       label,
 		KubeCtlPath: kubeCtlPath,
+		KubeCtlOpts: kubeCtlOpts,
 	}
 }
 
@@ -181,7 +182,10 @@ func (c *Client) applyKustomize(ctx context.Context, path string, options ApplyO
 	}
 	displayArgs = append(displayArgs, "apply", "-f", "-")
 	displayArgs = append(displayArgs, options.Args()...)
-	kubectlCmd := exec.Command(c.KubeCtlPath, displayArgs...)
+
+	// ADD OPTS #1
+	args := append(c.KubeCtlOpts, displayArgs...)
+	kubectlCmd := exec.Command(c.KubeCtlPath, args...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
 
 	var kubectlOut string
@@ -241,6 +245,8 @@ func (c *Client) apply(ctx context.Context, path string, stdin []byte, options A
 		args = append(args, "-R")
 	}
 	args = append(args, options.Args()...)
+	// ADD OPTS #2
+	args = append(c.KubeCtlOpts, args...)
 
 	kubectlCmd := exec.CommandContext(ctx, c.KubeCtlPath, args...)
 	options.setCommandEnvironment(kubectlCmd)

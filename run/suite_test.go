@@ -35,16 +35,17 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg             *rest.Config
-	testK8sClient   *client.Client
-	testKubeCtlPath string
-	testEnv         *envtest.Environment
-	testRepo        *git.Repository
+	cfg         *rest.Config
+	k8sClient   *client.Client
+	kubeCtlPath string
+	kubeCtlOpts []string
+	testEnv     *envtest.Environment
+	repo        *git.Repository
 )
 
 func init() {
 	repoPath, _ := filepath.Abs("..")
-	testRepo, _ = git.NewRepository(repoPath, git.RepositoryConfig{Remote: "foo"}, git.SyncOptions{})
+	repo, _ = git.NewRepository(repoPath, git.RepositoryConfig{Remote: "foo"}, git.SyncOptions{})
 }
 
 func TestAPIs(t *testing.T) {
@@ -54,45 +55,43 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	done := make(chan interface{})
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	go func() {
-		logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
+	}
 
-		By("bootstrapping test environment")
-		testEnv = &envtest.Environment{
-			CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
-		}
+	var err error
+	cfg, err = testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
 
-		var err error
-		cfg, err = testEnv.Start()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(cfg).ToNot(BeNil())
+	user, err := testEnv.AddUser(envtest.User{Name: "ka-test", Groups: []string{"system:masters"}}, &rest.Config{})
+	Expect(err).NotTo(HaveOccurred())
+	kubeCtl, err := user.Kubectl()
+	Expect(err).NotTo(HaveOccurred())
+	kubeCtlPath = kubeCtl.Path
+	Expect(kubeCtlPath).ToNot(BeEmpty())
+	kubeCtlOpts = kubeCtl.Opts
+	Expect(kubeCtlOpts).ToNot(BeEmpty())
 
-		user, err := testEnv.AddUser(envtest.User{Name: "ka-test", Groups: []string{"system:masters"}}, &rest.Config{})
-		Expect(err).NotTo(HaveOccurred())
-		kubectl, err := user.Kubectl()
-		Expect(err).NotTo(HaveOccurred())
-		testKubeCtlPath = kubectl.Path
-		Expect(testKubeCtlPath).ToNot(BeEmpty())
+	// DELVE
+	//runtime.Breakpoint()
 
-		err = kubeapplierv1alpha1.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
+	err = kubeapplierv1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
-		// +kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
-		testK8sClient, err = client.NewWithConfig(cfg)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(testK8sClient).ToNot(BeNil())
+	k8sClient, err = client.NewWithConfig(cfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient).ToNot(BeNil())
 
-		hostParts := strings.Split(cfg.Host, ":")
-		os.Setenv("KUBERNETES_SERVICE_HOST", hostParts[0])
-		os.Setenv("KUBERNETES_SERVICE_PORT", hostParts[1])
-		close(done)
-	}()
-
-	Eventually(done, 60).Should(BeClosed())
-})
+	hostParts := strings.Split(cfg.Host, ":")
+	os.Setenv("KUBERNETES_SERVICE_HOST", hostParts[0])
+	os.Setenv("KUBERNETES_SERVICE_PORT", hostParts[1])
+}, 60)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
@@ -165,12 +164,12 @@ func testRemoveAllWaybills() {
 	// List and Delete Waybills one by one. There should not be too many of them
 	// to significantly affect test duration.
 	waybills := kubeapplierv1alpha1.WaybillList{}
-	Expect(testK8sClient.List(
+	Expect(k8sClient.List(
 		context.TODO(),
 		&waybills,
 	)).To(BeNil())
 	for _, wb := range waybills.Items {
-		Expect(testK8sClient.Delete(
+		Expect(k8sClient.Delete(
 			context.TODO(),
 			&wb,
 			controllerruntimeclient.GracePeriodSeconds(0),
@@ -179,7 +178,7 @@ func testRemoveAllWaybills() {
 	Eventually(
 		func() int {
 			waybills := kubeapplierv1alpha1.WaybillList{}
-			Expect(testK8sClient.List(context.TODO(), &waybills)).To(BeNil())
+			Expect(k8sClient.List(context.TODO(), &waybills)).To(BeNil())
 			return len(waybills.Items)
 		},
 		time.Second*60,
@@ -195,7 +194,7 @@ func testMatchEvents(matchers []gomegatypes.GomegaMatcher) {
 	Eventually(
 		func() ([]corev1.Event, error) {
 			events := &corev1.EventList{}
-			if err := testK8sClient.List(context.TODO(), events); err != nil {
+			if err := k8sClient.List(context.TODO(), events); err != nil {
 				return nil, err
 			}
 			return events.Items, nil

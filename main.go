@@ -147,7 +147,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubectlClient := kubectl.NewClient("", "", "")
+	kubeCtlClient := kubectl.NewClient("", "", "", []string{})
 
 	// Kubernetes copies annotations from StatefulSets, Deployments and
 	// Daemonsets to the corresponding ControllerRevision, including
@@ -164,7 +164,7 @@ func main() {
 		Clock:          clock,
 		DryRun:         *fDryRun,
 		KubeClient:     kubeClient,
-		KubectlClient:  kubectlClient,
+		KubeCtlClient:  kubeCtlClient,
 		PruneBlacklist: pruneBlacklistSlice,
 		Repository:     repo,
 		RepoPath:       *fRepoPath,
