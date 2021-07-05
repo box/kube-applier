@@ -83,8 +83,22 @@ func (o *ApplyOptions) setCommandEnvironment(cmd *exec.Cmd) {
 
 // Client enables communication with the Kubernetes API Server through kubectl commands.
 type Client struct {
-	Host  string
-	Label string
+	Host        string
+	Label       string
+	KubeCtlPath string
+	KubeCtlOpts []string
+}
+
+func NewClient(host, label, kubeCtlPath string, kubeCtlOpts []string) *Client {
+	if kubeCtlPath == "" {
+		kubeCtlPath = exec.Command("kubectl").String()
+	}
+	return &Client{
+		Host:        host,
+		Label:       label,
+		KubeCtlPath: kubeCtlPath,
+		KubeCtlOpts: kubeCtlOpts,
+	}
 }
 
 // Apply attempts to "kubectl apply" the files located at path. It returns the
@@ -108,7 +122,7 @@ func (c *Client) Apply(ctx context.Context, path string, options ApplyOptions) (
 
 // KubectlPath returns the filesystem path to the kubectl binary
 func (c *Client) KubectlPath() string {
-	kubectlCmd := exec.Command("kubectl")
+	kubectlCmd := exec.Command(c.KubeCtlPath)
 	return kubectlCmd.String()
 }
 
@@ -168,7 +182,9 @@ func (c *Client) applyKustomize(ctx context.Context, path string, options ApplyO
 	}
 	displayArgs = append(displayArgs, "apply", "-f", "-")
 	displayArgs = append(displayArgs, options.Args()...)
-	kubectlCmd := exec.Command("kubectl", displayArgs...)
+	// Add opts that are specific to this client
+	displayArgs = append(c.KubeCtlOpts, displayArgs...)
+	kubectlCmd := exec.Command(c.KubeCtlPath, displayArgs...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
 
 	var kubectlOut string
@@ -228,8 +244,10 @@ func (c *Client) apply(ctx context.Context, path string, stdin []byte, options A
 		args = append(args, "-R")
 	}
 	args = append(args, options.Args()...)
+	// Add opts that are specific to this client
+	args = append(c.KubeCtlOpts, args...)
 
-	kubectlCmd := exec.CommandContext(ctx, "kubectl", args...)
+	kubectlCmd := exec.CommandContext(ctx, c.KubeCtlPath, args...)
 	options.setCommandEnvironment(kubectlCmd)
 	if path == "-" {
 		if len(stdin) == 0 {

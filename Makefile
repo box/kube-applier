@@ -34,7 +34,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
@@ -42,11 +42,13 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+KUBEBUILDER_BINDIR=$${PWD}/kubebuilder-bindir
+KUBEBUILDER_VERSION="1.21.x"
 test:
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/$(shell grep controller-runtime go.mod | cut -d' ' -f2)/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); CGO_ENABLED=1 && go test -v -race -count=1 -cover ./...
+	command -v setup-envtest || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	mkdir -p $(KUBEBUILDER_BINDIR)
+	setup-envtest --bin-dir $(KUBEBUILDER_BINDIR) use -p env $(KUBEBUILDER_VERSION)
+	source <(setup-envtest --bin-dir $(KUBEBUILDER_BINDIR) use -i -p env $(KUBEBUILDER_VERSION)); CGO_ENABLED=1; go test -v -race -count=1 -cover ./...
 
 build:
 	docker build -t kube-applier .

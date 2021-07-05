@@ -98,34 +98,40 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 
 var _ = Describe("Runner", func() {
 	var (
-		testRunner                         Runner
-		testRunQueue                       chan<- Request
-		testApplyOptions                   *ApplyOptions
-		testKubectlPath, testKustomizePath string
+		runner       Runner
+		runQueue     chan<- Request
+		applyOptions *ApplyOptions
+		//	kubeCtlPath   string
+		//	kubeCtlOpts   []string
+		kustomizePath string
 	)
 
 	BeforeEach(func() {
-		testRunner = Runner{
+		kubeCtlClient := kubectl.NewClient(cfg.Host, "", kubeCtlPath, kubeCtlOpts)
+
+		runner = Runner{
 			Clock:          &zeroClock{},
 			DryRun:         false,
-			KubeClient:     testKubeClient,
-			KubectlClient:  &kubectl.Client{Host: testConfig.Host},
+			KubeClient:     k8sClient,
+			KubeCtlClient:  kubeCtlClient,
 			PruneBlacklist: []string{"apps/v1/ControllerRevision"},
-			Repository:     testRepository,
+			Repository:     repo,
 			RepoPath:       "testdata/manifests",
 			WorkerCount:    1, // limit to one to prevent race issues
 		}
-		testRunQueue = testRunner.Start()
-		kubectlPath := testRunner.KubectlClient.KubectlPath()
-		Expect(kubectlPath).ShouldNot(BeEmpty())
-		testKubectlPath = kubectlPath
-		kustomizePath := testRunner.KubectlClient.KustomizePath()
-		Expect(kustomizePath).ShouldNot(BeEmpty())
-		testKustomizePath = kustomizePath
 
-		cr, nr, err := testRunner.KubeClient.PrunableResourceGVKs()
+		runQueue = runner.Start()
+		runnerKubeCtlPath := runner.KubeCtlClient.KubectlPath()
+		Expect(runnerKubeCtlPath).ShouldNot(BeEmpty())
+		kubeCtlPath = runnerKubeCtlPath
+
+		runnerKustomizePath := runner.KubeCtlClient.KustomizePath()
+		Expect(runnerKustomizePath).ShouldNot(BeEmpty())
+		kustomizePath = runnerKustomizePath
+
+		cr, nr, err := runner.KubeClient.PrunableResourceGVKs()
 		Expect(err).Should(BeNil())
-		testApplyOptions = &ApplyOptions{
+		applyOptions = &ApplyOptions{
 			ClusterResources:    cr,
 			NamespacedResources: nr,
 		}
@@ -133,7 +139,7 @@ var _ = Describe("Runner", func() {
 	})
 
 	AfterEach(func() {
-		testRunner.Stop()
+		runner.Stop()
 		testCleanupNamespaces()
 	})
 
@@ -143,9 +149,9 @@ var _ = Describe("Runner", func() {
 			wbListExpected := []kubeapplierv1alpha1.Waybill{}
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, &wbList[i])
+				Enqueue(runQueue, PollingRun, &wbList[i])
 			}
-			testRunner.Stop()
+			runner.Stop()
 
 			Expect(wbList).Should(Equal(wbListExpected))
 		})
@@ -239,7 +245,7 @@ deployment.apps/test-deployment created (server dry run)
 				if repositoryPath == "" {
 					repositoryPath = expected[i].Namespace
 				}
-				headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, repositoryPath))
+				headCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, repositoryPath))
 				Expect(err).To(BeNil())
 				expected[i].Status.LastRun.Commit = headCommitHash
 			}
@@ -247,13 +253,16 @@ deployment.apps/test-deployment created (server dry run)
 			By("Applying all the Waybills and populating their Status subresource with the results")
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, wbList[i])
+				Enqueue(runQueue, PollingRun, wbList[i])
 			}
-			testRunner.Stop()
+			runner.Stop()
+
+			// DELVE
+			//runtime.Breakpoint()
 
 			for i := range wbList {
 				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
-				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], kubeCtlPath, "", runner.RepoPath, applyOptions.pruneWhitelist(wbList[i], runner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -294,7 +303,7 @@ deployment.apps/test-deployment created (server dry run)
 			if repositoryPath == "" {
 				repositoryPath = waybill.Namespace
 			}
-			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, repositoryPath))
+			headCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, repositoryPath))
 			Expect(err).To(BeNil())
 			expected := waybill
 			expected.Status = kubeapplierv1alpha1.WaybillStatus{
@@ -313,11 +322,11 @@ Some error output has been omitted because it may contain sensitive data
 				},
 			}
 
-			Enqueue(testRunQueue, PollingRun, &waybill)
-			testRunner.Stop()
+			Enqueue(runQueue, PollingRun, &waybill)
+			runner.Stop()
 
 			waybill.Status.LastRun.Output = testStripKubectlWarnings(waybill.Status.LastRun.Output)
-			Expect(waybill).Should(matchWaybill(expected, testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(&waybill, testRunner.PruneBlacklist)))
+			Expect(waybill).Should(matchWaybill(expected, kubeCtlPath, kustomizePath, runner.RepoPath, applyOptions.pruneWhitelist(&waybill, runner.PruneBlacklist)))
 
 			testMetrics([]string{
 				`kube_applier_kubectl_exit_code_count{exit_code="0",namespace="app-a-kustomize"} 1`,
@@ -442,7 +451,7 @@ N3ZtSHVWd1pXb1JBcGI4bmd4S0EKQUFBRUI1VDBoKzNGV0J0M0xaZXpyL00rZzd5Q2NtaHFjYWRQ
 V0dTRjltUDh1L21mYklCTnBsMjhYMnFnQTQ5bkw3UFJHRwp2dStZZTVYQmxhaEVDbHZ5ZURFb0FB
 QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-noaccess",
@@ -450,7 +459,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_random": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize",
@@ -458,7 +467,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_deploy": string(deployKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-twokeys",
@@ -469,7 +478,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-c-kustomize-withkey",
@@ -478,17 +487,17 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			bHeadCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-b-kustomize"))
+			bHeadCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, "app-b-kustomize"))
 			Expect(err).To(BeNil())
 			Expect(bHeadCommitHash).ToNot(BeEmpty())
-			cHeadCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-c-kustomize"))
+			cHeadCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, "app-c-kustomize"))
 			Expect(err).To(BeNil())
 			Expect(cHeadCommitHash).ToNot(BeEmpty())
 
 			expectedStatus := []*kubeapplierv1alpha1.WaybillStatusRun{
 				// 1. app-b-kustomize-nokey
 				{
-					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
+					Command:      fmt.Sprintf("^%s build /.*$", kustomizePath),
 					Commit:       bHeadCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
@@ -505,7 +514,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				// matches, but is there to help us identify which
 				// test failed
 				{
-					Command:      fmt.Sprintf("^%s build /.*$", testKustomizePath),
+					Command:      fmt.Sprintf("^%s build /.*$", kustomizePath),
 					Commit:       bHeadCommitHash,
 					ErrorMessage: "exit status 1",
 					Finished:     metav1.Time{},
@@ -563,25 +572,25 @@ deployment.apps/test-deployment created
 			}
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, wbList[i])
+				Enqueue(runQueue, PollingRun, wbList[i])
 			}
 
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
 				},
 				time.Second*120,
 				time.Second,
 			).Should(BeNil())
 
-			testRunner.Stop()
+			runner.Stop()
 
 			for i := range wbList {
 				if wbList[i].Status.LastRun != nil {
 					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
 				}
-				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, testKustomizePath, testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], kubeCtlPath, kustomizePath, runner.RepoPath, applyOptions.pruneWhitelist(wbList[i], runner.PruneBlacklist)))
 			}
 
 			testMatchEvents([]gomegatypes.GomegaMatcher{
@@ -694,7 +703,7 @@ deployment.apps/test-deployment created
 
 			testEnsureWaybills(wbList)
 
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
@@ -708,7 +717,7 @@ deployment.apps/test-deployment created
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "strongbox-empty",
 					Namespace: "app-d-empty",
@@ -716,7 +725,7 @@ deployment.apps/test-deployment created
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
 
-			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-d"))
+			headCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, "app-d"))
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -782,13 +791,13 @@ deployment.apps/test-deployment created
 			}
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, wbList[i])
+				Enqueue(runQueue, PollingRun, wbList[i])
 			}
 
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
@@ -799,13 +808,13 @@ deployment.apps/test-deployment created
 				matchEvent(*wbList[2], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed setting up repository clone: secret "app-d-empty/strongbox-empty" does not contain key '.strongbox_keyring'`),
 			})
 
-			testRunner.Stop()
+			runner.Stop()
 
 			for i := range wbList {
 				if wbList[i].Status.LastRun != nil {
 					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
 				}
-				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], kubeCtlPath, "", runner.RepoPath, applyOptions.pruneWhitelist(wbList[i], runner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -867,13 +876,13 @@ deployment.apps/test-deployment created
 			testEnsureWaybills(wbList)
 
 			// Manipulate the delegate Secrets that have been create above
-			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
-			Expect(testKubeClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
-			Expect(testKubeClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
+			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(testKubeClient.Update(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.Update(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "app-e-notoken",
 					Name:        "ka-notoken",
@@ -883,7 +892,7 @@ deployment.apps/test-deployment created
 				Data: map[string][]byte{},
 			})).To(BeNil())
 
-			headCommitHash, err := testRunner.Repository.HashForPath(context.TODO(), filepath.Join(testRunner.RepoPath, "app-e"))
+			headCommitHash, err := runner.Repository.HashForPath(context.TODO(), filepath.Join(runner.RepoPath, "app-e"))
 			Expect(err).To(BeNil())
 			Expect(headCommitHash).ToNot(BeEmpty())
 
@@ -913,13 +922,13 @@ deployment.apps/test-deployment created
 			}
 
 			for i := range wbList {
-				Enqueue(testRunQueue, PollingRun, wbList[i])
+				Enqueue(runQueue, PollingRun, wbList[i])
 			}
 
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return testKubeClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
+					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
@@ -931,13 +940,13 @@ deployment.apps/test-deployment created
 				matchEvent(*wbList[2], corev1.EventTypeWarning, "WaybillRunRequestFailed", `failed fetching delegate token: secret "app-e-notoken/ka-notoken" does not contain key 'token'`),
 			})
 
-			testRunner.Stop()
+			runner.Stop()
 
 			for i := range wbList {
 				if wbList[i].Status.LastRun != nil {
 					wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)
 				}
-				Expect(*wbList[i]).Should(matchWaybill(expected[i], testKubectlPath, "", testRunner.RepoPath, testApplyOptions.pruneWhitelist(wbList[i], testRunner.PruneBlacklist)))
+				Expect(*wbList[i]).Should(matchWaybill(expected[i], kubeCtlPath, "", runner.RepoPath, applyOptions.pruneWhitelist(wbList[i], runner.PruneBlacklist)))
 			}
 
 			testMetrics([]string{
@@ -1032,20 +1041,20 @@ func matchWaybill(expected kubeapplierv1alpha1.Waybill, kubectlPath, kustomizePa
 			}
 			if kustomizePath == "" {
 				commandMatcher = MatchRegexp(
-					`^%s --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
+					`^%s( --kubeconfig=/tmp/.*\.kubecfg)? --server %s apply -f \S+/%s -R --token=<omitted> -n %s%s`,
 					kubectlPath,
-					testConfig.Host,
+					cfg.Host,
 					repositoryPath,
 					expected.Namespace,
 					commandExtraArgs,
 				)
 			} else {
 				commandMatcher = MatchRegexp(
-					`^%s build \S+/%s \| %s --server %s apply -f - --token=<omitted> -n %s%s`,
+					`^%s build \S+/%s \| %s( --kubeconfig=/tmp/.*\.kubecfg)? --server %s apply -f - --token=<omitted> -n %s%s`,
 					kustomizePath,
 					repositoryPath,
 					kubectlPath,
-					testConfig.Host,
+					cfg.Host,
 					expected.Namespace,
 					commandExtraArgs,
 				)

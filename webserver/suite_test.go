@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -23,19 +22,19 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var testConfig *rest.Config
-var testKubeClient *client.Client
-var testEnv *envtest.Environment
+var (
+	testConfig     *rest.Config
+	testKubeClient *client.Client
+	testEnv        *envtest.Environment
+)
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Run package suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Run package suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
@@ -56,8 +55,6 @@ var _ = BeforeSuite(func(done Done) {
 	testKubeClient, err = client.NewWithConfig(testConfig)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(testKubeClient).ToNot(BeNil())
-
-	close(done)
 }, 60)
 
 var _ = AfterSuite(func() {
