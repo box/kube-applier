@@ -1,4 +1,10 @@
-FROM golang:1.16-alpine AS build
+# Lock Alpine version to 3.13 in build image until Flatcar has Docker 20.10
+# Otherwise we get `make: /bin/bash: Operation not permitted` running tests
+#
+# https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2
+# https://trello.com/c/H3VorFMI/1445-kube-applier-dockerfile-alpine-313
+
+FROM golang:1.16-alpine3.13 AS build
 
 WORKDIR /src
 
