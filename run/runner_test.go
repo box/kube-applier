@@ -120,9 +120,6 @@ var _ = Describe("Runner", func() {
 			WorkerCount:    1, // limit to one to prevent race issues
 		}
 
-		// DELVE
-		//runtime.Breakpoint()
-
 		runQueue = runner.Start()
 		runnerKubeCtlPath := runner.KubeCtlClient.KubectlPath()
 		Expect(runnerKubeCtlPath).ShouldNot(BeEmpty())

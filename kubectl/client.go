@@ -183,7 +183,7 @@ func (c *Client) applyKustomize(ctx context.Context, path string, options ApplyO
 	displayArgs = append(displayArgs, "apply", "-f", "-")
 	displayArgs = append(displayArgs, options.Args()...)
 
-	// ADD OPTS #1
+	// Add opts that are specific to this client
 	args := append(c.KubeCtlOpts, displayArgs...)
 	kubectlCmd := exec.Command(c.KubeCtlPath, args...)
 	cmdStr := kustomizeCmd.String() + " | " + kubectlCmd.String()
@@ -245,7 +245,7 @@ func (c *Client) apply(ctx context.Context, path string, stdin []byte, options A
 		args = append(args, "-R")
 	}
 	args = append(args, options.Args()...)
-	// ADD OPTS #2
+	// Add opts that are specific to this client
 	args = append(c.KubeCtlOpts, args...)
 
 	kubectlCmd := exec.CommandContext(ctx, c.KubeCtlPath, args...)

@@ -380,8 +380,6 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		wbList[i].TypeMeta = metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"}
 		// Add the kube-applier delegate Secret, if it doesn't exist
 		_, err = k8sClient.GetSecret(context.TODO(), wbList[i].Namespace, wbList[i].Spec.DelegateServiceAccountSecretRef)
-		// DELVE
-		//runtime.Breakpoint()
 		if err != nil {
 			if errors.IsNotFound(err) {
 				err = k8sClient.Create(context.TODO(), &corev1.Secret{

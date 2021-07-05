@@ -76,9 +76,6 @@ var _ = BeforeSuite(func() {
 	kubeCtlOpts = kubeCtl.Opts
 	Expect(kubeCtlOpts).ToNot(BeEmpty())
 
-	// DELVE
-	//runtime.Breakpoint()
-
 	err = kubeapplierv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 

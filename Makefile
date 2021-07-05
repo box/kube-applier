@@ -42,12 +42,13 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-KUBEBUILDER_ASSETS=$$PWD/testbin
+KUBEBUILDER_BINDIR=$${PWD}/kubebuilder-bindir
+KUBEBUILDER_VERSION="1.21.x"
 test:
 	command -v setup-envtest || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-	mkdir -p $(KUBEBUILDER_ASSETS)
-	export KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS)
-	source <(setup-envtest use -i --use-env -p env 1.21.x); CGO_ENABLED=1; go test -v -race -count=1 -cover ./...
+	mkdir -p $(KUBEBUILDER_BINDIR)
+	setup-envtest --bin-dir $(KUBEBUILDER_BINDIR) use -p env $(KUBEBUILDER_VERSION)
+	source <(setup-envtest --bin-dir $(KUBEBUILDER_BINDIR) use -i -p env $(KUBEBUILDER_VERSION)); CGO_ENABLED=1; go test -v -race -count=1 -cover ./...
 
 build:
 	docker build -t kube-applier .
