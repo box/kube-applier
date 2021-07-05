@@ -26,11 +26,15 @@ steps:
       repo: quay.io/utilitywarehouse/${DRONE_REPO_NAME}
       registry: quay.io
 
+  # Skip scanning kustomize binary, we cannot update it while the YAML anchors
+  # aren't supported in latest versions
+  #
+  # https://github.com/kubernetes-sigs/kustomize/issues/3675
   - name: vulnerability-scanning
     image: aquasec/trivy
     commands:
       - TAG=$(cut -d ',' -f1 .tags)
-      - trivy client --remote http://trivy:4954 --exit-code 1 quay.io/utilitywarehouse/${DRONE_REPO_NAME}:$${TAG}
+      - trivy client --remote http://trivy:4954 --exit-code 1 --skip-dirs "/usr/local/bin/kustomize" quay.io/utilitywarehouse/${DRONE_REPO_NAME}:$${TAG}
 
 trigger:
   event:
