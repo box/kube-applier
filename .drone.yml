@@ -26,10 +26,18 @@ steps:
       repo: quay.io/utilitywarehouse/${DRONE_REPO_NAME}
       registry: quay.io
 
+  # Ignore CVEs from the Kustomize binary, we cannot update it while the YAML
+  # anchors aren't supported in latest versions
+  #
+  # https://github.com/kubernetes-sigs/kustomize/issues/3675
   - name: vulnerability-scanning
     image: aquasec/trivy
     commands:
       - TAG=$(cut -d ',' -f1 .tags)
+      - echo "CVE-2021-29482" >> .trivyignore
+      - echo "GO-2020-0016" >> .trivyignore
+      - echo "CVE-2020-29652" >> .trivyignore
+      - echo "CVE-2020-8565" >> .trivyignore
       - trivy client --remote http://trivy:4954 --exit-code 1 quay.io/utilitywarehouse/${DRONE_REPO_NAME}:$${TAG}
 
 trigger:
