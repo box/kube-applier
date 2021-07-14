@@ -97,6 +97,12 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	}, nil
 }
 
+// CloneConfig copies the client's config into a new rest.Config, it does not
+// copy user credentials
+func (c *Client) CloneConfig() *rest.Config {
+	return rest.AnonymousClientConfig(c.cfg)
+}
+
 // EmitWaybillEvent creates an Event for the provided Waybill.
 func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
 	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
@@ -197,10 +203,10 @@ func (c *Client) GetSecret(ctx context.Context, namespace, name string) (*corev1
 	return secret, nil
 }
 
-// PrunableResourceGVKs returns cluster and namespaced resources as two slices of
-// strings of the format <group>/<version>/<kind>. It only returns resources
-// that support pruning.
-func (c *Client) PrunableResourceGVKs() ([]string, []string, error) {
+// PrunableResourceGVKs returns the cluster and namespaced resources that the
+// client can prune as two slices of strings of the format
+// <group>/<version>/<kind>.
+func (c *Client) PrunableResourceGVKs(ctx context.Context, namespace string) ([]string, []string, error) {
 	var cluster, namespaced []string
 
 	_, resourceList, err := c.clientset.Discovery().ServerGroupsAndResources()
@@ -208,15 +214,28 @@ func (c *Client) PrunableResourceGVKs() ([]string, []string, error) {
 		return cluster, namespaced, err
 	}
 
+	srr := &authorizationv1.SelfSubjectRulesReview{
+		Spec: authorizationv1.SelfSubjectRulesReviewSpec{
+			Namespace: namespace,
+		},
+	}
+	reviewResp, err := c.clientset.AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, srr, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+	if err != nil {
+		return cluster, namespaced, err
+	}
 	for _, l := range resourceList {
 		groupVersion := l.GroupVersion
 		if groupVersion == "v1" {
 			groupVersion = "core/v1"
 		}
+		gv, err := schema.ParseGroupVersion(l.GroupVersion)
+		if err != nil {
+			return cluster, namespaced, err
+		}
 
 		for _, r := range l.APIResources {
-			if prunable(r) {
-				gvk := groupVersion + "/" + r.Kind
+			gvk := groupVersion + "/" + r.Kind
+			if prunable(r) && rulesAllowPrune(reviewResp.Status.ResourceRules, gv.Group, r.Name) {
 				if r.Namespaced {
 					namespaced = append(namespaced, gvk)
 				} else {
@@ -227,6 +246,71 @@ func (c *Client) PrunableResourceGVKs() ([]string, []string, error) {
 	}
 
 	return cluster, namespaced, nil
+}
+
+// rulesAllowPrune checks whether the given resource rules allow pruning the
+// given group/resource
+func rulesAllowPrune(rules []authorizationv1.ResourceRule, group, resource string) bool {
+	for _, verb := range []string{"get", "list", "delete"} {
+		if !rulesAllowVerb(rules, group, resource, verb) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// rulesAllowVerb checks whether the given resource rules allow 'verb' on the
+// given group/resource
+func rulesAllowVerb(rules []authorizationv1.ResourceRule, group, resource, verb string) bool {
+	for _, rule := range rules {
+		if !match(rule.APIGroups, group) {
+			continue
+		}
+
+		if !match(rule.Resources, resource) {
+			continue
+		}
+
+		if !match(rule.Verbs, verb) {
+			continue
+		}
+
+		if !resourceNamesAllowAll(rule.ResourceNames) {
+			continue
+		}
+
+		return true
+	}
+
+	return false
+}
+
+// match checks that the item is in the list of items, or if one of the
+// items in the list is a '*'
+func match(items []string, item string) bool {
+	for _, i := range items {
+		if i == "*" {
+			return true
+		}
+		if i == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+// resourceNamesAllowAll ensures that the given resource names allow all names.
+// We can't filter out resources by name so we can only prune resources if we
+// have access regardless of name.
+func resourceNamesAllowAll(names []string) bool {
+	for _, n := range names {
+		if n == "*" {
+			return true
+		}
+	}
+	return len(names) == 0
 }
 
 // prunable returns true if a resource can be deleted and isn't a subresource

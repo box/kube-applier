@@ -171,17 +171,25 @@ func (r *Runner) processRequest(request Request) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(request.Waybill.Spec.RunTimeout)*time.Second)
 	defer cancel()
 
-	clusterResources, namespacedResources, err := r.KubeClient.PrunableResourceGVKs()
+	delegateToken, err := r.getDelegateToken(ctx, request.Waybill)
+	if err != nil {
+		return fmt.Errorf("failed fetching delegate token: %w", err)
+	}
+	// Create a client for the delegate service account so only resources
+	// that the delegate can prune are returned by PrunableResourceGVKs
+	delegateCfg := r.KubeClient.CloneConfig()
+	delegateCfg.BearerToken = delegateToken
+	delegateKubeClient, err := client.NewWithConfig(delegateCfg)
+	if err != nil {
+		return err
+	}
+	clusterResources, namespacedResources, err := delegateKubeClient.PrunableResourceGVKs(ctx, request.Waybill.Namespace)
 	if err != nil {
 		return fmt.Errorf("could not compute list of prunable resources: %w", err)
 	}
 	applyOptions := &ApplyOptions{
 		ClusterResources:    clusterResources,
 		NamespacedResources: namespacedResources,
-	}
-	delegateToken, err := r.getDelegateToken(ctx, request.Waybill)
-	if err != nil {
-		return fmt.Errorf("failed fetching delegate token: %w", err)
 	}
 
 	tmpHomeDir, tmpRepoDir, cleanupTemp, err := r.setupTempDirs(request.Waybill)

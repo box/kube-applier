@@ -98,11 +98,9 @@ func TestApplyOptions_pruneWhitelist(t *testing.T) {
 
 var _ = Describe("Runner", func() {
 	var (
-		runner       Runner
-		runQueue     chan<- Request
-		applyOptions *ApplyOptions
-		//	kubeCtlPath   string
-		//	kubeCtlOpts   []string
+		runner        Runner
+		runQueue      chan<- Request
+		applyOptions  *ApplyOptions
 		kustomizePath string
 	)
 
@@ -129,7 +127,7 @@ var _ = Describe("Runner", func() {
 		Expect(runnerKustomizePath).ShouldNot(BeEmpty())
 		kustomizePath = runnerKustomizePath
 
-		cr, nr, err := runner.KubeClient.PrunableResourceGVKs()
+		cr, nr, err := runner.KubeClient.PrunableResourceGVKs(context.TODO(), "foobar")
 		Expect(err).Should(BeNil())
 		applyOptions = &ApplyOptions{
 			ClusterResources:    cr,
@@ -256,9 +254,6 @@ deployment.apps/test-deployment created (server dry run)
 				Enqueue(runQueue, PollingRun, wbList[i])
 			}
 			runner.Stop()
-
-			// DELVE
-			//runtime.Breakpoint()
 
 			for i := range wbList {
 				wbList[i].Status.LastRun.Output = testStripKubectlWarnings(wbList[i].Status.LastRun.Output)

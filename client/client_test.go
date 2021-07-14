@@ -3,227 +3,117 @@ package client
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
+	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
-	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func TestPrunableResourceGVKs(t *testing.T) {
-	fake := fake.NewSimpleClientset()
-
-	fake.Resources = []*metav1.APIResourceList{
-		&metav1.APIResourceList{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				metav1.APIResource{
-					Name:       "pods",
-					Namespaced: true,
-					Kind:       "Pod",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-					ShortNames:         []string{"po"},
-					Categories:         []string{"all"},
-					StorageVersionHash: "xPOwRZ+Yhw8=",
-				},
-				metav1.APIResource{
-					Name:       "pods/proxy",
-					Namespaced: true,
-					Kind:       "PodProxyOptions",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"get",
-						"patch",
-						"update",
-					},
-				},
-				metav1.APIResource{
-					Name:       "namespaces",
-					Namespaced: false,
-					Kind:       "Namespace",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-					ShortNames:         []string{"ns"},
-					StorageVersionHash: "Q3oi5N2YM8M=",
-				},
-				metav1.APIResource{
-					Name:       "bindings",
-					Namespaced: true,
-					Kind:       "Binding",
-					Verbs: metav1.Verbs{
-						"create",
-					},
-				},
-			},
-		},
-		&metav1.APIResourceList{
-			GroupVersion: "apps/v1",
-			APIResources: []metav1.APIResource{
-				metav1.APIResource{
-					Name:       "deployments",
-					Namespaced: true,
-					Kind:       "Deployment",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-					ShortNames:         []string{"deploy"},
-					Categories:         []string{"all"},
-					StorageVersionHash: "8aSe+NMegvE=",
-				},
-			},
-		},
-		&metav1.APIResourceList{
-			GroupVersion: "storage.k8s.io/v1beta1",
-			APIResources: []metav1.APIResource{
-				metav1.APIResource{
-					Name:       "storageclasses",
-					Namespaced: false,
-					Kind:       "StorageClass",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-					ShortNames:         []string{"sc"},
-					StorageVersionHash: "K+m6uJwbjGY=",
-				},
-			},
-		},
-		&metav1.APIResourceList{
-			GroupVersion: "storage.k8s.io/v1",
-			APIResources: []metav1.APIResource{
-				metav1.APIResource{
-					Name:       "storageclasses",
-					Namespaced: false,
-					Kind:       "StorageClass",
-					Verbs: metav1.Verbs{
-						"create",
-						"delete",
-						"deletecollection",
-						"get",
-						"list",
-						"patch",
-						"update",
-						"watch",
-					},
-					ShortNames:         []string{"sc"},
-					StorageVersionHash: "K+m6uJwbjGY=",
-				},
-			},
-		},
-	}
-
-	client := &Client{
-		clientset: fake,
-	}
-
-	cluster, namespaced, err := client.PrunableResourceGVKs()
-	if err != nil {
-		t.Fatalf("Unexpected error returned by PrunableResourceGVKs: %s", err)
-	}
-
-	clusterWant := []string{
-		"core/v1/Namespace",
-		"storage.k8s.io/v1beta1/StorageClass",
-		"storage.k8s.io/v1/StorageClass",
-	}
-	if !reflect.DeepEqual(cluster, clusterWant) {
-		t.Errorf("Unexpected cluster resources; got %v want %v", cluster, clusterWant)
-
-	}
-
-	namespacedWant := []string{"core/v1/Pod", "apps/v1/Deployment"}
-	if !reflect.DeepEqual(namespaced, namespacedWant) {
-		t.Errorf("Unexpected namespaced resources; got %v want %v", namespaced, namespacedWant)
-	}
-}
-
-func TestPrunable(t *testing.T) {
-	resource := metav1.APIResource{
-		Name: "pods",
-		Verbs: []string{
-			"create",
-			"delete",
-			"deletecollection",
-			"get",
-			"list",
-			"patch",
-			"update",
-			"watch",
-		},
-	}
-	if !prunable(resource) {
-		t.Errorf("Expected prunable to return true but got false for resource: %v", resource)
-	}
-}
-
-func TestPrunableSubresource(t *testing.T) {
-	resource := metav1.APIResource{
-		Name: "pods/proxy",
-		Verbs: []string{
-			"create",
-			"delete",
-			"get",
-			"patch",
-			"update",
-		},
-	}
-	if prunable(resource) {
-		t.Errorf("Expected prunable to return false but got true for resource: %v", resource)
-	}
-}
-
-func TestPrunableNoDelete(t *testing.T) {
-	resource := metav1.APIResource{
-		Name: "bindings",
-		Verbs: []string{
-			"create",
-		},
-	}
-	if prunable(resource) {
-		t.Errorf("Expected prunable to return false but got true for resource: %v", resource)
-	}
-}
-
 var _ = Describe("Client", func() {
+	Context("When retrieving prunable resources", func() {
+		It("Should only return resources that support delete and that the client has permissions to get/list/delete", func() {
+			// Create a user and a client that can auth as the user
+			user, err := testEnv.AddUser(envtest.User{Name: "foobar"}, testConfig)
+			Expect(err).NotTo(HaveOccurred())
+			userKubeClient, err := NewWithConfig(user.Config())
+			Expect(userKubeClient).ToNot(BeNil())
+
+			// Create a namespace for the user to manage
+			if err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "foobar"}}); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+			}
+
+			// Create a clusterrole that gives the user access to
+			// various cluster/namespaced resources
+			if err := testKubeClient.Create(context.TODO(), &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{Name: "foobar"},
+				Rules: []rbacv1.PolicyRule{
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+					},
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"namespaces"},
+					},
+					{
+						Verbs:     []string{"get", "list", "delete"},
+						APIGroups: []string{"storage.k8s.io"},
+						Resources: []string{"storageclasses"},
+					},
+					{
+						Verbs:     []string{"get", "list", "delete"},
+						APIGroups: []string{"apps"},
+						Resources: []string{"deployments"},
+					},
+					// Not prunable: get, list and delete
+					// permissions are required to prune a
+					// resource
+					{
+						Verbs:     []string{"delete"},
+						APIGroups: []string{""},
+						Resources: []string{"serviceaccounts"},
+					},
+					// Not prunable: pruning individual
+					// resources by name isn't possible, so
+					// we can't support specific
+					// ResourceNames
+					{
+						Verbs:         []string{"*"},
+						APIGroups:     []string{""},
+						Resources:     []string{"validatingwebhookconfigurations"},
+						ResourceNames: []string{"foobar"},
+					},
+					// Not prunable: bindings don't support
+					// the 'delete' verb
+					{
+						Verbs:     []string{"*"},
+						APIGroups: []string{""},
+						Resources: []string{"bindings"},
+					},
+				}}); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+			}
+			if err := testKubeClient.Create(context.TODO(), &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "foobar", Namespace: "foobar"},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind: "User",
+						Name: "foobar",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "foobar",
+				}}); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+			}
+
+			// Ensure that only prunable resources are returned
+			cluster, namespaced, err := userKubeClient.PrunableResourceGVKs(context.TODO(), "foobar")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cluster).To(Equal([]string{
+				"core/v1/Namespace",
+				"storage.k8s.io/v1/StorageClass",
+				"storage.k8s.io/v1beta1/StorageClass",
+			}))
+			Expect(namespaced).To(Equal([]string{
+				"core/v1/Pod",
+				"apps/v1/Deployment",
+			}))
+		})
+	})
 	Context("When listing waybills", func() {
 		It("Should return only one Waybill per namespace and emit events for the others", func() {
 			wbList := []kubeapplierv1alpha1.Waybill{
