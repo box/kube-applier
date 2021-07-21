@@ -397,8 +397,11 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 					Type: corev1.SecretTypeServiceAccountToken,
 					Data: map[string][]byte{
 						"ca.crt": []byte{},
-						// testConfig.BearerToken is empty but we can use any value
-						"token": []byte("foobar"),
+						// This token is a member of the
+						// system:masters group and
+						// therefore has full cluster
+						// access.
+						"token": []byte(adminToken),
 					},
 				})
 			}

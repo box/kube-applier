@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,12 +36,14 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg         *rest.Config
-	k8sClient   *client.Client
-	kubeCtlPath string
-	kubeCtlOpts []string
-	testEnv     *envtest.Environment
-	repo        *git.Repository
+	cfg           *rest.Config
+	k8sClient     *client.Client
+	kubeCtlPath   string
+	kubeCtlOpts   []string
+	testEnv       *envtest.Environment
+	repo          *git.Repository
+	tokenAuthFile *os.File
+	adminToken    = "admintoken"
 )
 
 func init() {
@@ -58,11 +61,23 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+
+	var err error
+
+	// Create a token file with cluster admin permissions. This will be used
+	// as the delegate service account token when running tests.
+	tokenAuthFile, err = ioutil.TempFile("", "token-")
+	Expect(err).ToNot(HaveOccurred())
+	_, err = tokenAuthFile.Write([]byte(fmt.Sprintf("%s,admin-user,1123,system:masters", adminToken)))
+	Expect(err).ToNot(HaveOccurred())
+	err = tokenAuthFile.Close()
+	Expect(err).ToNot(HaveOccurred())
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "manifests", "base", "cluster")},
 	}
+	testEnv.ControlPlane.GetAPIServer().Configure().Append("token-auth-file", tokenAuthFile.Name())
 
-	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
@@ -94,6 +109,7 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
+	os.Remove(tokenAuthFile.Name())
 })
 
 func init() {
