@@ -223,6 +223,13 @@ revisions from the corresponding StatefulSet, Deployment or Daemonset. This woul
 result in kube-applier pruning revisions that it shouldn't be managing if it
 wasn't blacklisted.
 
+It's important to note that kube-applier uses a
+[`SelfSubjectRulesReview`](https://pkg.go.dev/k8s.io/api/authorization/v1#SelfSubjectRulesReview)
+to establish which resources it has permissions to prune. This may not work
+reliably if you aren't using the RBAC
+[authorization module](https://kubernetes.io/docs/reference/access-authn-authz/authorization/#authorization-modules).
+In which case, the prune whitelist may be empty or incomplete.
+
 ## Deploying
 
 Included is a Kustomize (https://kustomize.io/) base you can reference in your
