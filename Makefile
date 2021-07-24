@@ -1,3 +1,7 @@
+image_repo=registry.hub.docker.com/steamforvietnam/kube-applier
+image_tag=v0.3.0
+image=${image_repo}:${image_tag}
+
 all: build
 
 ENVVAR = GOOS=linux GOARCH=amd64 CGO_ENABLED=0
@@ -11,7 +15,9 @@ build: clean deps fmt
 	$(ENVVAR) $(GODEP_BIN) go build -o kube-applier
 
 container:
-	docker build -t kube-applier:$(TAG) .
+	docker build \
+		-t ${image} \
+		.
 
 clean:
 	rm -f kube-applier
