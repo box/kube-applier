@@ -19,6 +19,10 @@ container:
 		-t ${image} \
 		.
 
+push:
+	docker push ${image}
+.PHONY: push
+
 clean:
 	rm -f kube-applier
 
