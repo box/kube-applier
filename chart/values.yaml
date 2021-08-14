@@ -1,0 +1,46 @@
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+namespace: ""
+isRootKubeApplier: false
+
+repo: "" # e.g: https://github.com/myOrg/myRepo.git
+branch: "master"
+path: "relative/path/from/repo/root"
+team: devops
+
+kubeApplier:
+  image:
+    repository: registry.hub.docker.com/steamforvietnam/kube-applier
+    pullPolicy: IfNotPresent
+    tag: v0.3.0
+  resources: {}
+
+gitSync:
+  image:
+    repository: gcr.io/google_containers/git-sync
+    pullPolicy: IfNotPresent
+    tag: v3.1.6
+  resources: {}
+
+serviceAccount:
+  name:
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  kubeApplierPort: 80
+  gitSycPort: 2020

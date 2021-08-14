@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.kubeApplierPort }}
+    targetPort: 8080
+    protocol: TCP
+    name: kube-applier
+  - port: {{ .Values.service.gitSycPort }}
+    targetPort: 2020
+    protocol: TCP
+    name: git-sync
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}

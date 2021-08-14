@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  replicas: 1 # Will only ever need 1 replicas
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: kube-applier
+          image: "{{ .Values.kubeApplier.image.repository }}:{{ .Values.kubeApplier.image.tag }}"
+          imagePullPolicy: {{ .Values.kubeApplier.image.pullPolicy }}
+          command:
+          - "/kube-applier"
+          env:
+          - name: "REPO_PATH"
+            value: "/repo/cloned/{{ $.Values.path }}"
+          - name: "LISTEN_PORT"
+            value: "8080"
+          ports:
+          - containerPort: 8080
+          volumeMounts:
+          - name: "git-repo"
+            mountPath: "/repo"
+          resources:
+            {{- toYaml .Values.kubeApplier.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+        - name: "git-sync"
+          command:
+          - "/git-sync"
+          env:
+          - name: "GIT_SYNC_REPO"
+            value: "{{ .Values.repo }}"
+          - name: "GIT_SYNC_BRANCH"
+            value: "{{ .Values.branch }}"
+          - name: "GIT_SYNC_DEST"
+            value: "cloned"
+          - name: "GIT_SYNC_WAIT"
+            value: "60"
+          - name: "GIT_SYNC_MAX_SYNC_FAILURES"
+            value: "10"
+          image: "{{ .Values.gitSync.image.repository }}:{{ .Values.gitSync.image.tag }}"
+          imagePullPolicy: {{ .Values.gitSync.image.pullPolicy }}
+          ports:
+          - containerPort: 2020
+          volumeMounts:
+          - name: "git-repo"
+            mountPath: "/tmp/git"
+          resources:
+            {{- toYaml .Values.gitSync.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: "git-repo"
+          emptyDir: {}

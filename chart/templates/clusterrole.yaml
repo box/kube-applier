@@ -1,0 +1,16 @@
+{{- if .Values.isRootKubeApplier }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: {{ include "chart.fullname" . }}
+rules:
+# Grant access to everything in the cluster.
+# This is a very powerful ClusterRole. Only bind trusted apps to it.
+- apiGroups:       ["*"]
+  resources:       ["*"]
+  verbs:           ["*"]
+- nonResourceURLs: ["*"]
+  verbs:           ["*"]
+{{- end }}

@@ -1,0 +1,14 @@
+{{- if not .Values.isRootKubeApplier }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: {{ include "chart.fullname" . }}
+  namespace: {{ .Values.namespace }}
+rules:
+# Grant access to everything in the namespace.
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+{{- end }}

@@ -1,0 +1,8 @@
+{{- if not .Values.isRootKubeApplier }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    team: {{ .Values.team }}
+  name: {{ .Values.namespace }}
+{{- end }}
