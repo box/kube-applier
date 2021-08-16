@@ -53,34 +53,14 @@ test:
 build:
 	docker build -t kube-applier .
 
-run:
-	docker run \
-	-e DIFF_URL_FORMAT=$${DIFF_URL_FORMAT} \
-	-e DRY_RUN=$${DRY_RUN} \
-	-e GIT_POLL_WAIT=$${GIT_POLL_WAIT} \
-	-e GIT_KNOWN_HOSTS_PATH=$${GIT_KNOWN_HOSTS_PATH} \
-	-e GIT_SSH_KEY_PATH=$${GIT_SSH_KEY_PATH} \
-	-e LISTEN_PORT=$${LISTEN_PORT} \
-	-e LOG_LEVEL=$${LOG_LEVEL} \
-	-e OIDC_CALLBACK_URL=$${OIDC_CALLBACK_URL} \
-	-e OIDC_CLIENT_ID=$${OIDC_CLIENT_ID} \
-	-e OIDC_CLIENT_SECRET=$${OIDC_CLIENT_SECRET} \
-	-e OIDC_ISSUER=$${OIDC_ISSUER} \
-	-e PRUNE_BLACKLIST=$${PRUNE_BLACKLIST} \
-	-e REPO_BRANCH=$${REPO_BRANCH} \
-	-e REPO_DEPTH=$${REPO_DEPTH} \
-	-e REPO_DEST=$${REPO_DEST} \
-	-e REPO_PATH=$${REPO_PATH} \
-	-e REPO_REMOTE=$${REPO_REMOTE} \
-	-e REPO_REVISION=$${REPO_REVISION} \
-	-e REPO_SYNC_INTERVAL=$${REPO_SYNC_INTERVAL} \
-	-e REPO_TIMEOUT=$${REPO_TIMEOUT} \
-	-e STATUS_UPDATE_INTERVAL=$${STATUS_UPDATE_INTERVAL} \
-	-e WAYBILL_POLL_INTERVAL=$${WAYBILL_POLL_INTERVAL} \
-	-e WORKER_COUNT=$${WORKER_COUNT} \
-	-v $${HOME}/.kube:/root/.kube \
-	-p 8080:8080 \
-	-ti kube-applier
+BJS_VERSION="5.1.0"
+update-bootstrap-js:
+	(cd /tmp/ && curl -L -O https://github.com/twbs/bootstrap/releases/download/v$(BJS_VERSION)/bootstrap-$(BJS_VERSION)-dist.zip)
+	(cd /tmp/ && unzip bootstrap-$(BJS_VERSION)-dist.zip)
+	cp /tmp/bootstrap-$(BJS_VERSION)-dist/js/bootstrap.js static/bootstrap/js/bootstrap.js
+
+update-jquery-js:
+	curl -o static/bootstrap/js/jquery.min.js https://code.jquery.com/jquery-3.6.0.min.js
 
 release:
 	@sd "$(IMAGE):latest" "$(IMAGE):$(VERSION)" $$(rg -l -- $(IMAGE) manifests/)
