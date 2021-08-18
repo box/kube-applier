@@ -1,17 +1,11 @@
-# Lock Alpine version to 3.13 in build image until Flatcar has Docker 20.10
-# Otherwise we get `make: /bin/bash: Operation not permitted` running tests
-#
-# https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2
-# https://trello.com/c/H3VorFMI/1445-kube-applier-dockerfile-alpine-313
-
-FROM golang:1.16-alpine3.13 AS build
+FROM golang:1.16-alpine AS build
 
 WORKDIR /src
 
-RUN apk --no-cache add git gcc make musl-dev curl bash openssh-client
+RUN apk --no-cache add curl git
 
 ENV \
-  STRONGBOX_VERSION=0.2.0 \
+  STRONGBOX_VERSION=0.2.1 \
   KUBECTL_VERSION=v1.21.0 \
   KUSTOMIZE_VERSION=v3.8.5
 
@@ -29,9 +23,8 @@ COPY go.mod go.sum /src/
 RUN go mod download
 
 COPY . /src
-RUN go get -t ./... \
-  && make test \
-  && CGO_ENABLED=0 && go build -o /kube-applier -ldflags '-s -w -extldflags "-static"' .
+ENV CGO_ENABLED=0
+RUN go build -o /kube-applier .
 
 FROM alpine:3.14
 RUN apk --no-cache add git openssh-client tini

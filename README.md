@@ -1,7 +1,5 @@
 # kube-applier
 
-[![Build Status](https://drone.prod.merit.uw.systems/api/badges/utilitywarehouse/kube-applier/status.svg)](https://drone.prod.merit.uw.systems/utilitywarehouse/kube-applier)
-
 Forked from: https://github.com/box/kube-applier
 
 kube-applier is Kubernetes deployment tool strongly following

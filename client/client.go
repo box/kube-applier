@@ -25,6 +25,8 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 	kubeapplierlog "github.com/utilitywarehouse/kube-applier/log"
 	// +kubebuilder:scaffold:imports
+	// For local dev
+	//_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 const (
