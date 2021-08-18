@@ -1,8 +1,8 @@
-FROM golang:1.16 AS build
+FROM golang:1.16-alpine AS build
 
 WORKDIR /src
 
-RUN apk --no-cache add git gcc make musl-dev curl bash openssh-client
+RUN apk --no-cache add curl git
 
 ENV \
   STRONGBOX_VERSION=0.2.1 \
