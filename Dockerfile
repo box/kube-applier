@@ -2,7 +2,7 @@ FROM golang:1.17-alpine AS build
 
 WORKDIR /src
 
-RUN apk --no-cache add curl git
+RUN apk --no-cache add git gcc make musl-dev curl bash openssh-client
 
 ENV \
   STRONGBOX_VERSION=0.2.0 \
@@ -23,8 +23,9 @@ COPY go.mod go.sum /src/
 RUN go mod download
 
 COPY . /src
-ENV CGO_ENABLED=0
-RUN go build -o /kube-applier .
+RUN go get -t ./... \
+  && make test \
+  && CGO_ENABLED=0 && go build -o /kube-applier .
 
 FROM alpine:3.14
 RUN apk --no-cache add git openssh-client tini
