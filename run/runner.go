@@ -183,6 +183,7 @@ func (r *Runner) processRequest(request Request) error {
 	if err != nil {
 		return err
 	}
+	defer delegateKubeClient.Shutdown()
 	clusterResources, namespacedResources, err := delegateKubeClient.PrunableResourceGVKs(ctx, request.Waybill.Namespace)
 	if err != nil {
 		return fmt.Errorf("could not compute list of prunable resources: %w", err)

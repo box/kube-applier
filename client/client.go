@@ -54,9 +54,10 @@ func init() {
 // Client encapsulates a kubernetes client for interacting with the apiserver.
 type Client struct {
 	client.Client
-	clientset kubernetes.Interface
-	cfg       *rest.Config
-	recorder  record.EventRecorder
+	clientset        kubernetes.Interface
+	cfg              *rest.Config
+	eventBroadcaster record.EventBroadcaster
+	recorder         record.EventRecorder
 }
 
 // New returns a new kubernetes client.
@@ -92,11 +93,17 @@ func newClient(cfg *rest.Config) (*Client, error) {
 	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: Name})
 	return &Client{
-		Client:    c,
-		clientset: clientset,
-		cfg:       cfg,
-		recorder:  recorder,
+		Client:           c,
+		clientset:        clientset,
+		cfg:              cfg,
+		eventBroadcaster: eventBroadcaster,
+		recorder:         recorder,
 	}, nil
+}
+
+// Shutdown shuts down the client
+func (c *Client) Shutdown() {
+	c.eventBroadcaster.Shutdown()
 }
 
 // CloneConfig copies the client's config into a new rest.Config, it does not

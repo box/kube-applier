@@ -146,6 +146,7 @@ func main() {
 		log.Logger("kube-applier").Error("error creating kubernetes API client", "error", err)
 		os.Exit(1)
 	}
+	defer kubeClient.Shutdown()
 
 	kubeCtlClient := kubectl.NewClient("", "", "", []string{})
 
