@@ -5,7 +5,7 @@ WORKDIR /src
 RUN apk --no-cache add curl git
 
 ENV \
-  STRONGBOX_VERSION=0.2.1 \
+  STRONGBOX_VERSION=0.2.0 \
   KUBECTL_VERSION=v1.21.0 \
   KUSTOMIZE_VERSION=v3.8.5
 
