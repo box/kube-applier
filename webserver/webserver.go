@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -30,17 +29,15 @@ const (
 
 // WebServer struct
 type WebServer struct {
-	Authenticator        *oidc.Authenticator
-	Clock                sysutil.ClockInterface
-	DiffURLFormat        string
-	KubeClient           *client.Client
-	ListenPort           int
-	RunQueue             chan<- run.Request
-	StatusUpdateInterval time.Duration
-	TemplatePath         string
-	result               *Result
-	server               *http.Server
-	stop, stopped        chan bool
+	Authenticator *oidc.Authenticator
+	Clock         sysutil.ClockInterface
+	DiffURLFormat string
+	KubeClient    *client.Client
+	ListenPort    int
+	RunQueue      chan<- run.Request
+	StatusTimeout time.Duration
+	TemplatePath  string
+	server        *http.Server
 }
 
 // StatusPageHandler implements the http.Handler interface and serves a status
@@ -48,8 +45,10 @@ type WebServer struct {
 type StatusPageHandler struct {
 	Authenticator *oidc.Authenticator
 	Clock         sysutil.ClockInterface
-	Result        *Result
+	DiffURLFormat string
+	KubeClient    *client.Client
 	Template      *template.Template
+	Timeout       time.Duration
 }
 
 // ServeHTTP populates the status page template with data and serves it when
@@ -73,8 +72,20 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger("webserver").Error("Request failed", "error", "No template found", "time", s.Clock.Now().String())
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout)
+	defer cancel()
+	waybills, err := s.KubeClient.ListWaybills(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error: Unable to list Waybill resources: %v", err), http.StatusInternalServerError)
+		log.Logger("webserver").Error("Unable to list Waybill resources", "error", err, "time", s.Clock.Now().String())
+		return
+	}
+	result := &Result{
+		DiffURLFormat: s.DiffURLFormat,
+		Waybills:      waybills,
+	}
 	rendered := &bytes.Buffer{}
-	if err := s.Template.Execute(rendered, s.Result); err != nil {
+	if err := s.Template.Execute(rendered, result); err != nil {
 		http.Error(w, "Error: Unable to render HTML template", http.StatusInternalServerError)
 		log.Logger("webserver").Error("Request failed", "error", http.StatusInternalServerError, "time", s.Clock.Now().String(), "err", err)
 		return
@@ -198,9 +209,6 @@ func (ws *WebServer) Start() error {
 		return fmt.Errorf("WebServer already running")
 	}
 
-	ws.stop = make(chan bool)
-	ws.stopped = make(chan bool)
-
 	log.Logger("webserver").Info("Launching")
 
 	templatePath := ws.TemplatePath
@@ -212,33 +220,15 @@ func (ws *WebServer) Start() error {
 		return err
 	}
 
-	ws.result = &Result{
-		Mutex:         &sync.Mutex{},
-		DiffURLFormat: ws.DiffURLFormat,
-	}
-
-	go func() {
-		ticker := time.NewTicker(ws.StatusUpdateInterval)
-		defer ticker.Stop()
-		defer close(ws.stopped)
-		ws.updateResult()
-		for {
-			select {
-			case <-ticker.C:
-				ws.updateResult()
-			case <-ws.stop:
-				return
-			}
-		}
-	}()
-
 	m := mux.NewRouter()
 	addStatusEndpoints(m)
 	statusPageHandler := &StatusPageHandler{
 		ws.Authenticator,
 		ws.Clock,
-		ws.result,
+		ws.DiffURLFormat,
+		ws.KubeClient,
 		template,
+		ws.StatusTimeout,
 	}
 	forceRunHandler := &ForceRunHandler{
 		ws.Authenticator,
@@ -269,22 +259,7 @@ func (ws *WebServer) Start() error {
 
 // Shutdown gracefully shuts the webserver down.
 func (ws *WebServer) Shutdown() error {
-	close(ws.stop)
-	<-ws.stopped
 	err := ws.server.Shutdown(context.Background())
 	ws.server = nil
 	return err
-}
-
-func (ws *WebServer) updateResult() error {
-	ctx, cancel := context.WithTimeout(context.Background(), ws.StatusUpdateInterval-time.Second)
-	defer cancel()
-	waybills, err := ws.KubeClient.ListWaybills(ctx)
-	if err != nil {
-		return fmt.Errorf("Could not list Waybill resources: %v", err)
-	}
-	ws.result.Lock()
-	ws.result.Waybills = waybills
-	ws.result.Unlock()
-	return nil
 }
