@@ -5,7 +5,7 @@ metadata:
 rules:
   - apiGroups: ["kube-applier.io"]
     resources: ["waybills"]
-    verbs: ["list"]
+    verbs: ["list", "watch"]
   - apiGroups: ["kube-applier.io"]
     resources: ["waybills/status"]
     verbs: ["update"]

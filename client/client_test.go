@@ -24,16 +24,17 @@ var _ = Describe("Client", func() {
 			user, err := testEnv.AddUser(envtest.User{Name: "foobar"}, testConfig)
 			Expect(err).NotTo(HaveOccurred())
 			userKubeClient, err := NewWithConfig(user.Config())
+			defer userKubeClient.Shutdown()
 			Expect(userKubeClient).ToNot(BeNil())
 
 			// Create a namespace for the user to manage
-			if err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "foobar"}}); err != nil {
+			if err := testKubeClient.GetClient().Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "foobar"}}); err != nil {
 				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 			}
 
 			// Create a clusterrole that gives the user access to
 			// various cluster/namespaced resources
-			if err := testKubeClient.Create(context.TODO(), &rbacv1.ClusterRole{
+			if err := testKubeClient.GetClient().Create(context.TODO(), &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{Name: "foobar"},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -84,7 +85,7 @@ var _ = Describe("Client", func() {
 				}}); err != nil {
 				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 			}
-			if err := testKubeClient.Create(context.TODO(), &rbacv1.RoleBinding{
+			if err := testKubeClient.GetClient().Create(context.TODO(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "foobar", Namespace: "foobar"},
 				Subjects: []rbacv1.Subject{
 					{
@@ -132,11 +133,11 @@ var _ = Describe("Client", func() {
 			}
 
 			for i := range wbList {
-				err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
+				err := testKubeClient.GetClient().Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 				if err != nil {
 					Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 				}
-				Expect(testKubeClient.Create(context.TODO(), &wbList[i])).To(BeNil())
+				Expect(testKubeClient.GetClient().Create(context.TODO(), &wbList[i])).To(BeNil())
 			}
 
 			Eventually(
@@ -154,7 +155,7 @@ var _ = Describe("Client", func() {
 			events := &corev1.EventList{}
 			Eventually(
 				func() int {
-					if err := testKubeClient.List(context.TODO(), events); err != nil {
+					if err := testKubeClient.GetAPIReader().List(context.TODO(), events); err != nil {
 						return -1
 					}
 					return len(events.Items)
@@ -166,7 +167,7 @@ var _ = Describe("Client", func() {
 				Expect(e).To(matchEvent(wbList[1], corev1.EventTypeWarning, "MultipleWaybillsFound", fmt.Sprintf("^.*%s.*$", wbList[0].Name)))
 			}
 
-			Expect(testKubeClient.Delete(context.TODO(), &events.Items[0])).To(BeNil())
+			Expect(testKubeClient.GetClient().Delete(context.TODO(), &events.Items[0])).To(BeNil())
 		})
 	})
 })

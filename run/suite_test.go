@@ -107,6 +107,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	k8sClient.Shutdown()
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 	os.Remove(tokenAuthFile.Name())
@@ -177,12 +178,12 @@ func testRemoveAllWaybills() {
 	// List and Delete Waybills one by one. There should not be too many of them
 	// to significantly affect test duration.
 	waybills := kubeapplierv1alpha1.WaybillList{}
-	Expect(k8sClient.List(
+	Expect(k8sClient.GetAPIReader().List(
 		context.TODO(),
 		&waybills,
 	)).To(BeNil())
 	for _, wb := range waybills.Items {
-		Expect(k8sClient.Delete(
+		Expect(k8sClient.GetClient().Delete(
 			context.TODO(),
 			&wb,
 			controllerruntimeclient.GracePeriodSeconds(0),
@@ -191,7 +192,7 @@ func testRemoveAllWaybills() {
 	Eventually(
 		func() int {
 			waybills := kubeapplierv1alpha1.WaybillList{}
-			Expect(k8sClient.List(context.TODO(), &waybills)).To(BeNil())
+			Expect(k8sClient.GetAPIReader().List(context.TODO(), &waybills)).To(BeNil())
 			return len(waybills.Items)
 		},
 		time.Second*60,
@@ -207,7 +208,7 @@ func testMatchEvents(matchers []gomegatypes.GomegaMatcher) {
 	Eventually(
 		func() ([]corev1.Event, error) {
 			events := &corev1.EventList{}
-			if err := k8sClient.List(context.TODO(), events); err != nil {
+			if err := k8sClient.GetAPIReader().List(context.TODO(), events); err != nil {
 				return nil, err
 			}
 			return events.Items, nil

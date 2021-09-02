@@ -137,7 +137,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			// remove the "bar" Waybill
-			k8sClient.Delete(context.TODO(), wbList[len(wbList)-1])
+			k8sClient.GetClient().Delete(context.TODO(), wbList[len(wbList)-1])
 			wbList = wbList[:len(wbList)-1]
 			testEnsureWaybills(wbList)
 			testWaitForSchedulerToUpdate(&testScheduler, wbList)
@@ -352,7 +352,7 @@ Some error output has been omitted because it may contain sensitive data
 
 func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 	for i := range wbList {
-		err := k8sClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
+		err := k8sClient.GetClient().Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			Expect(err).To(BeNil())
 		}
@@ -360,7 +360,7 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		// Create() which makes it difficult to handle it below.
 		rv := wbList[i].ResourceVersion
 		wbList[i].ResourceVersion = ""
-		err = k8sClient.Create(context.TODO(), wbList[i])
+		err = k8sClient.GetClient().Create(context.TODO(), wbList[i])
 		if err != nil && errors.IsAlreadyExists(err) {
 			wbList[i].ResourceVersion = rv
 			Expect(k8sClient.UpdateWaybill(context.TODO(), wbList[i])).To(BeNil())
@@ -382,7 +382,7 @@ func testEnsureWaybills(wbList []*kubeapplierv1alpha1.Waybill) {
 		_, err = k8sClient.GetSecret(context.TODO(), wbList[i].Namespace, wbList[i].Spec.DelegateServiceAccountSecretRef)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				err = k8sClient.Create(context.TODO(), &corev1.Secret{
+				err = k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      wbList[i].Spec.DelegateServiceAccountSecretRef,
 						Namespace: wbList[i].Namespace,

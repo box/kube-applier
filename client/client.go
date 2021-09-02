@@ -16,14 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	clientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
-	kubeapplierlog "github.com/utilitywarehouse/kube-applier/log"
 	// +kubebuilder:scaffold:imports
 	// For local dev
 	//_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -53,68 +51,66 @@ func init() {
 
 // Client encapsulates a kubernetes client for interacting with the apiserver.
 type Client struct {
-	client.Client
-	clientset        kubernetes.Interface
-	cfg              *rest.Config
-	eventBroadcaster record.EventBroadcaster
-	recorder         record.EventRecorder
+	cluster.Cluster
+	clientset kubernetes.Interface
+	shutdown  func()
 }
 
 // New returns a new kubernetes client.
-func New() (*Client, error) {
+func New(opts ...cluster.Option) (*Client, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot get kubernetes config: %v", err)
 	}
-	return newClient(cfg)
+	return newClient(cfg, opts...)
 }
 
 // NewWithConfig returns a new kubernetes client initialised with the provided
 // configuration.
-func NewWithConfig(cfg *rest.Config) (*Client, error) {
-	return newClient(cfg)
+func NewWithConfig(cfg *rest.Config, opts ...cluster.Option) (*Client, error) {
+	return newClient(cfg, opts...)
 }
 
-func newClient(cfg *rest.Config) (*Client, error) {
-	c, err := client.New(cfg, client.Options{
-		Scheme: scheme,
+func newClient(cfg *rest.Config, opts ...cluster.Option) (*Client, error) {
+	c, err := cluster.New(cfg, func(options *cluster.Options) {
+		options.Scheme = scheme
+		for _, opt := range opts {
+			opt(options)
+		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot create default client: %v", err)
+		return nil, err
 	}
+
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(func(format string, args ...interface{}) {
-		kubeapplierlog.Logger("eventBroadcaster").Debug(fmt.Sprintf(format, args...))
-	})
-	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: Name})
+
+	ctx, shutdown := context.WithCancel(context.Background())
+	go c.Start(ctx)
+
 	return &Client{
-		Client:           c,
-		clientset:        clientset,
-		cfg:              cfg,
-		eventBroadcaster: eventBroadcaster,
-		recorder:         recorder,
+		Cluster:   c,
+		clientset: clientset,
+		shutdown:  shutdown,
 	}, nil
 }
 
 // Shutdown shuts down the client
 func (c *Client) Shutdown() {
-	c.eventBroadcaster.Shutdown()
+	c.shutdown()
 }
 
 // CloneConfig copies the client's config into a new rest.Config, it does not
 // copy user credentials
 func (c *Client) CloneConfig() *rest.Config {
-	return rest.AnonymousClientConfig(c.cfg)
+	return rest.AnonymousClientConfig(c.GetConfig())
 }
 
 // EmitWaybillEvent creates an Event for the provided Waybill.
 func (c *Client) EmitWaybillEvent(waybill *kubeapplierv1alpha1.Waybill, eventType, reason, messageFmt string, args ...interface{}) {
-	c.recorder.Eventf(waybill, eventType, reason, messageFmt, args...)
+	c.GetEventRecorderFor(Name).Eventf(waybill, eventType, reason, messageFmt, args...)
 }
 
 // HasAccess returns a boolean depending on whether the email address provided
@@ -150,7 +146,7 @@ func (c *Client) HasAccess(ctx context.Context, waybill *kubeapplierv1alpha1.Way
 // ListWaybills returns a list of all the Waybill resources.
 func (c *Client) ListWaybills(ctx context.Context) ([]kubeapplierv1alpha1.Waybill, error) {
 	waybills := &kubeapplierv1alpha1.WaybillList{}
-	if err := c.List(ctx, waybills); err != nil {
+	if err := c.GetClient().List(ctx, waybills); err != nil {
 		return nil, err
 	}
 	// ensure that the list of Waybills is sorted alphabetically
@@ -186,7 +182,7 @@ func (c *Client) ListWaybills(ctx context.Context) ([]kubeapplierv1alpha1.Waybil
 // and name.
 func (c *Client) GetWaybill(ctx context.Context, namespace, name string) (*kubeapplierv1alpha1.Waybill, error) {
 	waybill := &kubeapplierv1alpha1.Waybill{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, waybill); err != nil {
+	if err := c.GetClient().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, waybill); err != nil {
 		return nil, err
 	}
 	return waybill, nil
@@ -194,19 +190,25 @@ func (c *Client) GetWaybill(ctx context.Context, namespace, name string) (*kubea
 
 // UpdateWaybill updates the Waybill resource provided.
 func (c *Client) UpdateWaybill(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) error {
-	return c.Update(ctx, waybill, defaultUpdateOptions)
+	return c.GetClient().Update(ctx, waybill, defaultUpdateOptions)
 }
 
 // UpdateWaybillStatus updates the status of the Waybill resource
 // provided.
 func (c *Client) UpdateWaybillStatus(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) error {
-	return c.Status().Update(ctx, waybill, defaultUpdateOptions)
+	return c.GetClient().Status().Update(ctx, waybill, defaultUpdateOptions)
 }
 
 // GetSecret returns the Secret resource specified by the namespace and name.
 func (c *Client) GetSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
+	// Use the APIReader to bypass the cache and get secrets directly from
+	// the API server.
+	//
+	// If it used the cache then it would cache ALL secrets,
+	// which is a bit of an overreach given that we're only interested in
+	// specific secrets.
+	if err := c.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, secret); err != nil {
 		return nil, err
 	}
 	return secret, nil

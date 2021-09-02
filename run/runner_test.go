@@ -446,7 +446,7 @@ N3ZtSHVWd1pXb1JBcGI4bmd4S0EKQUFBRUI1VDBoKzNGV0J0M0xaZXpyL00rZzd5Q2NtaHFjYWRQ
 V0dTRjltUDh1L21mYklCTnBsMjhYMnFnQTQ5bkw3UFJHRwp2dStZZTVYQmxhaEVDbHZ5ZURFb0FB
 QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-noaccess",
@@ -454,7 +454,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_random": string(randomKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize",
@@ -462,7 +462,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				StringData: map[string]string{"key_deploy": string(deployKey)},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-b-kustomize-twokeys",
@@ -473,7 +473,7 @@ QUFER0ZzYTJGeVFHdDFhbWx5WVFFPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K`)
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "git-ssh",
 					Namespace: "app-c-kustomize-withkey",
@@ -573,7 +573,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
+					return k8sClient.GetAPIReader().Get(context.TODO(), client.ObjectKey{Namespace: "app-c-kustomize-withkey", Name: "test-deployment"}, deployment)
 				},
 				time.Second*120,
 				time.Second,
@@ -698,7 +698,7 @@ deployment.apps/test-deployment created
 
 			testEnsureWaybills(wbList)
 
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "strongbox",
 					Namespace:   "app-d",
@@ -712,7 +712,7 @@ deployment.apps/test-deployment created
 				},
 				Type: corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "strongbox-empty",
 					Namespace: "app-d-empty",
@@ -792,7 +792,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
+					return k8sClient.GetAPIReader().Get(context.TODO(), client.ObjectKey{Namespace: "app-d", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
@@ -871,13 +871,13 @@ deployment.apps/test-deployment created
 			testEnsureWaybills(wbList)
 
 			// Manipulate the delegate Secrets that have been create above
-			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
-			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
-			Expect(k8sClient.Create(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-notfound", Name: "ka-notfound"}})).To(BeNil())
+			Expect(k8sClient.GetClient().Delete(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"}})).To(BeNil())
+			Expect(k8sClient.GetClient().Create(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "app-e-wrongtype", Name: "ka-wrongtype"},
 				Type:       corev1.SecretTypeOpaque,
 			})).To(BeNil())
-			Expect(k8sClient.Update(context.TODO(), &corev1.Secret{
+			Expect(k8sClient.GetClient().Update(context.TODO(), &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "app-e-notoken",
 					Name:        "ka-notoken",
@@ -923,7 +923,7 @@ deployment.apps/test-deployment created
 			Eventually(
 				func() error {
 					deployment := &appsv1.Deployment{}
-					return k8sClient.Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
+					return k8sClient.GetAPIReader().Get(context.TODO(), client.ObjectKey{Namespace: "app-e", Name: "test-deployment"}, deployment)
 				},
 				time.Second*15,
 				time.Second,
