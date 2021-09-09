@@ -1,7 +1,6 @@
 package webserver
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -36,7 +35,7 @@ var formattingTestCasess = []formattingTestCases{
 
 func TestResultFormattedTime(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{Mutex: &sync.Mutex{}}
+	r := Result{}
 	for _, tc := range formattingTestCasess {
 		status := kubeapplierv1alpha1.WaybillStatusRun{
 			Started:  metav1.NewTime(tc.Start),
@@ -48,7 +47,7 @@ func TestResultFormattedTime(t *testing.T) {
 
 func TestResultLatency(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{Mutex: &sync.Mutex{}}
+	r := Result{}
 	for _, tc := range formattingTestCasess {
 		status := kubeapplierv1alpha1.WaybillStatusRun{
 			Started:  metav1.NewTime(tc.Start),
@@ -111,7 +110,7 @@ var totalFilesTestCases = []totalFilesTestCase{
 func TestResultSuccessesAndFailures(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
-		r := Result{Mutex: &sync.Mutex{}, Waybills: tc.Waybills}
+		r := Result{Waybills: tc.Waybills}
 		assert.Equal(tc.Successes, r.Successes())
 		assert.Equal(tc.Failures, r.Failures())
 	}
@@ -145,20 +144,20 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 func TestResultLastCommitLink(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{Mutex: &sync.Mutex{}, DiffURLFormat: tc.DiffURLFormat}
+		r := Result{DiffURLFormat: tc.DiffURLFormat}
 		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
 	}
 }
 
 func TestResultFinished(t *testing.T) {
 	assert := assert.New(t)
-	r := Result{Mutex: &sync.Mutex{}}
+	r := Result{}
 	assert.Equal(r.Finished(), false)
 	r.Waybills = []kubeapplierv1alpha1.Waybill{{}}
 	assert.Equal(r.Finished(), true)
 
 	for _, tc := range lastCommitLinkTestCases {
-		r := Result{Mutex: &sync.Mutex{}, DiffURLFormat: tc.DiffURLFormat}
+		r := Result{DiffURLFormat: tc.DiffURLFormat}
 		assert.Equal(tc.ExpectedLink, r.CommitLink(tc.CommitHash))
 	}
 }
@@ -205,7 +204,7 @@ func TestResultAppliedRecently(t *testing.T) {
 		},
 	}
 
-	r := Result{Mutex: &sync.Mutex{}}
+	r := Result{}
 
 	assert.Equal(false, r.AppliedRecently(kubeapplierv1alpha1.Waybill{}))
 

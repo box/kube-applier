@@ -3,7 +3,6 @@ package webserver
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,10 +11,10 @@ import (
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
 )
 
-// Result stores the data from a single run of the apply loop.
-// The functions associated with Result convert raw data into the desired formats for insertion into the status page template.
+// Result stores the current state of the waybills  The functions associated
+// with Result convert raw data into the desired formats
+// for insertion into the status page template.
 type Result struct {
-	*sync.Mutex
 	Waybills      []kubeapplierv1alpha1.Waybill
 	DiffURLFormat string
 }
@@ -23,8 +22,6 @@ type Result struct {
 // Successes returns all the Waybills that applied successfully.
 func (r *Result) Successes() []kubeapplierv1alpha1.Waybill {
 	var ret []kubeapplierv1alpha1.Waybill
-	r.Lock()
-	defer r.Unlock()
 	for _, wb := range r.Waybills {
 		if wb.Status.LastRun != nil && wb.Status.LastRun.Success {
 			ret = append(ret, wb)
@@ -36,8 +33,6 @@ func (r *Result) Successes() []kubeapplierv1alpha1.Waybill {
 // Failures returns all the Waybills that failed applying.
 func (r *Result) Failures() []kubeapplierv1alpha1.Waybill {
 	var ret []kubeapplierv1alpha1.Waybill
-	r.Lock()
-	defer r.Unlock()
 	for _, wb := range r.Waybills {
 		if wb.Status.LastRun != nil && !wb.Status.LastRun.Success {
 			ret = append(ret, wb)
@@ -67,8 +62,6 @@ func (r *Result) CommitLink(commit string) string {
 
 // Finished returns true if the Result is from a finished apply run.
 func (r *Result) Finished() bool {
-	r.Lock()
-	defer r.Unlock()
 	return len(r.Waybills) > 0
 }
 

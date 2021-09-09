@@ -47,13 +47,13 @@ var _ = Describe("WebServer", func() {
 		testRunQueue = make(chan run.Request)
 		testWebServerRequests = testWebServerDrainRequests(testRunQueue)
 		testWebServer = WebServer{
-			ListenPort:           35432,
-			Clock:                &zeroClock{},
-			DiffURLFormat:        "http://foo.bar/diff/%s",
-			KubeClient:           testKubeClient,
-			RunQueue:             testRunQueue,
-			StatusUpdateInterval: time.Second * 5,
-			TemplatePath:         "../templates/status.html",
+			ListenPort:    35432,
+			Clock:         &zeroClock{},
+			DiffURLFormat: "http://foo.bar/diff/%s",
+			KubeClient:    testKubeClient,
+			RunQueue:      testRunQueue,
+			StatusTimeout: time.Second * 5,
+			TemplatePath:  "../templates/status.html",
 		}
 		Expect(testWebServer.Start()).To(BeNil())
 	})
@@ -76,30 +76,9 @@ var _ = Describe("WebServer", func() {
 			},
 		}
 
-		It("Should keep track of Waybill resources on the server", func() {
-			By("Listing all the Waybills in the cluster")
-			testEnsureWaybills(wbList)
-			Eventually(
-				func() []kubeapplierv1alpha1.Waybill {
-					testWebServer.result.Lock()
-					defer testWebServer.result.Unlock()
-					ret := make([]kubeapplierv1alpha1.Waybill, len(testWebServer.result.Waybills))
-					for i := range testWebServer.result.Waybills {
-						ret[i] = testWebServer.result.Waybills[i]
-					}
-					return ret
-				},
-				time.Second*15,
-				time.Second,
-			).Should(ConsistOf(wbList))
-
-			testWebServer.Shutdown()
-			close(testRunQueue)
-
-			Expect(testWebServerRequests()).To(Equal([]run.Request{}))
-		})
-
 		It("Should trigger a ForcedRun when a valid request is made", func() {
+			testEnsureWaybills(wbList)
+
 			v := url.Values{}
 			res, err := http.Get(fmt.Sprintf("http://localhost:%d/api/v1/forceRun", testWebServer.ListenPort))
 			Expect(err).To(BeNil())
@@ -171,7 +150,7 @@ var _ = Describe("WebServer", func() {
 // instead of pointers), can we share?
 func testEnsureWaybills(wbList []kubeapplierv1alpha1.Waybill) {
 	for i := range wbList {
-		err := testKubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
+		err := testKubeClient.GetClient().Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wbList[i].Namespace}})
 		if err != nil {
 			Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		}
@@ -179,7 +158,7 @@ func testEnsureWaybills(wbList []kubeapplierv1alpha1.Waybill) {
 		// Create() which makes it difficult to handle it below.
 		rv := wbList[i].ResourceVersion
 		wbList[i].ResourceVersion = ""
-		err = testKubeClient.Create(context.TODO(), &wbList[i])
+		err = testKubeClient.GetClient().Create(context.TODO(), &wbList[i])
 		if err != nil && errors.IsAlreadyExists(err) {
 			wbList[i].ResourceVersion = rv
 			Expect(testKubeClient.UpdateWaybill(context.TODO(), &wbList[i])).To(BeNil())
