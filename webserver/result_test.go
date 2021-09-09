@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeapplierv1alpha1 "github.com/utilitywarehouse/kube-applier/apis/kubeapplier/v1alpha1"
@@ -61,10 +62,11 @@ type totalFilesTestCase struct {
 	Waybills  []kubeapplierv1alpha1.Waybill
 	Failures  []kubeapplierv1alpha1.Waybill
 	Successes []kubeapplierv1alpha1.Waybill
+	Pending   []kubeapplierv1alpha1.Waybill
 }
 
 var totalFilesTestCases = []totalFilesTestCase{
-	{nil, nil, nil},
+	{nil, nil, nil, nil},
 	{
 		[]kubeapplierv1alpha1.Waybill{
 			{
@@ -82,6 +84,10 @@ var totalFilesTestCases = []totalFilesTestCase{
 						Success: false,
 					},
 				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-c"},
+				Status:     kubeapplierv1alpha1.WaybillStatus{},
 			},
 		},
 		[]kubeapplierv1alpha1.Waybill{
@@ -104,15 +110,22 @@ var totalFilesTestCases = []totalFilesTestCase{
 				},
 			},
 		},
+		[]kubeapplierv1alpha1.Waybill{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "app-c"},
+				Status:     kubeapplierv1alpha1.WaybillStatus{},
+			},
+		},
 	},
 }
 
-func TestResultSuccessesAndFailures(t *testing.T) {
+func TestResultSuccessesFailuresAndPending(t *testing.T) {
 	assert := assert.New(t)
 	for _, tc := range totalFilesTestCases {
 		r := Result{Waybills: tc.Waybills}
 		assert.Equal(tc.Successes, r.Successes())
 		assert.Equal(tc.Failures, r.Failures())
+		assert.Equal(tc.Pending, r.Pending())
 	}
 }
 
@@ -139,6 +152,67 @@ var lastCommitLinkTestCases = []lastCommitLinkTestCase{
 	{"https://goodurl.com/commit/%s/show", "", ""},
 	// %s in middle of URL, non-empty hash
 	{"https://goodurl.com/commit/%s/show", "hash", "https://goodurl.com/commit/hash/show"},
+}
+
+type eventTestCase struct {
+	Events        []corev1.Event
+	WaybillEvents []corev1.Event
+	Waybill       kubeapplierv1alpha1.Waybill
+}
+
+var eventTestCases = []eventTestCase{
+	{
+		[]corev1.Event{
+			{
+				InvolvedObject: corev1.ObjectReference{
+					Name:      "foobar-0",
+					Namespace: "foobar",
+				},
+				Message: "testing",
+			},
+			{
+				InvolvedObject: corev1.ObjectReference{
+					Name:      "foobar-0",
+					Namespace: "foobar",
+				},
+				Message: "testing again",
+			},
+			{
+				InvolvedObject: corev1.ObjectReference{
+					Name:      "foobar-0",
+					Namespace: "not-foobar",
+				},
+				Message: "foo",
+			},
+		},
+		[]corev1.Event{
+			{
+				InvolvedObject: corev1.ObjectReference{
+					Name:      "foobar-0",
+					Namespace: "foobar",
+				},
+				Message: "testing",
+			},
+			{
+				InvolvedObject: corev1.ObjectReference{
+					Name:      "foobar-0",
+					Namespace: "foobar",
+				},
+				Message: "testing again",
+			},
+		},
+		kubeapplierv1alpha1.Waybill{
+			ObjectMeta: metav1.ObjectMeta{Name: "foobar-0", Namespace: "foobar"},
+		},
+	},
+}
+
+func TestResultWaybillEvents(t *testing.T) {
+	assert := assert.New(t)
+	for _, tc := range eventTestCases {
+		r := Result{Events: tc.Events}
+		assert.Equal(tc.WaybillEvents, r.WaybillEvents(&tc.Waybill))
+	}
 }
 
 func TestResultLastCommitLink(t *testing.T) {

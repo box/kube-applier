@@ -12,11 +12,13 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -74,6 +76,15 @@ func NewWithConfig(cfg *rest.Config, opts ...cluster.Option) (*Client, error) {
 func newClient(cfg *rest.Config, opts ...cluster.Option) (*Client, error) {
 	c, err := cluster.New(cfg, func(options *cluster.Options) {
 		options.Scheme = scheme
+		options.NewCache = func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			// Only cache events for Waybills
+			opts.SelectorsByObject = cache.SelectorsByObject{
+				&corev1.Event{}: {
+					Field: fields.SelectorFromSet(fields.Set{"involvedObject.kind": "Waybill"}),
+				},
+			}
+			return cache.New(config, opts)
+		}
 		for _, opt := range opts {
 			opt(options)
 		}
@@ -141,6 +152,27 @@ func (c *Client) HasAccess(ctx context.Context, waybill *kubeapplierv1alpha1.Way
 		return false, err
 	}
 	return response.Status.Allowed, nil
+}
+
+// ListWaybillEvents returns a list of Waybill events. The events are sorted by
+// the LastTimestamp field.
+func (c *Client) ListWaybillEvents(ctx context.Context) ([]corev1.Event, error) {
+	eventList := &corev1.EventList{}
+	if err := c.GetClient().List(ctx, eventList); err != nil {
+		return nil, err
+	}
+
+	var events []corev1.Event
+	for _, e := range eventList.Items {
+		if e.InvolvedObject.Kind == "Waybill" && e.InvolvedObject.GroupVersionKind().Group == kubeapplierv1alpha1.GroupVersion.Group {
+			events = append(events, e)
+		}
+	}
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].LastTimestamp.Before(&events[j].LastTimestamp)
+	})
+
+	return events, nil
 }
 
 // ListWaybills returns a list of all the Waybill resources.

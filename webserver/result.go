@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -15,6 +16,7 @@ import (
 // with Result convert raw data into the desired formats
 // for insertion into the status page template.
 type Result struct {
+	Events        []corev1.Event
 	Waybills      []kubeapplierv1alpha1.Waybill
 	DiffURLFormat string
 }
@@ -39,6 +41,29 @@ func (r *Result) Failures() []kubeapplierv1alpha1.Waybill {
 		}
 	}
 	return ret
+}
+
+// Pending returns all the Waybills that haven't ran yet
+func (r *Result) Pending() []kubeapplierv1alpha1.Waybill {
+	var ret []kubeapplierv1alpha1.Waybill
+	for _, wb := range r.Waybills {
+		if wb.Status.LastRun == nil {
+			ret = append(ret, wb)
+		}
+	}
+	return ret
+}
+
+// WaybillEvents returns all the events for the given Waybill
+func (r *Result) WaybillEvents(wb *kubeapplierv1alpha1.Waybill) []corev1.Event {
+	var events []corev1.Event
+	for _, e := range r.Events {
+		if e.InvolvedObject.Name == wb.Name && e.InvolvedObject.Namespace == wb.Namespace {
+			events = append(events, e)
+		}
+	}
+
+	return events
 }
 
 // FormattedTime returns the Time in the format "YYYY-MM-DD hh:mm:ss -0000 GMT"
