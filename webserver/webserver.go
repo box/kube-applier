@@ -80,8 +80,15 @@ func (s *StatusPageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Logger("webserver").Error("Unable to list Waybill resources", "error", err, "time", s.Clock.Now().String())
 		return
 	}
+	events, err := s.KubeClient.ListWaybillEvents(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error: Unable to list Waybill events: %v", err), http.StatusInternalServerError)
+		log.Logger("webserver").Error("Unable to list Waybill events", "error", err, "time", s.Clock.Now().String())
+		return
+	}
 	result := &Result{
 		DiffURLFormat: s.DiffURLFormat,
+		Events:        events,
 		Waybills:      waybills,
 	}
 	rendered := &bytes.Buffer{}

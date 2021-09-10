@@ -16,6 +16,71 @@
         <div class="col-md-4"></div>
         <div id="force-alert-container" class="col-md-4"></div>
     </div>
+    {{ if .Pending }}
+    <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-8">
+            <div class="panel-group">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <a data-toggle="collapse" href="#pending">Pending: {{ len .Pending }}</a>
+                        </h4>
+                    </div>
+                    <div id="pending" class="panel-group collapse in">
+                        {{ range $i, $wb := .Pending }}
+                        <div class="panel">
+                            <div class="panel-heading">
+                                <div class="panel-title">
+                                    <a data-toggle="collapse" href="#pending-{{$i}}">{{ $wb.Namespace }} {{ $.Status $wb }}</a>
+                                </div>
+                            </div>
+                            <div id="pending-{{$i}}" class="panel-collapse collapse">
+                                <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <div class="row">
+                                            <div class="col-md-10">
+                                              <strong>Created at:</strong> {{ $wb.CreationTimestamp }}
+                                            </div>
+                                            <div class="col-md-2"><button data-namespace="{{ $wb.Namespace }}" class="force-button force-namespace-button btn btn-warning btn-s"><strong>Force apply run</strong></button></div>
+                                        </div>
+                                    </li>
+                                    {{ if $.WaybillEvents $wb }}
+                                    <li class="list-group-item">
+                                      <table class="table">
+                                        <thead>
+                                            <tr>
+                                            <th scope="col">LAST SEEN</th>
+                                            <th scope="col">TYPE</th>
+                                            <th scope="col">REASON</th>
+                                            <th scope="col">MESSAGE</th>
+                                           </tr>
+                                        </thead>
+                                        <tbody>
+                                        {{ range $i, $e := $.WaybillEvents $wb }}
+                                        {{ if eq $e.Namespace $wb.Namespace }}
+                                          <tr>
+                                            <td>{{ $e.LastTimestamp }}</th>
+                                            <td>{{ $e.Type }}</td>
+                                            <td>{{ $e.Reason }}</td>
+                                            <td>{{ $e.Message }}</td>
+                                         </tr>
+                                        {{ end }}
+                                        {{ end }}
+                                        </tbody>
+                                     </table>
+                                  </li>
+                                  {{ end }}
+                                </ul>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ end }}
     <div class="row">
         <div class="col-md-2"></div>
         <div class="col-md-8">
@@ -49,6 +114,32 @@
                                     <li class="list-group-item">
                                         <pre class="file-output">{{ printf "$ %s\n" $wb.Status.LastRun.Command }}{{ $wb.Status.LastRun.Output }}{{ $wb.Status.LastRun.ErrorMessage }}</pre>
                                     </li>
+                                    {{ if $.WaybillEvents $wb }}
+                                    <li class="list-group-item">
+                                      <table class="table">
+                                        <thead>
+                                            <tr>
+                                            <th scope="col">LAST SEEN</th>
+                                            <th scope="col">TYPE</th>
+                                            <th scope="col">REASON</th>
+                                            <th scope="col">MESSAGE</th>
+                                           </tr>
+                                        </thead>
+                                        <tbody>
+                                        {{ range $i, $e := $.WaybillEvents $wb }}
+                                        {{ if eq $e.Namespace $wb.Namespace }}
+                                          <tr>
+                                            <td>{{ $e.LastTimestamp }}</th>
+                                            <td>{{ $e.Type }}</td>
+                                            <td>{{ $e.Reason }}</td>
+                                            <td>{{ $e.Message }}</td>
+                                         </tr>
+                                        {{ end }}
+                                        {{ end }}
+                                        </tbody>
+                                     </table>
+                                  </li>
+                                  {{ end }}
                                 </ul>
                             </div>
                         </div>
@@ -91,6 +182,32 @@
                                     <li class="list-group-item">
                                         <pre class="file-output">{{ printf "$ %s\n" $wb.Status.LastRun.Command }}{{ $wb.Status.LastRun.Output }}</pre>
                                     </li>
+                                    {{ if $.WaybillEvents $wb }}
+                                    <li class="list-group-item">
+                                      <table class="table">
+                                        <thead>
+                                            <tr>
+                                            <th scope="col">LAST SEEN</th>
+                                            <th scope="col">TYPE</th>
+                                            <th scope="col">REASON</th>
+                                            <th scope="col">MESSAGE</th>
+                                           </tr>
+                                        </thead>
+                                        <tbody>
+                                        {{ range $i, $e := $.WaybillEvents $wb }}
+                                        {{ if eq $e.Namespace $wb.Namespace }}
+                                          <tr>
+                                            <td>{{ $e.LastTimestamp }}</th>
+                                            <td>{{ $e.Type }}</td>
+                                            <td>{{ $e.Reason }}</td>
+                                            <td>{{ $e.Message }}</td>
+                                         </tr>
+                                        {{ end }}
+                                        {{ end }}
+                                        </tbody>
+                                     </table>
+                                  </li>
+                                  {{ end }}
                                 </ul>
                             </div>
                         </div>

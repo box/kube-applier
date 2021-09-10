@@ -170,6 +170,42 @@ var _ = Describe("Client", func() {
 			Expect(testKubeClient.GetClient().Delete(context.TODO(), &events.Items[0])).To(BeNil())
 		})
 	})
+	Context("When listing events", func() {
+		It("Should return all the Waybill events, ordered by timestamp", func() {
+			wb := kubeapplierv1alpha1.Waybill{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kube-applier.io/v1alpha1", Kind: "Waybill"},
+				ObjectMeta: metav1.ObjectMeta{Name: "alpha", Namespace: "ns-0"},
+			}
+			eventMessages := []string{"test1", "test2"}
+			if err := testKubeClient.GetClient().Create(context.TODO(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+			}
+			if err := testKubeClient.GetClient().Create(context.TODO(), &wb); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+			}
+			for _, msg := range eventMessages {
+				testKubeClient.EmitWaybillEvent(&wb, corev1.EventTypeWarning, "TestWaybillEvent", msg)
+			}
+			eventList := &corev1.EventList{}
+			Eventually(
+				func() int {
+					if err := testKubeClient.GetAPIReader().List(context.TODO(), eventList); err != nil {
+						return -1
+					}
+					return len(eventList.Items)
+				},
+				time.Second*15,
+				time.Second,
+			).Should(Equal(2))
+
+			events, err := testKubeClient.ListWaybillEvents(context.TODO())
+			Expect(err).To(BeNil())
+			for i, e := range events {
+				Expect(e).To(matchEvent(wb, corev1.EventTypeWarning, "TestWaybillEvent", eventMessages[i]))
+				Expect(testKubeClient.GetClient().Delete(context.TODO(), &e)).To(BeNil())
+			}
+		})
+	})
 })
 
 func matchEvent(waybill kubeapplierv1alpha1.Waybill, eventType, reason, message string) gomegatypes.GomegaMatcher {
