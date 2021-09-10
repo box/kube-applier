@@ -39,7 +39,7 @@ spec:
       serviceAccountName: kube-applier
       containers:
         - name: kube-applier
-          image: quay.io/utilitywarehouse/kube-applier:v3.3.7
+          image: quay.io/utilitywarehouse/kube-applier:master
           env:
             - name: DIFF_URL_FORMAT
               value: "https://github.com/org/repo/commit/%s"
