@@ -18,7 +18,11 @@ rules:
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["events"]
-    verbs: ["create", "patch"]
+    verbs:
+      - create
+      - patch
+      - list
+      - watch
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
