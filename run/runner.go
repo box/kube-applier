@@ -216,8 +216,9 @@ func (r *Runner) processRequest(request Request) error {
 	request.Waybill.Status.LastRun.Commit = hash
 	request.Waybill.Status.LastRun.Type = request.Type.String()
 
-	if err := r.KubeClient.UpdateWaybillStatus(ctx, request.Waybill); err != nil {
-		log.Logger("runner").Warn("Could not update Waybill run info", "waybill", wbId, "error", err)
+	if err := r.updateWaybillStatus(ctx, request.Waybill); err != nil {
+		log.Logger("runner").Warn("Could not update Waybill status", "waybill", wbId, "error", err)
+		r.KubeClient.EmitWaybillEvent(request.Waybill, corev1.EventTypeWarning, "WaybillUpdateStatusFailed", err.Error())
 	}
 
 	if request.Waybill.Status.LastRun.Success {
@@ -230,6 +231,18 @@ func (r *Runner) processRequest(request Request) error {
 
 	log.Logger("runner").Info("Finished apply run", "waybill", wbId)
 	return nil
+}
+
+// updateWaybillStatus updates the status on the provided Waybill. It will
+// retrieve the latest version of the Waybill before updating, which will
+// tolerate modifications to the Waybill that may happen during the run.
+func (r *Runner) updateWaybillStatus(ctx context.Context, waybill *kubeapplierv1alpha1.Waybill) error {
+	wb, err := r.KubeClient.GetWaybill(ctx, waybill.Namespace, waybill.Name)
+	if err != nil {
+		return err
+	}
+	wb.Status = waybill.Status
+	return r.KubeClient.UpdateWaybillStatus(ctx, wb)
 }
 
 // captureRequestFailure is used to capture a request failure that occured
