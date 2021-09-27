@@ -7,7 +7,7 @@ RUN apk --no-cache add git gcc make musl-dev curl bash openssh-client
 ENV \
   STRONGBOX_VERSION=0.2.0 \
   KUBECTL_VERSION=v1.21.0 \
-  KUSTOMIZE_VERSION=v3.8.5
+  KUSTOMIZE_VERSION=v4.4.0
 
 RUN os=$(go env GOOS) && arch=$(go env GOARCH) \
   && curl -Ls -o /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/${os}/${arch}/kubectl \
