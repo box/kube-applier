@@ -2,7 +2,9 @@ package applylist
 
 import (
 	"github.com/box/kube-applier/sysutil"
+	"log"
 	"path/filepath"
+	"regexp"
 	"sort"
 )
 
@@ -82,31 +84,45 @@ func (f *Factory) createWhitelist() ([]string, error) {
 	return f.createFileList(f.WhitelistPath)
 }
 
+// regexMatchInSplice true if at least one element in the splice regex matches
+// against the given path.
+func regexMatchInSplice(path string, splice []string) bool {
+	foundMatch := false
+	for _, matchPath := range splice {
+		if matched, err := regexp.MatchString(path, matchPath); err == nil {
+			if matched {
+				foundMatch = true
+				break
+			}
+		} else {
+			log.Printf("Error in regular expression: %v", err)
+		}
+	}
+	return foundMatch
+}
+
 // shouldApplyPath returns true if file path should be applied, false otherwise.
 // Conditions for skipping the file path are:
 // 1. File path is not a .json or .yaml file
-// 2. File path is listed in the blacklist
-func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
-	_, inBlacklist := blacklistMap[path]
-
+// 2. File path is matched against an entry in the blacklist
+// 3. File path is not explicitly listed in the whitelist
+func shouldApplyPath(path string, blacklist, whitelist []string) bool {
+	inBlacklist := regexMatchInSplice(path, blacklist)
 	// If whitelist is empty, essentially there is no whitelist.
-	inWhiteList := len(whitelistMap) == 0
-	if !inWhiteList {
-		_, inWhiteList = whitelistMap[path]
+	inWhitelist := len(whitelist) == 0
+	if !inWhitelist {
+		inWhitelist = regexMatchInSplice(path, whitelist)
 	}
 	ext := filepath.Ext(path)
-	return inWhiteList && !inBlacklist && (ext == ".json" || ext == ".yaml")
+	return inWhitelist && !inBlacklist && (ext == ".json" || ext == ".yaml")
 }
 
 // filter iterates through the list of all files in the repo and filters it
 // down to a list of those that should be applied.
 func filter(rawApplyList, blacklist, whitelist []string) []string {
-	blacklistMap := stringSliceToMap(blacklist)
-	whitelistMap := stringSliceToMap(whitelist)
-
 	applyList := []string{}
 	for _, filePath := range rawApplyList {
-		if shouldApplyPath(filePath, blacklistMap, whitelistMap) {
+		if shouldApplyPath(filePath, blacklist, whitelist) {
 			applyList = append(applyList, filePath)
 		}
 	}
