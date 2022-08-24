@@ -1,0 +1,27 @@
+name: Test Builds
+
+on:
+  push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v3
+        with:
+          buildx-version: latest
+          qemu-version: latest
+
+      - name: Docker Build
+        run: make ci-docker-build
+
+      - name: Docker Clean up
+        run: rm -rf /home/runner/.docker/config.json
