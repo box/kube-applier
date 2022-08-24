@@ -13,7 +13,7 @@ build: clean deps fmt
 DOCKER_NAMESPACE=cocktavern
 DOCKER_CONTAINER_NAME=kube-applier
 DOCKER_REPOSITORY=$(DOCKER_NAMESPACE)/$(DOCKER_CONTAINER_NAME)
-DOCKER_PLATFORMS=linux/amd64,linux/arm64
+DOCKER_PLATFORMS=linux/arm64
 
 local-docker-build:
 	docker build --rm --tag $(DOCKER_REPOSITORY):local .
