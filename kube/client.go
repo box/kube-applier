@@ -1,12 +1,12 @@
 package kube
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -35,6 +35,16 @@ type Client struct {
 	kubeconfigFilePath string
 	// if <0, no verbosity level is specified in the commands run
 	LogLevel int
+}
+
+type KubeVersion struct {
+	ClientVersion KubeInfo `json:"clientVersion"`
+	ServerVersion KubeInfo `json:"serverVersion"`
+}
+
+type KubeInfo struct {
+	Major string `json:"major"`
+	Minor string `json:"minor"`
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -78,7 +88,7 @@ func (c *Client) Configure() error {
 
 // CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
 func (c *Client) CheckVersion() error {
-	args := []string{"kubectl", "version"}
+	args := []string{"kubectl", "version", "--output=json"}
 	if c.LogLevel > -1 {
 		args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
 	}
@@ -86,29 +96,39 @@ func (c *Client) CheckVersion() error {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
 	stdout, err := exec.Command(args[0], args[1:]...).CombinedOutput()
-	output := strings.TrimSuffix(string(stdout), "\n")
 	if err != nil {
-		return fmt.Errorf("Error checking kubectl version: %v", output)
+		return fmt.Errorf("Error executing kubectl version command: %v", stdout)
 	}
-
-	// Using regular expressions, parse for the Major and Minor version numbers for both client and server.
-	clientPattern := regexp.MustCompile("(?:Client Version: version.Info{Major:\"([0-9+]+)\", Minor:\"([0-9+]+)\")")
-	serverPattern := regexp.MustCompile("(?:Server Version: version.Info{Major:\"([0-9+]+)\", Minor:\"([0-9+]+)\")")
-
-	clientInfo := clientPattern.FindAllStringSubmatch(output, -1)
-	clientMajor := clientInfo[0][1]
-	clientMinor := clientInfo[0][2]
-
-	serverInfo := serverPattern.FindAllStringSubmatch(output, -1)
-	serverMajor := serverInfo[0][1]
-	serverMinor := serverInfo[0][2]
-
-	return isCompatible(clientMajor, clientMinor, serverMajor, serverMinor)
+	return isCompatible(stdout)
 }
 
 // isCompatible compares the major and minor release numbers for the client and server, returning nil if they are compatible and an error otherwise.
-func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) error {
-	incompatible := fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server.", clientMajor, clientMinor, serverMajor, serverMinor)
+func isCompatible(stdout []byte) error {
+	if !json.Valid(stdout) {
+		return fmt.Errorf("Error: kube versions output is not of valid format\n%s\n", stdout)
+	}
+	var kubeVersion KubeVersion
+	fmt.Printf("stdout value: %s\nstdout type: %T\n", stdout, stdout)
+	err := json.Unmarshal(stdout, &kubeVersion)
+	if err != nil {
+		return fmt.Errorf("Error unmarshaling kubectl version output: %v", err)
+	}
+
+	log.Printf("Kube Versions unmarshaled: %s\n", kubeVersion)
+
+	clientInfo := kubeVersion.ClientVersion
+	serverInfo := kubeVersion.ServerVersion
+
+	clientMajor := clientInfo.Major
+	log.Printf("Client major version obtained: %s\n", clientMajor)
+	clientMinor := clientInfo.Minor
+	log.Printf("Client minor version obtained: %s\n", clientMinor)
+	serverMajor := serverInfo.Major
+	log.Printf("Server major version obtained: %s\n", serverMajor)
+	serverMinor := serverInfo.Minor
+	log.Printf("Server minor version obtained: %s\n", serverMinor)
+
+	incompatible := fmt.Errorf("Error: kubectl client and server versions are incompatible. Client is %s.%s; server is %s.%s. Client must be same minor release as server or one minor release behind server", clientMajor, clientMinor, serverMajor, serverMinor)
 
 	if strings.Replace(clientMajor, "+", "", -1) != strings.Replace(serverMajor, "+", "", -1) {
 		return incompatible
