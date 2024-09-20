@@ -1,6 +1,10 @@
 language: go
 go:
-  - 1.7
+  - 1.21
+before_install:
+- go clean -cache
+- go clean -modcache
+
 install: true 
 script:
   - make test-unit

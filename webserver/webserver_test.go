@@ -16,7 +16,7 @@ const (
 	errorBody   = "{\"result\":\"error\",\"message\":\"Error: force rejected, must be a POST request.\"}\n"
 )
 
-//**** Tests for Status Page Handler ****
+// **** Tests for Status Page Handler ****
 type mockData struct {
 	IntField    int
 	StringField string
@@ -111,7 +111,7 @@ func TestStatusPageHandlerServeHTTP(t *testing.T) {
 	}
 }
 
-//**** Tests for Force Run Handler ****
+// **** Tests for Force Run Handler ****
 func TestForceRunHandlerServeHTTP(t *testing.T) {
 	runQueue := make(chan bool, 1)
 	handler := ForceRunHandler{runQueue}
