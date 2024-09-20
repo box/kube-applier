@@ -1,6 +1,6 @@
 module github.com/box/kube-applier
 
-go 1.23.1
+go 1.18
 
 require (
 	github.com/golang/mock v0.0.0-20160127222235-bd3c8e81be01
