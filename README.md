@@ -53,6 +53,9 @@ from the whitelist.
 * `LISTEN_PORT` - (int) Port for the container. This should be the same port specified in the container spec.
 
 **Optional:**
+* `DIRECTORY_MODE` - (string) Boolean string (ex: `"true"`, `"false"`) representing if kube-applier should be applying directory paths or not (ex: `/git/repo/app1`). If setting this mode to true, the following caveats apply:
+1) kube-applier will not be able to ignore any files at the top level (files directly under `REPO_PATH`)
+2) Paths in the `BLACKLIST_PATH` file in directory mode must be directory paths for ignore to work properly
 * `SERVER` - (string) Address of the Kubernetes API server. By default, discovery of the API server is handled by kube-proxy. If kube-proxy is not set up, the API server address must be specified with this environment variable (which is then written into a [kubeconfig file](http://kubernetes.io/docs/user-guide/kubeconfig-file/) on the backend). Authentication to the API server is handled by service account tokens. See [Accessing the Cluster](http://kubernetes.io/docs/user-guide/accessing-the-cluster/#accessing-the-api-from-a-pod) for more info.
 * `BLACKLIST_PATH` - (string) Path to a "blacklist" file which specifies files
  that should not be applied. This path should be absolute (e.g.

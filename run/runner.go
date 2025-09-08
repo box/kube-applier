@@ -1,10 +1,11 @@
 package run
 
 import (
+	"log"
+
 	"github.com/box/kube-applier/applylist"
 	"github.com/box/kube-applier/git"
 	"github.com/box/kube-applier/sysutil"
-	"log"
 )
 
 // Runner manages the full process of an apply run, including getting the appropriate files, running apply commands on them, and handling the results.
@@ -15,6 +16,7 @@ type Runner struct {
 	Clock         sysutil.ClockInterface
 	DiffURLFormat string
 	LastHash      string
+	DirectoryMode bool
 	QuickRunQueue <-chan string
 	FullRunQueue  <-chan bool
 	RunResults    chan<- Result
@@ -75,7 +77,12 @@ func (r *Runner) fullRun(id int) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	rawList, err := r.GitUtil.ListAllFiles()
+	var rawList []string
+	if !r.DirectoryMode {
+		rawList, err = r.GitUtil.ListAllFiles()
+	} else {
+		rawList, err = r.GitUtil.ListAllDirectories()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +98,13 @@ func (r *Runner) fullRun(id int) (*Result, error) {
 // quickRun initiates a quick apply run, considering only files modified since the last run as candidates for applying.
 // The input commit hash is used in a diff to get the list of modified files, which is passed to the "run" helper function.
 func (r *Runner) quickRun(id int, hash string) (*Result, error) {
-	rawList, err := r.GitUtil.ListDiffFiles(r.LastHash, hash)
+	var rawList []string
+	var err error
+	if !r.DirectoryMode {
+		rawList, err = r.GitUtil.ListDiffFiles(r.LastHash, hash)
+	} else {
+		rawList, err = r.GitUtil.ListDiffDirectories(r.LastHash, hash)
+	}
 	if err != nil {
 		return nil, err
 	}

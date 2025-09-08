@@ -69,6 +69,19 @@ func (_mr *MockGitUtilInterfaceMockRecorder) ListAllFiles() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllFiles")
 }
 
+// ListAllDirectories mocks base method
+func (_m *MockGitUtilInterface) ListAllDirectories() ([]string, error) {
+	ret := _m.ctrl.Call(_m, "ListAllDirectories")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAllDirectories indicates an expected call of ListAllDirectories
+func (_mr *MockGitUtilInterfaceMockRecorder) ListAllDirectories() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDirectories")
+}
+
 // ListDiffFiles mocks base method
 func (_m *MockGitUtilInterface) ListDiffFiles(_param0 string, _param1 string) ([]string, error) {
 	ret := _m.ctrl.Call(_m, "ListDiffFiles", _param0, _param1)
@@ -80,4 +93,17 @@ func (_m *MockGitUtilInterface) ListDiffFiles(_param0 string, _param1 string) ([
 // ListDiffFiles indicates an expected call of ListDiffFiles
 func (_mr *MockGitUtilInterfaceMockRecorder) ListDiffFiles(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListDiffFiles", arg0, arg1)
+}
+
+// ListDiffDirectories mocks base method
+func (_m *MockGitUtilInterface) ListDiffDirectories(_param0 string, _param1 string) ([]string, error) {
+	ret := _m.ctrl.Call(_m, "ListDiffDirectories", _param0, _param1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDiffDirectories indicates an expected call of ListDiffDirectories
+func (_mr *MockGitUtilInterfaceMockRecorder) ListDiffDirectories(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListDiffDirectories", arg0, arg1)
 }

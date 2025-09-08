@@ -33,6 +33,9 @@ func main() {
 	blacklistPath := sysutil.GetEnvStringOrDefault("BLACKLIST_PATH", "")
 	logLevel := sysutil.GetEnvIntOrDefault("LOG_LEVEL", -1)
 
+	// Used to set if kube-applier should apply full directories (instead of files) or not
+	directoryMode := sysutil.GetEnvBooleanOrDefault("DIRECTORY_MODE", false)
+
 	// A file that contains a list of files to consider for application.
 	// If the env var is not defined or if the file is empty act like a no-op and
 	// all files will be considered.
@@ -59,7 +62,7 @@ func main() {
 
 	gitUtil := &git.GitUtil{repoPath}
 	fileSystem := &sysutil.FileSystem{}
-	listFactory := &applylist.Factory{repoPath, blacklistPath, whitelistPath, fileSystem}
+	listFactory := &applylist.Factory{repoPath, directoryMode, blacklistPath, whitelistPath, fileSystem}
 
 	// Webserver and scheduler send run requests to FullRunQueue channel.
 	// Runner receives the requests and initiates full runs.
@@ -103,6 +106,7 @@ func main() {
 		clock,
 		diffURLFormat,
 		"",
+		directoryMode,
 		quickRunQueue,
 		fullRunQueue,
 		runResults,

@@ -1,9 +1,11 @@
 package applylist
 
 import (
-	"github.com/box/kube-applier/sysutil"
 	"path/filepath"
 	"sort"
+	"strings"
+
+	"github.com/box/kube-applier/sysutil"
 )
 
 // FactoryInterface allows for mocking out the functionality of Factory when testing the full process of an apply run.
@@ -14,6 +16,7 @@ type FactoryInterface interface {
 // Factory handles constructing the list of files to apply and the blacklist.
 type Factory struct {
 	RepoPath      string
+	DirectoryMode bool
 	BlacklistPath string
 	WhitelistPath string
 	FileSystem    sysutil.FileSystemInterface
@@ -30,7 +33,7 @@ func (f *Factory) Create(rawList []string) (applyList, blacklist, whitelist []st
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	applyList = filter(rawList, blacklist, whitelist)
+	applyList = f.filter(rawList, blacklist, whitelist)
 	sort.Strings(applyList)
 	return applyList, blacklist, whitelist, nil
 }
@@ -82,11 +85,28 @@ func (f *Factory) createWhitelist() ([]string, error) {
 	return f.createFileList(f.WhitelistPath)
 }
 
-// shouldApplyPath returns true if file path should be applied, false otherwise.
+// isSubPath returns true if the path is equal to a path in listMap, or
+// if the path is a sub path of a path in listMap
+func isSubPath(path string, listMap map[string]struct{}) bool {
+	_, inListMap := listMap[path]
+	if inListMap {
+		return true
+	}
+
+	for p := range listMap {
+		rel, err := filepath.Rel(p, path)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			return true
+		}
+	}
+	return false
+}
+
+// shouldApplyFilePath returns true if file path should be applied, false otherwise.
 // Conditions for skipping the file path are:
 // 1. File path is not a .json or .yaml file
 // 2. File path is listed in the blacklist
-func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
+func shouldApplyFilePath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
 	_, inBlacklist := blacklistMap[path]
 
 	// If whitelist is empty, essentially there is no whitelist.
@@ -98,15 +118,33 @@ func shouldApplyPath(path string, blacklistMap, whitelistMap map[string]struct{}
 	return inWhiteList && !inBlacklist && (ext == ".json" || ext == ".yaml")
 }
 
+// shouldApplyDirectoryPath returns true if a path to a directory should be applied, false otherwise.
+// Conditions for skipping the path are:
+// a) File path is listed in the blacklist
+// or
+// b) File path is subpath of a path in blacklist
+func shouldApplyDirectoryPath(path string, blacklistMap, whitelistMap map[string]struct{}) bool {
+	inBlacklist := isSubPath(path, blacklistMap)
+
+	// If whitelist is empty, essentially there is no whitelist.
+	inWhiteList := len(whitelistMap) == 0
+	if !inWhiteList {
+		inWhiteList = isSubPath(path, whitelistMap)
+	}
+
+	return inWhiteList && !inBlacklist
+}
+
 // filter iterates through the list of all files in the repo and filters it
 // down to a list of those that should be applied.
-func filter(rawApplyList, blacklist, whitelist []string) []string {
+func (f *Factory) filter(rawApplyList, blacklist, whitelist []string) []string {
 	blacklistMap := stringSliceToMap(blacklist)
 	whitelistMap := stringSliceToMap(whitelist)
 
 	applyList := []string{}
 	for _, filePath := range rawApplyList {
-		if shouldApplyPath(filePath, blacklistMap, whitelistMap) {
+		if (f.DirectoryMode && shouldApplyDirectoryPath(filePath, blacklistMap, whitelistMap)) ||
+			(!f.DirectoryMode && shouldApplyFilePath(filePath, blacklistMap, whitelistMap)) {
 			applyList = append(applyList, filePath)
 		}
 	}

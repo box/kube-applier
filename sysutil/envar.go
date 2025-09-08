@@ -41,3 +41,15 @@ func GetEnvStringOrDefault(key, def string) string {
 	}
 	return def
 }
+
+func GetEnvBooleanOrDefault(key string, def bool) bool {
+	if env, exists := os.LookupEnv(key); exists {
+		resultBool, err := strconv.ParseBool(env)
+		if err != nil {
+			log.Printf("Invalid value for %v: using default: %v", key, def)
+			return def
+		}
+		return resultBool
+	}
+	return def
+}
