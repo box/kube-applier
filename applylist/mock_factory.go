@@ -4,7 +4,7 @@
 package applylist
 
 import (
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockFactoryInterface is a mock of FactoryInterface interface

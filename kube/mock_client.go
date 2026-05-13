@@ -4,7 +4,7 @@
 package kube
 
 import (
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // Mock of ClientInterface interface

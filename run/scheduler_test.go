@@ -3,8 +3,8 @@ package run
 import (
 	"fmt"
 	"github.com/box/kube-applier/git"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"testing"
 	"time"
 )

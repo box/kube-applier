@@ -4,7 +4,7 @@
 package run
 
 import (
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBatchApplierInterface is a mock of BatchApplierInterface interface
