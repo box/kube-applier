@@ -2,8 +2,8 @@ package webserver
 
 import (
 	"github.com/box/kube-applier/sysutil"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"html/template"
 	"net/http"
 	"net/http/httptest"

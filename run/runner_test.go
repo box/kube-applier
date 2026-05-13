@@ -8,8 +8,8 @@ import (
 	"github.com/box/kube-applier/applylist"
 	"github.com/box/kube-applier/git"
 	"github.com/box/kube-applier/sysutil"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 type testCase struct {

@@ -4,7 +4,7 @@
 package git
 
 import (
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockGitUtilInterface is a mock of GitUtilInterface interface

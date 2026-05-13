@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/box/kube-applier/sysutil"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 type testCase struct {
