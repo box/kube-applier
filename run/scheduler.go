@@ -34,7 +34,7 @@ func (s *Scheduler) Start() {
 	for {
 		select {
 		case <-s.PollTicker:
-			s.poll()
+			err = s.poll()
 			if err != nil {
 				s.Errors <- err
 			}
